@@ -1,0 +1,13 @@
+{
+  "name": "onemoon",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "concurrently -k -n frontend,backend -c magenta,cyan \"npm --prefix apps/frontend run dev -- --host 0.0.0.0\" \"bash -lc 'cd apps/backend && uv run onemoon-backend'\"",
+    "dev:frontend": "npm --prefix apps/frontend run dev -- --host 0.0.0.0",
+    "dev:backend": "bash -lc 'cd apps/backend && uv run onemoon-backend'"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

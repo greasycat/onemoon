@@ -13,6 +13,15 @@ OneMoon is a full-stack web app for turning handwritten notes, screenshots, and 
 
 ## Local Development
 
+### Both Services
+
+```bash
+npm install
+npm run dev
+```
+
+This starts the frontend on `http://localhost:5173` and the backend on `http://localhost:8000` together.
+
 ### Backend
 
 ```bash
