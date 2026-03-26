@@ -50,6 +50,38 @@ type ApiOptions = Omit<RequestInit, 'body'> & {
   isFormData?: boolean
 }
 
+function formatApiDetail(detail: unknown): string | null {
+  if (typeof detail === 'string' && detail.trim()) {
+    return detail
+  }
+
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((item) => {
+        if (typeof item === 'string' && item.trim()) {
+          return item
+        }
+        if (!item || typeof item !== 'object') {
+          return null
+        }
+
+        const payload = item as { loc?: unknown; msg?: unknown }
+        const location = Array.isArray(payload.loc) ? payload.loc.join('.') : null
+        const message = typeof payload.msg === 'string' ? payload.msg : null
+        return [location, message].filter(Boolean).join(': ') || null
+      })
+      .filter((message): message is string => Boolean(message))
+
+    return messages.length > 0 ? messages.join('; ') : null
+  }
+
+  if (detail && typeof detail === 'object') {
+    return JSON.stringify(detail)
+  }
+
+  return null
+}
+
 async function request<T>(
   path: string,
   options: ApiOptions = {},
@@ -74,8 +106,8 @@ async function request<T>(
   if (!response.ok) {
     let message = response.statusText
     try {
-      const payload = (await response.json()) as { detail?: string }
-      message = payload.detail ?? message
+      const payload = (await response.json()) as { detail?: unknown }
+      message = formatApiDetail(payload.detail) ?? message
     } catch {
       message = response.statusText
     }

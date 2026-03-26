@@ -1,6 +1,7 @@
 import { Navigate, Outlet, Route, Routes, useNavigate } from 'react-router-dom'
 
 import { useAuth } from './lib/auth'
+import { ThemeToggle } from './components/ThemeToggle'
 import { LoginPage } from './pages/LoginPage'
 import { ProjectsPage } from './pages/ProjectsPage'
 import { WorkspacePage } from './pages/WorkspacePage'
@@ -21,6 +22,7 @@ function ProtectedShell() {
           <strong>Interactive note-to-LaTeX</strong>
         </div>
         <div className="topbar-actions">
+          <ThemeToggle />
           <span className="muted-text">{username}</span>
           <button
             type="button"

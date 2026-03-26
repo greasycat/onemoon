@@ -4,6 +4,7 @@ import { useState } from 'react'
 
 import { api } from '../lib/api'
 import { useAuth } from '../lib/auth'
+import { ThemeToggle } from '../components/ThemeToggle'
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -26,7 +27,10 @@ export function LoginPage() {
   return (
     <main className="login-shell">
       <section className="login-card">
-        <p className="eyebrow">OneMoon</p>
+        <div className="login-card-header">
+          <p className="eyebrow">OneMoon</p>
+          <ThemeToggle />
+        </div>
         <h1>Review note layout before conversion.</h1>
         <p className="lede">
           Upload handwritten pages or PDFs, define page blocks manually, and lock the segmentation before auto-segmentation and conversion phases land.

@@ -20,6 +20,8 @@ export interface DraftBlock {
   geometry: BlockGeometry
   confidence: number
   is_user_corrected: boolean
+  crop_url: string | null
+  warnings: string[]
 }
 
 export interface DraftPageLayout {
@@ -72,6 +74,8 @@ export function toDraftBlock(block: BlockResponse): DraftBlock {
     geometry: block.geometry,
     confidence: block.confidence,
     is_user_corrected: block.is_user_corrected,
+    crop_url: block.crop_url,
+    warnings: block.warnings,
   }
 }
 
@@ -90,6 +94,8 @@ export function createManualBlock(geometry: BlockGeometry): DraftBlock {
     geometry: clampGeometry(geometry),
     confidence: 1,
     is_user_corrected: true,
+    crop_url: null,
+    warnings: [],
   }
 }
 
@@ -207,6 +213,8 @@ export function mergeDraftBlock(
     ...primary,
     source: 'manual',
     is_user_corrected: true,
+    crop_url: null,
+    warnings: [],
     geometry: clampGeometry({
       x: left,
       y: top,

@@ -1,5 +1,5 @@
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import { useEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 
 import { withApiRoot } from '../lib/api'
 import { clamp, clampGeometry, draftBlockKey, type DraftBlock } from '../lib/segmentation'
@@ -7,6 +7,23 @@ import type { BlockGeometry, PageResponse } from '../lib/types'
 
 type ActiveTool = 'select' | 'create'
 type ResizeHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
+
+export type CanvasViewMode = 'fit-page' | 'fit-width' | 'manual'
+
+export interface CanvasViewportState {
+  zoom: number
+  mode: CanvasViewMode
+  panX: number
+  panY: number
+}
+
+export interface DocumentCanvasHandle {
+  fitPage: () => void
+  fitWidth: () => void
+  resetZoom: () => void
+  zoomIn: () => void
+  zoomOut: () => void
+}
 
 type InteractionState =
   | {
@@ -37,12 +54,16 @@ interface DocumentCanvasProps {
   selectedBlockId: string | null
   activeTool: ActiveTool
   isLocked: boolean
+  onViewportChange: (viewport: CanvasViewportState) => void
   onSelectBlock: (blockId: string) => void
   onCreateBlock: (geometry: BlockGeometry) => void
   onUpdateBlockGeometry: (blockId: string, geometry: BlockGeometry) => void
 }
 
 const MIN_SIZE = 0.02
+const MIN_ZOOM = 0.35
+const MAX_ZOOM = 4
+const ZOOM_STEP = 0.2
 const resizeHandles: ResizeHandle[] = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']
 
 function normalizeGeometry(start: { x: number; y: number }, end: { x: number; y: number }): BlockGeometry {
@@ -100,18 +121,131 @@ function resizeGeometry(
   })
 }
 
-export function DocumentCanvas({
-  page,
-  blocks,
-  selectedBlockId,
-  activeTool,
-  isLocked,
-  onSelectBlock,
-  onCreateBlock,
-  onUpdateBlockGeometry,
-}: DocumentCanvasProps) {
-  const frameRef = useRef<HTMLDivElement | null>(null)
+export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasProps>(function DocumentCanvas(
+  {
+    page,
+    blocks,
+    selectedBlockId,
+    activeTool,
+    isLocked,
+    onViewportChange,
+    onSelectBlock,
+    onCreateBlock,
+    onUpdateBlockGeometry,
+  },
+  ref,
+) {
+  const viewportRef = useRef<HTMLDivElement | null>(null)
+  const surfaceRef = useRef<HTMLDivElement | null>(null)
   const [interaction, setInteraction] = useState<InteractionState | null>(null)
+  const [viewport, setViewport] = useState<CanvasViewportState>({
+    zoom: 1,
+    mode: 'fit-page',
+    panX: 0,
+    panY: 0,
+  })
+  const [spacePressed, setSpacePressed] = useState(false)
+  const [isPanning, setIsPanning] = useState(false)
+  const panStateRef = useRef<{ pointerId: number; startX: number; startY: number; scrollLeft: number; scrollTop: number } | null>(
+    null,
+  )
+
+  function syncViewport(nextViewport: CanvasViewportState, resetPan = false) {
+    const viewportElement = viewportRef.current
+    if (!viewportElement) {
+      setViewport(nextViewport)
+      return
+    }
+
+    const panX = resetPan ? 0 : Math.max(0, Math.min(nextViewport.panX, viewportElement.scrollWidth))
+    const panY = resetPan ? 0 : Math.max(0, Math.min(nextViewport.panY, viewportElement.scrollHeight))
+    viewportElement.scrollLeft = panX
+    viewportElement.scrollTop = panY
+    setViewport({ ...nextViewport, panX, panY })
+  }
+
+  function computeFitZoom(mode: Exclude<CanvasViewMode, 'manual'>) {
+    const viewportElement = viewportRef.current
+    if (!viewportElement) {
+      return 1
+    }
+    const widthZoom = viewportElement.clientWidth / page.width
+    const heightZoom = viewportElement.clientHeight / page.height
+    const nextZoom = mode === 'fit-width' ? widthZoom : Math.min(widthZoom, heightZoom)
+    return clamp(nextZoom, MIN_ZOOM, MAX_ZOOM)
+  }
+
+  function applyViewMode(mode: Exclude<CanvasViewMode, 'manual'>) {
+    const nextZoom = computeFitZoom(mode)
+    syncViewport({ zoom: nextZoom, mode, panX: 0, panY: 0 }, true)
+  }
+
+  function applyManualZoom(zoom: number) {
+    syncViewport({ zoom: clamp(zoom, MIN_ZOOM, MAX_ZOOM), mode: 'manual', panX: viewport.panX, panY: viewport.panY })
+  }
+
+  useImperativeHandle(ref, () => ({
+    fitPage: () => applyViewMode('fit-page'),
+    fitWidth: () => applyViewMode('fit-width'),
+    resetZoom: () => syncViewport({ zoom: 1, mode: 'manual', panX: 0, panY: 0 }, true),
+    zoomIn: () => applyManualZoom(viewport.zoom + ZOOM_STEP),
+    zoomOut: () => applyManualZoom(viewport.zoom - ZOOM_STEP),
+  }))
+
+  useEffect(() => {
+    applyViewMode('fit-page')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page.id])
+
+  useEffect(() => {
+    onViewportChange(viewport)
+  }, [onViewportChange, viewport])
+
+  useEffect(() => {
+    const viewportElement = viewportRef.current
+    if (!viewportElement || typeof ResizeObserver === 'undefined') {
+      return undefined
+    }
+
+    const observer = new ResizeObserver(() => {
+      setViewport((current) => {
+        if (current.mode === 'manual') {
+          return current
+        }
+        const nextZoom = computeFitZoom(current.mode)
+        const nextViewport: CanvasViewportState = { zoom: nextZoom, mode: current.mode, panX: 0, panY: 0 }
+        viewportElement.scrollLeft = 0
+        viewportElement.scrollTop = 0
+        return nextViewport
+      })
+    })
+
+    observer.observe(viewportElement)
+    return () => {
+      observer.disconnect()
+    }
+  }, [onViewportChange, page.height, page.width])
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.code === 'Space') {
+        setSpacePressed(true)
+      }
+    }
+
+    function handleKeyUp(event: KeyboardEvent) {
+      if (event.code === 'Space') {
+        setSpacePressed(false)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
+  }, [])
 
   useEffect(() => {
     if (!interaction || isLocked) {
@@ -120,10 +254,10 @@ export function DocumentCanvas({
     const currentInteraction = interaction
 
     function handlePointerMove(event: PointerEvent) {
-      if (!frameRef.current) {
+      if (!surfaceRef.current) {
         return
       }
-      const point = pointerToRelative(event, frameRef.current)
+      const point = pointerToRelative(event, surfaceRef.current)
 
       if (currentInteraction.pointerId !== event.pointerId) {
         return
@@ -180,104 +314,175 @@ export function DocumentCanvas({
     }
   }, [interaction, isLocked, onCreateBlock, onUpdateBlockGeometry])
 
+  useEffect(() => {
+    if (!isPanning) {
+      return undefined
+    }
+
+    function handlePointerMove(event: PointerEvent) {
+      const viewportElement = viewportRef.current
+      const panState = panStateRef.current
+      if (!viewportElement || !panState || panState.pointerId !== event.pointerId) {
+        return
+      }
+
+      viewportElement.scrollLeft = panState.scrollLeft - (event.clientX - panState.startX)
+      viewportElement.scrollTop = panState.scrollTop - (event.clientY - panState.startY)
+      setViewport({
+        ...viewport,
+        panX: viewportElement.scrollLeft,
+        panY: viewportElement.scrollTop,
+      })
+    }
+
+    function handlePointerUp(event: PointerEvent) {
+      const panState = panStateRef.current
+      if (!panState || panState.pointerId !== event.pointerId) {
+        return
+      }
+      panStateRef.current = null
+      setIsPanning(false)
+    }
+
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp)
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+    }
+  }, [isPanning, onViewportChange, viewport])
+
   const draftGeometry =
     interaction?.kind === 'create' ? normalizeGeometry(interaction.start, interaction.current) : null
 
   return (
-    <section className="canvas-panel">
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">Page {page.page_index + 1}</p>
-          <h2>Manual Segmentation</h2>
-        </div>
-        <p className="canvas-hint">
-          {isLocked
-            ? 'This page is marked segmented. Reopen it to edit the layout.'
-            : activeTool === 'create'
-              ? 'Drag on the page to create a new block.'
-              : 'Drag blocks to move them. Use the handles to resize.'}
-        </p>
-      </div>
+    <section className="canvas-panel canvas-panel-embedded">
       <div
-        className={`canvas-frame ${activeTool === 'create' && !isLocked ? 'canvas-frame-draw' : ''}`}
-        ref={frameRef}
-        style={{ aspectRatio: `${page.width} / ${page.height}` }}
+        className={`canvas-viewport ${isPanning ? 'canvas-viewport-panning' : ''}`}
+        ref={viewportRef}
+        onScroll={(event) => {
+          setViewport({
+            ...viewport,
+            panX: event.currentTarget.scrollLeft,
+            panY: event.currentTarget.scrollTop,
+          })
+        }}
         onPointerDown={(event) => {
-          if (isLocked || activeTool !== 'create' || event.target !== event.currentTarget) {
+          if (!(spacePressed || event.button === 1) || viewport.zoom <= 1) {
             return
           }
-          const point = pointerToRelative(event, event.currentTarget)
-          setInteraction({ kind: 'create', pointerId: event.pointerId, start: point, current: point })
         }}
       >
-        <img className="canvas-image" src={withApiRoot(page.image_url) ?? undefined} alt={`Page ${page.page_index + 1}`} />
-        {blocks.map((block) => {
-          const blockId = draftBlockKey(block)
-          const isSelected = blockId === selectedBlockId
-          return (
-            <div
-              key={blockId}
-              className={`region region-${block.block_type} ${isSelected ? 'region-selected' : ''}`}
-              style={{
-                left: `${block.geometry.x * 100}%`,
-                top: `${block.geometry.y * 100}%`,
-                width: `${block.geometry.width * 100}%`,
-                height: `${block.geometry.height * 100}%`,
-              }}
-              onPointerDown={(event) => {
-                event.stopPropagation()
-                onSelectBlock(blockId)
-                if (isLocked || activeTool !== 'select') {
-                  return
-                }
-                setInteraction({
-                  kind: 'move',
+        <div
+          className={`canvas-frame ${activeTool === 'create' && !isLocked ? 'canvas-frame-draw' : ''}`}
+          ref={surfaceRef}
+          style={{
+            width: `${page.width * viewport.zoom}px`,
+            height: `${page.height * viewport.zoom}px`,
+          }}
+          onPointerDown={(event) => {
+            if (spacePressed || event.button === 1 || isLocked || activeTool !== 'create') {
+              if (spacePressed || event.button === 1) {
+                event.preventDefault()
+                panStateRef.current = {
                   pointerId: event.pointerId,
-                  blockId,
-                  start: pointerToRelative(event, event.currentTarget),
-                  initial: block.geometry,
-                })
+                  startX: event.clientX,
+                  startY: event.clientY,
+                  scrollLeft: viewportRef.current?.scrollLeft ?? 0,
+                  scrollTop: viewportRef.current?.scrollTop ?? 0,
+                }
+                setIsPanning(true)
+              }
+              return
+            }
+            const point = pointerToRelative(event, event.currentTarget)
+            setInteraction({ kind: 'create', pointerId: event.pointerId, start: point, current: point })
+          }}
+        >
+          <img className="canvas-image" src={withApiRoot(page.image_url) ?? undefined} alt={`Page ${page.page_index + 1}`} />
+          {blocks.map((block) => {
+            const blockId = draftBlockKey(block)
+            const isSelected = blockId === selectedBlockId
+            return (
+              <div
+                key={blockId}
+                className={`region region-${block.block_type} ${isSelected ? 'region-selected' : ''}`}
+                style={{
+                  left: `${block.geometry.x * 100}%`,
+                  top: `${block.geometry.y * 100}%`,
+                  width: `${block.geometry.width * 100}%`,
+                  height: `${block.geometry.height * 100}%`,
+                }}
+                onPointerDown={(event) => {
+                  event.stopPropagation()
+                  onSelectBlock(blockId)
+                  if (spacePressed || event.button === 1) {
+                    event.preventDefault()
+                    panStateRef.current = {
+                      pointerId: event.pointerId,
+                      startX: event.clientX,
+                      startY: event.clientY,
+                      scrollLeft: viewportRef.current?.scrollLeft ?? 0,
+                      scrollTop: viewportRef.current?.scrollTop ?? 0,
+                    }
+                    setIsPanning(true)
+                    return
+                  }
+                  if (isLocked || activeTool !== 'select' || !surfaceRef.current) {
+                    return
+                  }
+                  setInteraction({
+                    kind: 'move',
+                    pointerId: event.pointerId,
+                    blockId,
+                    start: pointerToRelative(event, surfaceRef.current),
+                    initial: block.geometry,
+                  })
+                }}
+              >
+                <span className="region-label">
+                  {block.block_type}
+                  <strong>#{block.order_index + 1}</strong>
+                </span>
+                {isSelected && !isLocked
+                  ? resizeHandles.map((handle) => (
+                      <span
+                        key={handle}
+                        className={`region-handle region-handle-${handle}`}
+                        onPointerDown={(event) => {
+                          if (!surfaceRef.current) {
+                            return
+                          }
+                          event.preventDefault()
+                          event.stopPropagation()
+                          setInteraction({
+                            kind: 'resize',
+                            pointerId: event.pointerId,
+                            blockId,
+                            handle,
+                            start: pointerToRelative(event, surfaceRef.current),
+                            initial: block.geometry,
+                          })
+                        }}
+                      />
+                    ))
+                  : null}
+              </div>
+            )
+          })}
+          {draftGeometry ? (
+            <div
+              className="region region-draft"
+              style={{
+                left: `${draftGeometry.x * 100}%`,
+                top: `${draftGeometry.y * 100}%`,
+                width: `${draftGeometry.width * 100}%`,
+                height: `${draftGeometry.height * 100}%`,
               }}
-            >
-              <span className="region-label">
-                {block.block_type}
-                <strong>#{block.order_index + 1}</strong>
-              </span>
-              {isSelected && !isLocked
-                ? resizeHandles.map((handle) => (
-                    <span
-                      key={handle}
-                      className={`region-handle region-handle-${handle}`}
-                      onPointerDown={(event) => {
-                        event.preventDefault()
-                        event.stopPropagation()
-                        setInteraction({
-                          kind: 'resize',
-                          pointerId: event.pointerId,
-                          blockId,
-                          handle,
-                          start: pointerToRelative(event, event.currentTarget),
-                          initial: block.geometry,
-                        })
-                      }}
-                    />
-                  ))
-                : null}
-            </div>
-          )
-        })}
-        {draftGeometry ? (
-          <div
-            className="region region-draft"
-            style={{
-              left: `${draftGeometry.x * 100}%`,
-              top: `${draftGeometry.y * 100}%`,
-              width: `${draftGeometry.width * 100}%`,
-              height: `${draftGeometry.height * 100}%`,
-            }}
-          />
-        ) : null}
+            />
+          ) : null}
+        </div>
       </div>
     </section>
   )
-}
+})

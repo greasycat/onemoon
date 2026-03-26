@@ -29,8 +29,11 @@ export function ProjectsPage() {
     },
   })
 
+  const projects = projectsQuery.data ?? []
+  const activeProjectId = selectedProjectId || projectsQuery.data?.[0]?.id || ''
+
   const uploadMutation = useMutation({
-    mutationFn: () => api.uploadDocument(token!, selectedProjectId, selectedFile!),
+    mutationFn: () => api.uploadDocument(token!, activeProjectId, selectedFile!),
     onSuccess: (job) => {
       navigate(`/documents/${job.resource_id}`)
     },
@@ -38,9 +41,6 @@ export function ProjectsPage() {
       setErrorMessage(error.message)
     },
   })
-
-  const projects = projectsQuery.data ?? []
-  const activeProjectId = selectedProjectId || projectsQuery.data?.[0]?.id || ''
 
   return (
     <main className="page-shell">

@@ -4,6 +4,7 @@
 - Primary language/runtime: `TypeScript frontend + Python backend`
 
 # Working Rules
+- use agent-browser to test interactive components
 
 ## Version Control
 

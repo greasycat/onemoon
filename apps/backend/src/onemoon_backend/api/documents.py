@@ -5,7 +5,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -168,7 +168,7 @@ def upsert_page_layout(db: Session, page: Page, blocks: list[PageLayoutBlockPayl
 @router.post("/documents", response_model=JobResponse)
 async def upload_document(
     background_tasks: BackgroundTasks,
-    project_id: str,
+    project_id: str = Form(...),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
