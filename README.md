@@ -22,6 +22,15 @@ npm run dev
 
 This starts the frontend on `http://localhost:5173` and the backend on `http://localhost:8000` together.
 
+For background management from the repo root:
+
+```bash
+npm run dev:start:bg
+npm run dev:status
+npm run dev:logs
+npm run dev:stop
+```
+
 ### Backend
 
 ```bash

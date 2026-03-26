@@ -5,7 +5,12 @@
   "scripts": {
     "dev": "concurrently -k -n frontend,backend -c magenta,cyan \"npm --prefix apps/frontend run dev -- --host 0.0.0.0\" \"bash -lc 'cd apps/backend && uv run onemoon-backend'\"",
     "dev:frontend": "npm --prefix apps/frontend run dev -- --host 0.0.0.0",
-    "dev:backend": "bash -lc 'cd apps/backend && uv run onemoon-backend'"
+    "dev:backend": "bash -lc 'cd apps/backend && uv run onemoon-backend'",
+    "dev:start:bg": "bash -lc '/home/rongfei/.codex/skills/background-dev-server/scripts/start_background_dev.sh onemoon-dev \"$PWD\" npm run dev'",
+    "dev:status": "/home/rongfei/.codex/skills/background-dev-server/scripts/status_background_dev.sh onemoon-dev",
+    "dev:stop": "/home/rongfei/.codex/skills/background-dev-server/scripts/stop_background_dev.sh onemoon-dev",
+    "dev:logs": "bash -lc 'tail -n 80 /home/rongfei/.codex/skills/background-dev-server/runtime/onemoon-dev.log'",
+    "dev:restart": "bash -lc '/home/rongfei/.codex/skills/background-dev-server/scripts/stop_background_dev.sh onemoon-dev >/dev/null 2>&1 || true; /home/rongfei/.codex/skills/background-dev-server/scripts/start_background_dev.sh onemoon-dev \"$PWD\" npm run dev'"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"
