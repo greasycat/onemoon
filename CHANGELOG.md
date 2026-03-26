@@ -4,3 +4,4 @@
 - Added the Phase 1 manual-segmentation workflow with page drafts, atomic layout save, and page review state.
 - Added a root dev runner so frontend and backend can be started together with one command.
 - Added root scripts to start, inspect, tail logs for, restart, and stop the background dev stack.
+- Fixed LAN development defaults so the frontend targets the current host and backend CORS accepts common private-network origins.

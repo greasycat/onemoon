@@ -22,6 +22,8 @@ npm run dev
 
 This starts the frontend on `http://localhost:5173` and the backend on `http://localhost:8000` together.
 
+For inspection from another machine on the same LAN, open the frontend using the dev machine's IP, for example `http://192.168.1.10:5173`. By default the frontend will target `http://<same-host>:8000/api`, and the backend accepts common private-network frontend origins.
+
 For background management from the repo root:
 
 ```bash

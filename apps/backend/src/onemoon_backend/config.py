@@ -23,7 +23,15 @@ class Settings(BaseSettings):
     access_token_expiry_minutes: int = 60 * 12
     admin_username: str = "admin"
     admin_password: str = "onemoon"
-    allowed_origins: list[str] = ["http://localhost:5173"]
+    allowed_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    allowed_origin_regex: str = (
+        r"^https?://("
+        r"localhost|127\.0\.0\.1|"
+        r"10(?:\.\d{1,3}){3}|"
+        r"192\.168(?:\.\d{1,3}){2}|"
+        r"172\.(?:1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2}"
+        r")(?::\d+)?$"
+    )
     data_dir: Path = DEFAULT_DATA_DIR
     database_url: str = f"sqlite:///{(DEFAULT_DATA_DIR / 'onemoon.db').as_posix()}"
     llm_provider: str = "mock"
