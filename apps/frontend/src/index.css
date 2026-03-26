@@ -142,6 +142,12 @@ button {
   gap: 1rem;
 }
 
+.workspace-sidepanels {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+}
+
 .panel-heading {
   display: flex;
   justify-content: space-between;
@@ -335,6 +341,35 @@ button {
   border-radius: 12px;
 }
 
+.page-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px rgba(255, 143, 112, 0.18);
+}
+
+.tool-panel {
+  padding: 1rem 1.25rem;
+}
+
+.tool-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.shortcut-note {
+  font-size: 0.85rem;
+}
+
 .canvas-frame {
   position: relative;
   overflow: hidden;
@@ -342,6 +377,10 @@ button {
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.canvas-frame-draw {
+  cursor: crosshair;
 }
 
 .canvas-image {
@@ -358,6 +397,7 @@ button {
   background: rgba(255, 255, 255, 0.06);
   border-radius: 14px;
   padding: 0;
+  user-select: none;
 }
 
 .region-selected {
@@ -396,14 +436,61 @@ button {
   text-transform: capitalize;
 }
 
-.region-resize-handle {
+.region-handle {
   position: absolute;
-  right: -1px;
-  bottom: -1px;
-  width: 18px;
-  height: 18px;
-  border-radius: 6px 0 12px 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
   background: var(--accent);
+  border: 2px solid #092123;
+}
+
+.region-handle-n {
+  top: -6px;
+  left: calc(50% - 6px);
+  cursor: ns-resize;
+}
+
+.region-handle-s {
+  bottom: -6px;
+  left: calc(50% - 6px);
+  cursor: ns-resize;
+}
+
+.region-handle-e {
+  top: calc(50% - 6px);
+  right: -6px;
+  cursor: ew-resize;
+}
+
+.region-handle-w {
+  top: calc(50% - 6px);
+  left: -6px;
+  cursor: ew-resize;
+}
+
+.region-handle-ne {
+  top: -6px;
+  right: -6px;
+  cursor: nesw-resize;
+}
+
+.region-handle-nw {
+  top: -6px;
+  left: -6px;
+  cursor: nwse-resize;
+}
+
+.region-handle-se {
+  right: -6px;
+  bottom: -6px;
+  cursor: nwse-resize;
+}
+
+.region-handle-sw {
+  left: -6px;
+  bottom: -6px;
+  cursor: nesw-resize;
 }
 
 .crop-preview {
@@ -425,6 +512,73 @@ button {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.8rem;
+}
+
+.stats-grid,
+.button-grid,
+.block-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.stats-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 1rem;
+}
+
+.stat-card,
+.block-list-item {
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.stat-card {
+  padding: 0.85rem 0.95rem;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.stat-card span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.block-list {
+  margin-top: 1rem;
+}
+
+.block-list-item {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+  text-align: left;
+}
+
+.block-list-item p {
+  margin: 0.15rem 0 0;
+  color: var(--muted);
+  text-transform: capitalize;
+}
+
+.block-list-item-active {
+  border-color: rgba(255, 143, 112, 0.55);
+  background: rgba(255, 143, 112, 0.12);
+}
+
+.inspector-section {
+  margin-top: 1.2rem;
+}
+
+.inspector-section h3 {
+  margin: 0 0 0.8rem;
+}
+
+.button-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .generated-output {

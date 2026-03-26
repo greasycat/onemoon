@@ -55,6 +55,17 @@ class JobStatus(str, Enum):
     failed = "failed"
 
 
+class PageReviewStatus(str, Enum):
+    unreviewed = "unreviewed"
+    in_review = "in_review"
+    segmented = "segmented"
+
+
+class BlockSource(str, Enum):
+    manual = "manual"
+    auto = "auto"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -119,6 +130,13 @@ class Page(Base):
     image_path: Mapped[str] = mapped_column(String(512))
     width: Mapped[int] = mapped_column(Integer)
     height: Mapped[int] = mapped_column(Integer)
+    review_status: Mapped[PageReviewStatus] = mapped_column(
+        SqlEnum(PageReviewStatus, native_enum=False),
+        default=PageReviewStatus.unreviewed,
+    )
+    review_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    review_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    layout_version: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     document: Mapped[Document] = relationship(back_populates="pages")
@@ -146,6 +164,11 @@ class Block(Base):
     height: Mapped[float] = mapped_column(Float)
     confidence: Mapped[float] = mapped_column(Float, default=0.0)
     is_user_corrected: Mapped[bool] = mapped_column(default=False)
+    source: Mapped[BlockSource] = mapped_column(
+        SqlEnum(BlockSource, native_enum=False),
+        default=BlockSource.manual,
+    )
+    parent_block_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
     crop_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
     generated_output: Mapped[str | None] = mapped_column(Text, nullable=True)
     manual_output: Mapped[str | None] = mapped_column(Text, nullable=True)

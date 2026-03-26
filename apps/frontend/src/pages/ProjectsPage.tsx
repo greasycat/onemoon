@@ -50,7 +50,7 @@ export function ProjectsPage() {
           <h1>Manage notebooks and send pages into review.</h1>
         </div>
         <p className="lede">
-          Projects persist document history, block edits, approvals, and compile artifacts so you can return to the same notebook later.
+          Projects persist document history and page layouts so you can return to the same notebook and continue manual segmentation later.
         </p>
       </section>
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
@@ -11,7 +12,19 @@ from sqlalchemy.orm import Session, selectinload
 
 from ..auth import get_current_user
 from ..db import SessionLocal, get_db
-from ..models import Block, BlockApproval, CompileArtifact, CompileStatus, Document, DocumentStatus, Page, Project, User
+from ..models import (
+    Block,
+    BlockApproval,
+    BlockSource,
+    CompileArtifact,
+    CompileStatus,
+    Document,
+    DocumentStatus,
+    Page,
+    PageReviewStatus,
+    Project,
+    User,
+)
 from ..schemas import (
     BlockCreate,
     BlockGeometry,
@@ -21,11 +34,12 @@ from ..schemas import (
     DocumentDetailResponse,
     DocumentPatch,
     JobResponse,
+    PageLayoutBlockPayload,
+    PageLayoutPayload,
     PageResponse,
     RegenerateBlockRequest,
 )
 from ..services.pipeline import (
-    assemble_document,
     compile_document_job,
     create_job,
     ingest_document_job,
@@ -45,6 +59,8 @@ def serialize_block(block: Block) -> BlockResponse:
         order_index=block.order_index,
         block_type=block.block_type,
         approval=block.approval,
+        source=block.source,
+        parent_block_id=block.parent_block_id,
         geometry=BlockGeometry(x=block.x, y=block.y, width=block.width, height=block.height),
         confidence=block.confidence,
         is_user_corrected=block.is_user_corrected,
@@ -64,6 +80,10 @@ def serialize_page(page: Page) -> PageResponse:
         image_url=public_url(page.image_path) or "",
         width=page.width,
         height=page.height,
+        review_status=page.review_status,
+        review_started_at=page.review_started_at,
+        review_completed_at=page.review_completed_at,
+        layout_version=page.layout_version,
         blocks=[serialize_block(block) for block in sorted(page.blocks, key=lambda item: item.order_index)],
     )
 
@@ -92,6 +112,57 @@ def load_document(db: Session, document_id: str) -> Document:
     if document is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
     return document
+
+
+def load_page(db: Session, page_id: str) -> Page:
+    page = db.scalar(select(Page).where(Page.id == page_id).options(selectinload(Page.blocks), selectinload(Page.document)))
+    if page is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Page not found")
+    return page
+
+
+def upsert_page_layout(db: Session, page: Page, blocks: list[PageLayoutBlockPayload]) -> Page:
+    existing_by_id = {block.id: block for block in page.blocks}
+    kept_ids: set[str] = set()
+
+    for fallback_order, payload in enumerate(sorted(blocks, key=lambda item: item.order_index)):
+        block = existing_by_id.get(payload.id) if payload.id else None
+        if block is None:
+            block = Block(page_id=page.id)
+            db.add(block)
+            db.flush()
+
+        block.order_index = fallback_order
+        block.block_type = payload.block_type
+        block.approval = payload.approval
+        block.source = payload.source
+        block.parent_block_id = payload.parent_block_id
+        block.x = payload.geometry.x
+        block.y = payload.geometry.y
+        block.width = payload.geometry.width
+        block.height = payload.geometry.height
+        block.is_user_corrected = payload.source == BlockSource.manual
+        block.confidence = 1.0 if payload.source == BlockSource.manual else block.confidence
+        block.generated_output = None
+        block.raw_response = None
+        block.warnings = []
+        save_crop(page, block)
+        kept_ids.add(block.id)
+
+    for block in list(page.blocks):
+        if block.id not in kept_ids:
+            db.delete(block)
+
+    page.layout_version += 1
+    if page.review_status == PageReviewStatus.unreviewed and blocks:
+        page.review_status = PageReviewStatus.in_review
+        page.review_started_at = page.review_started_at or datetime.now(UTC)
+    if page.review_status == PageReviewStatus.segmented:
+        page.review_completed_at = page.review_completed_at or datetime.now(UTC)
+    page.document.status = DocumentStatus.review
+    db.flush()
+    db.refresh(page)
+    return page
 
 
 @router.post("/documents", response_model=JobResponse)
@@ -160,6 +231,61 @@ def list_pages(
 ) -> list[PageResponse]:
     document = load_document(db, document_id)
     return [serialize_page(page) for page in sorted(document.pages, key=lambda item: item.page_index)]
+
+
+@router.get("/pages/{page_id}/layout", response_model=PageResponse)
+def get_page_layout(
+    page_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> PageResponse:
+    page = load_page(db, page_id)
+    return serialize_page(page)
+
+
+@router.put("/pages/{page_id}/layout", response_model=PageResponse)
+def save_page_layout(
+    page_id: str,
+    payload: PageLayoutPayload,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> PageResponse:
+    page = load_page(db, page_id)
+    upsert_page_layout(db, page, payload.blocks)
+    db.commit()
+    return serialize_page(load_page(db, page_id))
+
+
+@router.post("/pages/{page_id}/mark-segmented", response_model=PageResponse)
+def mark_page_segmented(
+    page_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> PageResponse:
+    page = load_page(db, page_id)
+    if not page.blocks:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Page must contain at least one block")
+    page.review_status = PageReviewStatus.segmented
+    page.review_started_at = page.review_started_at or datetime.now(UTC)
+    page.review_completed_at = datetime.now(UTC)
+    page.document.status = DocumentStatus.review
+    db.commit()
+    return serialize_page(load_page(db, page_id))
+
+
+@router.post("/pages/{page_id}/reopen", response_model=PageResponse)
+def reopen_page(
+    page_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> PageResponse:
+    page = load_page(db, page_id)
+    page.review_status = PageReviewStatus.in_review
+    page.review_started_at = page.review_started_at or datetime.now(UTC)
+    page.review_completed_at = None
+    page.document.status = DocumentStatus.review
+    db.commit()
+    return serialize_page(load_page(db, page_id))
 
 
 @router.patch("/documents/{document_id}", response_model=DocumentDetailResponse)
@@ -247,14 +373,14 @@ def create_block(
         height=payload.geometry.height,
         confidence=1.0,
         is_user_corrected=True,
+        source=BlockSource.manual,
     )
     db.add(block)
     db.flush()
     save_crop(page, block)
-    from ..services.pipeline import convert_block
-
-    convert_block(block, page)
-    assemble_document(db, page.document_id)
+    page.review_status = PageReviewStatus.in_review if page.review_status == PageReviewStatus.unreviewed else page.review_status
+    page.review_started_at = page.review_started_at or datetime.now(UTC)
+    page.layout_version += 1
     db.commit()
     db.refresh(block)
     return serialize_block(block)
@@ -281,6 +407,7 @@ def update_block(
     if payload.block_type is not None:
         block.block_type = payload.block_type
         block.is_user_corrected = True
+    block.source = BlockSource.manual
     if payload.approval is not None:
         block.approval = payload.approval
     if payload.order_index is not None:
@@ -290,7 +417,14 @@ def update_block(
     if payload.user_instruction is not None:
         block.user_instruction = payload.user_instruction
 
-    assemble_document(db, block.page.document_id)
+    block.generated_output = None
+    block.raw_response = None
+    block.warnings = []
+    block.page.review_status = (
+        PageReviewStatus.in_review if block.page.review_status == PageReviewStatus.unreviewed else block.page.review_status
+    )
+    block.page.review_started_at = block.page.review_started_at or datetime.now(UTC)
+    block.page.layout_version += 1
     db.commit()
     db.refresh(block)
     return serialize_block(block)

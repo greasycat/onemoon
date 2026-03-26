@@ -2,8 +2,8 @@
 
 OneMoon is a full-stack web app for turning handwritten notes, screenshots, and PDFs into reviewable LaTeX. The current scaffold includes:
 
-- A `React + TypeScript + Vite` frontend with login, project management, document upload, page review, block editing, and LaTeX preview workflow.
-- A `FastAPI + SQLAlchemy` backend with PDF/image ingestion, page rendering, heuristic segmentation, mock LLM conversion, LaTeX assembly, and optional PDF compilation.
+- A `React + TypeScript + Vite` frontend with login, project management, document upload, page-first manual segmentation, block editing, and draft save/discard workflow.
+- A `FastAPI + SQLAlchemy` backend with PDF/image ingestion, page rendering, atomic page-layout persistence, and the later-phase segmentation/conversion pipeline scaffolding.
 
 ## Repo Layout
 

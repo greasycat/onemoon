@@ -27,9 +27,9 @@ export function LoginPage() {
     <main className="login-shell">
       <section className="login-card">
         <p className="eyebrow">OneMoon</p>
-        <h1>Turn notes into reviewable LaTeX.</h1>
+        <h1>Review note layout before conversion.</h1>
         <p className="lede">
-          Upload handwritten pages or PDFs, correct the segmentation, approve block-by-block output, and compile a clean LaTeX preview.
+          Upload handwritten pages or PDFs, define page blocks manually, and lock the segmentation before auto-segmentation and conversion phases land.
         </p>
         <form
           className="login-form"

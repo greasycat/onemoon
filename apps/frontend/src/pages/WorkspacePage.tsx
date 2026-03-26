@@ -1,14 +1,38 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { BlockInspector } from '../components/BlockInspector'
 import { DocumentCanvas } from '../components/DocumentCanvas'
 import { api, withApiRoot } from '../lib/api'
 import { useAuth } from '../lib/auth'
-import type { BlockGeometry, BlockResponse, DocumentDetailResponse } from '../lib/types'
+import {
+  clampGeometry,
+  createManualBlock,
+  deleteDraftBlock,
+  draftBlockKey,
+  duplicateDraftBlock,
+  mergeDraftBlock,
+  nudgeGeometry,
+  pageToDraft,
+  reorderDraftBlock,
+  splitDraftBlock,
+  toPageLayoutPayload,
+  updateDraftBlock,
+  type DraftPageLayout,
+} from '../lib/segmentation'
+import type { DraftBlock } from '../lib/segmentation'
+import type { DocumentDetailResponse } from '../lib/types'
 
-const POLLABLE_STATUSES = new Set(['uploaded', 'rendering', 'segmenting', 'compiling'])
+const POLLABLE_STATUSES = new Set(['uploaded', 'rendering', 'segmenting'])
+
+function isEditableTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return false
+  }
+  const tagName = target.tagName.toLowerCase()
+  return tagName === 'input' || tagName === 'textarea' || tagName === 'select' || target.isContentEditable
+}
 
 export function WorkspacePage() {
   const { documentId = '' } = useParams()
@@ -16,7 +40,8 @@ export function WorkspacePage() {
   const queryClient = useQueryClient()
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null)
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
-  const [latexDraft, setLatexDraft] = useState<string | null>(null)
+  const [activeTool, setActiveTool] = useState<'select' | 'create'>('select')
+  const [pageDrafts, setPageDrafts] = useState<Record<string, DraftPageLayout>>({})
 
   const documentQuery = useQuery({
     queryKey: ['document', token, documentId],
@@ -29,7 +54,6 @@ export function WorkspacePage() {
   })
 
   const document = documentQuery.data
-
   const activePageId =
     selectedPageId && document?.pages.some((page) => page.id === selectedPageId)
       ? selectedPageId
@@ -40,73 +64,161 @@ export function WorkspacePage() {
     [activePageId, document],
   )
 
-  const activeBlockId =
-    selectedBlockId && selectedPage?.blocks.some((block) => block.id === selectedBlockId)
-      ? selectedBlockId
-      : selectedPage?.blocks[0]?.id ?? null
+  const pageDraft = useMemo(() => {
+    if (!selectedPage) {
+      return null
+    }
+    return pageDrafts[selectedPage.id] ?? pageToDraft(selectedPage)
+  }, [pageDrafts, selectedPage])
 
-  const selectedBlock = useMemo<BlockResponse | null>(
+  const activeBlockId =
+    selectedBlockId && pageDraft?.blocks.some((block) => draftBlockKey(block) === selectedBlockId)
+      ? selectedBlockId
+      : pageDraft?.blocks[0]
+        ? draftBlockKey(pageDraft.blocks[0])
+        : null
+
+  const selectedBlock = useMemo<DraftBlock | null>(
     () =>
-      selectedPage?.blocks.find((block) => block.id === activeBlockId) ??
-      selectedPage?.blocks[0] ??
+      pageDraft?.blocks.find((block) => draftBlockKey(block) === activeBlockId) ??
+      pageDraft?.blocks[0] ??
       null,
-    [activeBlockId, selectedPage],
+    [activeBlockId, pageDraft],
   )
 
   const refreshDocument = async () => {
     await queryClient.invalidateQueries({ queryKey: ['document', token, documentId] })
   }
 
-  const blockMutation = useMutation({
-    mutationFn: ({ blockId, payload }: { blockId: string; payload: Parameters<typeof api.updateBlock>[2] }) =>
-      api.updateBlock(token!, blockId, payload),
-    onSuccess: refreshDocument,
-  })
+  useEffect(() => {
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+      if (Object.keys(pageDrafts).length === 0) {
+        return
+      }
+      event.preventDefault()
+      event.returnValue = ''
+    }
 
-  const createBlockMutation = useMutation({
-    mutationFn: ({ pageId, geometry }: { pageId: string; geometry: BlockGeometry }) =>
-      api.createBlock(token!, pageId, { geometry, block_type: 'unknown' }),
-    onSuccess: async (block) => {
-      setSelectedBlockId(block.id)
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [pageDrafts])
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (!selectedPage || !pageDraft || !selectedBlock || isEditableTarget(event.target)) {
+        return
+      }
+      if (selectedPage.review_status === 'segmented') {
+        return
+      }
+
+      const step = event.shiftKey ? 0.02 : 0.005
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        event.preventDefault()
+        setPageDrafts((current) => ({
+          ...current,
+          [selectedPage.id]: deleteDraftBlock(pageDraft, draftBlockKey(selectedBlock)),
+        }))
+        setSelectedBlockId(null)
+        return
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'd') {
+        event.preventDefault()
+        const duplicated = duplicateDraftBlock(pageDraft, draftBlockKey(selectedBlock))
+        setPageDrafts((current) => ({ ...current, [selectedPage.id]: duplicated.draft }))
+        setSelectedBlockId(duplicated.selectedBlockKey)
+        return
+      }
+      if (event.key === '[' || event.key === ']') {
+        event.preventDefault()
+        const reordered = reorderDraftBlock(pageDraft, draftBlockKey(selectedBlock), event.key === '[' ? 'up' : 'down')
+        setPageDrafts((current) => ({ ...current, [selectedPage.id]: reordered.draft }))
+        setSelectedBlockId(reordered.selectedBlockKey)
+        return
+      }
+
+      const deltaByKey: Record<string, [number, number]> = {
+        ArrowUp: [0, -step],
+        ArrowDown: [0, step],
+        ArrowLeft: [-step, 0],
+        ArrowRight: [step, 0],
+      }
+      const delta = deltaByKey[event.key]
+      if (!delta) {
+        return
+      }
+      event.preventDefault()
+      setPageDrafts((current) => ({
+        ...current,
+        [selectedPage.id]: updateDraftBlock(pageDraft, draftBlockKey(selectedBlock), (block) => ({
+          ...block,
+          geometry: nudgeGeometry(block.geometry, delta[0], delta[1]),
+        })),
+      }))
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [pageDraft, selectedBlock, selectedPage])
+
+  const saveLayoutMutation = useMutation({
+    mutationFn: ({ pageId, draft }: { pageId: string; draft: DraftPageLayout }) =>
+      api.savePageLayout(token!, pageId, toPageLayoutPayload(draft)),
+    onSuccess: async (_, variables) => {
+      setPageDrafts((current) => {
+        const next = { ...current }
+        delete next[variables.pageId]
+        return next
+      })
       await refreshDocument()
     },
   })
 
-  const regenerateMutation = useMutation({
-    mutationFn: ({ blockId, instruction }: { blockId: string; instruction: string }) =>
-      api.regenerateBlock(token!, blockId, instruction),
-    onSuccess: refreshDocument,
-  })
-
-  const compileMutation = useMutation({
-    mutationFn: () => api.compileDocument(token!, documentId),
-    onSuccess: refreshDocument,
-  })
-
-  const resegmentMutation = useMutation({
-    mutationFn: (pageId: string) => api.resegmentPage(token!, pageId),
-    onSuccess: refreshDocument,
-  })
-
-  const saveLatexMutation = useMutation({
-    mutationFn: () => api.updateDocument(token!, documentId, { assembled_latex: latexDraft ?? document?.assembled_latex ?? '' }),
-    onSuccess: () => {
-      setLatexDraft(null)
-      refreshDocument()
+  const pageStatusMutation = useMutation({
+    mutationFn: ({ pageId, action }: { pageId: string; action: 'reopen' | 'mark-segmented' }) =>
+      action === 'reopen' ? api.reopenPage(token!, pageId) : api.markPageSegmented(token!, pageId),
+    onSuccess: async (_, variables) => {
+      setPageDrafts((current) => {
+        const next = { ...current }
+        delete next[variables.pageId]
+        return next
+      })
+      await refreshDocument()
     },
   })
 
+  const activePageDirty = selectedPage ? Boolean(pageDrafts[selectedPage.id]) : false
+  const activePageLocked = selectedPage?.review_status === 'segmented'
+
+  function updateActiveDraft(updater: (draft: DraftPageLayout) => DraftPageLayout) {
+    if (!selectedPage || !pageDraft) {
+      return
+    }
+    setPageDrafts((current) => ({
+      ...current,
+      [selectedPage.id]: updater(pageDraft),
+    }))
+  }
+
   if (documentQuery.isLoading) {
-    return <main className="page-shell"><div className="panel">Loading workspace...</div></main>
+    return (
+      <main className="page-shell">
+        <div className="panel">Loading workspace...</div>
+      </main>
+    )
   }
 
-  if (!document) {
-    return <main className="page-shell"><div className="panel">Document not found.</div></main>
+  if (!document || !selectedPage || !pageDraft) {
+    return (
+      <main className="page-shell">
+        <div className="panel">Document not found.</div>
+      </main>
+    )
   }
-
-  const latestArtifact = document.compile_artifacts[0] ?? null
-  const displayedLatex = latexDraft ?? document.assembled_latex ?? ''
-  const latexDirty = latexDraft !== null && latexDraft !== (document.assembled_latex ?? '')
 
   return (
     <main className="workspace-shell">
@@ -120,9 +232,8 @@ export function WorkspacePage() {
         </div>
         <div className="status-stack">
           <span className={`status-chip status-${document.status}`}>{document.status}</span>
-          {document.latest_compile_status ? (
-            <span className={`status-chip status-${document.latest_compile_status}`}>{document.latest_compile_status}</span>
-          ) : null}
+          <span className={`status-chip status-${selectedPage.review_status}`}>{selectedPage.review_status}</span>
+          {activePageDirty ? <span className="status-chip status-pending">unsaved</span> : null}
         </div>
       </header>
 
@@ -135,125 +246,245 @@ export function WorkspacePage() {
             </div>
           </div>
           <div className="page-list">
-            {document.pages.map((page) => (
-              <button
-                key={page.id}
-                type="button"
-                className={`page-card ${selectedPage?.id === page.id ? 'page-card-active' : ''}`}
-                onClick={() => {
-                  setSelectedPageId(page.id)
-                  setSelectedBlockId(page.blocks[0]?.id ?? null)
-                }}
-              >
-                <img src={withApiRoot(page.image_url) ?? undefined} alt={`Page ${page.page_index + 1}`} />
-                <div>
-                  <strong>Page {page.page_index + 1}</strong>
-                  <p>{page.blocks.length} blocks</p>
-                </div>
-              </button>
-            ))}
+            {document.pages.map((page) => {
+              const dirty = Boolean(pageDrafts[page.id])
+              return (
+                <button
+                  key={page.id}
+                  type="button"
+                  className={`page-card ${selectedPage.id === page.id ? 'page-card-active' : ''}`}
+                  onClick={() => {
+                    setSelectedPageId(page.id)
+                    const firstBlock = (pageDrafts[page.id] ?? pageToDraft(page)).blocks[0]
+                    setSelectedBlockId(firstBlock ? draftBlockKey(firstBlock) : null)
+                  }}
+                >
+                  <img src={withApiRoot(page.image_url) ?? undefined} alt={`Page ${page.page_index + 1}`} />
+                  <div>
+                    <div className="page-card-title">
+                      <strong>Page {page.page_index + 1}</strong>
+                      {dirty ? <span className="status-dot" /> : null}
+                    </div>
+                    <p>{(pageDrafts[page.id] ?? pageToDraft(page)).blocks.length} blocks</p>
+                    <span className={`status-chip status-${page.review_status}`}>{page.review_status}</span>
+                  </div>
+                </button>
+              )
+            })}
           </div>
-          {selectedPage ? (
-            <button
-              type="button"
-              className="secondary-button"
-              disabled={resegmentMutation.isPending}
-              onClick={() => resegmentMutation.mutate(selectedPage.id)}
-            >
-              {resegmentMutation.isPending ? 'Re-segmenting...' : 'Re-run page segmentation'}
-            </button>
-          ) : null}
         </div>
 
         <div className="workspace-main">
-          {selectedPage ? (
-            <DocumentCanvas
-              page={selectedPage}
-              selectedBlockId={selectedBlock?.id ?? null}
-              onSelectBlock={setSelectedBlockId}
-              onCreateBlock={(geometry) => createBlockMutation.mutate({ pageId: selectedPage.id, geometry })}
-              onResizeBlock={(blockId, geometry) => blockMutation.mutate({ blockId, payload: { geometry } })}
-            />
-          ) : (
-            <section className="panel">No page has been rendered yet.</section>
-          )}
-
-          <section className="panel latex-panel">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">Document</p>
-                <h2>Assembled LaTeX</h2>
-              </div>
-              <div className="button-row">
-                <button
-                  type="button"
-                  className="secondary-button"
-                  disabled={!latexDirty || saveLatexMutation.isPending}
-                  onClick={() => saveLatexMutation.mutate()}
-                >
-                  {saveLatexMutation.isPending ? 'Saving...' : 'Save LaTeX'}
-                </button>
-                <button
-                  type="button"
-                  className="primary-button"
-                  disabled={compileMutation.isPending}
-                  onClick={() => compileMutation.mutate()}
-                >
-                  {compileMutation.isPending ? 'Compiling...' : 'Compile preview'}
-                </button>
-              </div>
+          <section className="panel tool-panel">
+            <div className="tool-row">
+              <button
+                type="button"
+                className={`pill-button ${activeTool === 'select' ? 'pill-button-active' : ''}`}
+                onClick={() => setActiveTool('select')}
+              >
+                Select
+              </button>
+              <button
+                type="button"
+                className={`pill-button ${activeTool === 'create' ? 'pill-button-active' : ''}`}
+                disabled={activePageLocked}
+                onClick={() => setActiveTool('create')}
+              >
+                Draw Block
+              </button>
+              <span className="muted-text shortcut-note">
+                Keys: Delete, arrows, Shift+arrows, Cmd/Ctrl+D, [, ]
+              </span>
             </div>
-            <textarea
-              className="latex-editor"
-              value={displayedLatex}
-              onChange={(event) => setLatexDraft(event.target.value)}
-              spellCheck={false}
-            />
-            {latestArtifact ? (
-              <div className="artifact-grid">
-                <div className="artifact-card">
-                  <h3>Latest artifact</h3>
-                  <p>Version {latestArtifact.version}</p>
-                  <a href={withApiRoot(latestArtifact.tex_url) ?? undefined} target="_blank" rel="noreferrer">
-                    Open .tex
-                  </a>
-                  <a href={withApiRoot(latestArtifact.log_url) ?? undefined} target="_blank" rel="noreferrer">
-                    Open compile log
-                  </a>
-                </div>
-                <div className="artifact-preview">
-                  {latestArtifact.pdf_url ? (
-                    <iframe title="Compiled preview" src={withApiRoot(latestArtifact.pdf_url) ?? undefined} />
-                  ) : (
-                    <div className="empty-state">
-                      PDF preview is unavailable. Open the compile log to see whether compilation was skipped or failed.
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="empty-state">Compile the document to create preview artifacts.</div>
-            )}
           </section>
+
+          <DocumentCanvas
+            page={selectedPage}
+            blocks={pageDraft.blocks}
+            selectedBlockId={selectedBlock ? draftBlockKey(selectedBlock) : null}
+            activeTool={activeTool}
+            isLocked={activePageLocked}
+            onSelectBlock={setSelectedBlockId}
+            onCreateBlock={(geometry) => {
+              const nextBlock = createManualBlock(geometry)
+              updateActiveDraft((draft) => ({
+                ...draft,
+                review_status: draft.review_status === 'unreviewed' ? 'in_review' : draft.review_status,
+                blocks: [...draft.blocks, { ...nextBlock, order_index: draft.blocks.length }],
+              }))
+              setSelectedBlockId(draftBlockKey(nextBlock))
+              setActiveTool('select')
+            }}
+            onUpdateBlockGeometry={(blockId, geometry) => {
+              updateActiveDraft((draft) =>
+                updateDraftBlock(draft, blockId, (block) => ({
+                  ...block,
+                  geometry: clampGeometry(geometry),
+                })),
+              )
+            }}
+          />
         </div>
 
-        <BlockInspector
-          key={selectedBlock?.id ?? 'empty'}
-          block={selectedBlock}
-          isBusy={blockMutation.isPending || regenerateMutation.isPending}
-          onSave={(payload) => {
-            if (!selectedBlock) {
-              return
-            }
-            blockMutation.mutate({ blockId: selectedBlock.id, payload })
-          }}
-          onRegenerate={(instruction) => {
-            if (!selectedBlock) {
-              return
-            }
-            regenerateMutation.mutate({ blockId: selectedBlock.id, instruction })
-          }}
-        />
+        <div className="workspace-sidepanels">
+          <section className="panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">Page Review</p>
+                <h2>Layout Draft</h2>
+              </div>
+            </div>
+            <div className="button-grid">
+              <button
+                type="button"
+                className="primary-button"
+                disabled={!activePageDirty || saveLayoutMutation.isPending || activePageLocked}
+                onClick={() => saveLayoutMutation.mutate({ pageId: selectedPage.id, draft: pageDraft })}
+              >
+                {saveLayoutMutation.isPending ? 'Saving...' : 'Save Draft'}
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                disabled={!activePageDirty}
+                onClick={() =>
+                  setPageDrafts((current) => {
+                    const next = { ...current }
+                    delete next[selectedPage.id]
+                    return next
+                  })
+                }
+              >
+                Discard Draft
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                disabled={pageStatusMutation.isPending || activePageDirty}
+                onClick={() =>
+                  pageStatusMutation.mutate({
+                    pageId: selectedPage.id,
+                    action: selectedPage.review_status === 'segmented' ? 'reopen' : 'reopen',
+                  })
+                }
+              >
+                {selectedPage.review_status === 'segmented' ? 'Reopen Page' : 'Start Review'}
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                disabled={
+                  pageStatusMutation.isPending ||
+                  activePageDirty ||
+                  pageDraft.blocks.length === 0 ||
+                  selectedPage.review_status === 'segmented'
+                }
+                onClick={() => pageStatusMutation.mutate({ pageId: selectedPage.id, action: 'mark-segmented' })}
+              >
+                Mark Segmented
+              </button>
+            </div>
+            <div className="stats-grid">
+              <div className="stat-card">
+                <span>Blocks</span>
+                <strong>{pageDraft.blocks.length}</strong>
+              </div>
+              <div className="stat-card">
+                <span>Layout Version</span>
+                <strong>{selectedPage.layout_version}</strong>
+              </div>
+            </div>
+            <div className="block-list">
+              {pageDraft.blocks.map((block) => {
+                const blockKey = draftBlockKey(block)
+                const isSelected = selectedBlock ? draftBlockKey(selectedBlock) === blockKey : false
+                return (
+                  <button
+                    key={blockKey}
+                    type="button"
+                    className={`block-list-item ${isSelected ? 'block-list-item-active' : ''}`}
+                    onClick={() => setSelectedBlockId(blockKey)}
+                  >
+                    <div>
+                      <strong>
+                        #{block.order_index + 1} {block.block_type}
+                      </strong>
+                      <p>{block.approval}</p>
+                    </div>
+                    <span className={`status-chip status-${block.approval}`}>{block.approval}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+
+          <BlockInspector
+            key={selectedBlock ? draftBlockKey(selectedBlock) : 'empty'}
+            block={selectedBlock}
+            pageLocked={activePageLocked}
+            isBusy={saveLayoutMutation.isPending || pageStatusMutation.isPending}
+            onApply={(payload) => {
+              if (!selectedBlock) {
+                return
+              }
+              updateActiveDraft((draft) =>
+                updateDraftBlock(draft, draftBlockKey(selectedBlock), (block) => ({
+                  ...block,
+                  block_type: payload.block_type,
+                  approval: payload.approval,
+                  geometry: clampGeometry(payload.geometry),
+                })),
+              )
+            }}
+            onDelete={() => {
+              if (!selectedBlock) {
+                return
+              }
+              updateActiveDraft((draft) => deleteDraftBlock(draft, draftBlockKey(selectedBlock)))
+              setSelectedBlockId(null)
+            }}
+            onDuplicate={() => {
+              if (!selectedBlock) {
+                return
+              }
+              const duplicated = duplicateDraftBlock(pageDraft, draftBlockKey(selectedBlock))
+              setPageDrafts((current) => ({ ...current, [selectedPage.id]: duplicated.draft }))
+              setSelectedBlockId(duplicated.selectedBlockKey)
+            }}
+            onMergePrevious={() => {
+              if (!selectedBlock) {
+                return
+              }
+              const merged = mergeDraftBlock(pageDraft, draftBlockKey(selectedBlock), 'previous')
+              setPageDrafts((current) => ({ ...current, [selectedPage.id]: merged.draft }))
+              setSelectedBlockId(merged.selectedBlockKey)
+            }}
+            onMergeNext={() => {
+              if (!selectedBlock) {
+                return
+              }
+              const merged = mergeDraftBlock(pageDraft, draftBlockKey(selectedBlock), 'next')
+              setPageDrafts((current) => ({ ...current, [selectedPage.id]: merged.draft }))
+              setSelectedBlockId(merged.selectedBlockKey)
+            }}
+            onSplitHorizontal={() => {
+              if (!selectedBlock) {
+                return
+              }
+              const split = splitDraftBlock(pageDraft, draftBlockKey(selectedBlock), 'horizontal')
+              setPageDrafts((current) => ({ ...current, [selectedPage.id]: split.draft }))
+              setSelectedBlockId(split.selectedBlockKey)
+            }}
+            onSplitVertical={() => {
+              if (!selectedBlock) {
+                return
+              }
+              const split = splitDraftBlock(pageDraft, draftBlockKey(selectedBlock), 'vertical')
+              setPageDrafts((current) => ({ ...current, [selectedPage.id]: split.draft }))
+              setSelectedBlockId(split.selectedBlockKey)
+            }}
+          />
+        </div>
       </section>
     </main>
   )

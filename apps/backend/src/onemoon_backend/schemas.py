@@ -4,7 +4,15 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from .models import BlockApproval, BlockType, CompileStatus, DocumentStatus, JobStatus
+from .models import (
+    BlockApproval,
+    BlockSource,
+    BlockType,
+    CompileStatus,
+    DocumentStatus,
+    JobStatus,
+    PageReviewStatus,
+)
 
 
 class LoginRequest(BaseModel):
@@ -32,6 +40,20 @@ class BlockGeometry(BaseModel):
 class BlockCreate(BaseModel):
     geometry: BlockGeometry
     block_type: BlockType = BlockType.unknown
+
+
+class PageLayoutBlockPayload(BaseModel):
+    id: str | None = None
+    order_index: int
+    block_type: BlockType
+    approval: BlockApproval = BlockApproval.pending
+    geometry: BlockGeometry
+    source: BlockSource = BlockSource.manual
+    parent_block_id: str | None = None
+
+
+class PageLayoutPayload(BaseModel):
+    blocks: list[PageLayoutBlockPayload]
 
 
 class BlockPatch(BaseModel):
@@ -74,6 +96,8 @@ class BlockResponse(BaseModel):
     order_index: int
     block_type: BlockType
     approval: BlockApproval
+    source: BlockSource
+    parent_block_id: str | None
     geometry: BlockGeometry
     confidence: float
     is_user_corrected: bool
@@ -91,6 +115,10 @@ class PageResponse(BaseModel):
     image_url: str
     width: int
     height: int
+    review_status: PageReviewStatus
+    review_started_at: datetime | None
+    review_completed_at: datetime | None
+    layout_version: int
     blocks: list[BlockResponse]
 
 

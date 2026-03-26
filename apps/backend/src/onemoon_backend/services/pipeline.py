@@ -13,6 +13,7 @@ from ..db import SessionLocal
 from ..models import (
     Block,
     BlockApproval,
+    BlockSource,
     BlockType,
     CompileArtifact,
     CompileStatus,
@@ -21,6 +22,7 @@ from ..models import (
     Job,
     JobStatus,
     Page,
+    PageReviewStatus,
 )
 from ..storage import absolute_path, artifact_dir, crop_path, ensure_storage_layout, log_dir, relative_path, render_path
 from ..services.latex import build_document_latex, compile_latex
@@ -132,11 +134,11 @@ def _replace_page_blocks(db: Session, page: Page, proposed_blocks: list[Proposed
             height=proposed.height,
             confidence=proposed.confidence,
             is_user_corrected=False,
+            source=BlockSource.auto,
         )
         db.add(block)
         db.flush()
         save_crop(page, block)
-        convert_block(block, page)
 
 
 def ingest_document_job(job_id: str, document_id: str) -> None:
@@ -168,32 +170,13 @@ def ingest_document_job(job_id: str, document_id: str) -> None:
                 page_records.append(page_record)
             db.commit()
 
-            update_job(job, status=JobStatus.running, progress=0.35, message="Segmenting rendered pages")
-            document.status = DocumentStatus.segmenting
-            db.commit()
-
-            for index, page_record in enumerate(page_records):
-                db.refresh(page_record)
-                proposed_blocks = segment_page(absolute_path(page_record.image_path))
-                _replace_page_blocks(db, page_record, proposed_blocks)
-                db.commit()
-                update_job(
-                    job,
-                    status=JobStatus.running,
-                    progress=0.35 + (0.45 * (index + 1) / max(len(page_records), 1)),
-                    message=f"Processed page {index + 1} of {len(page_records)}",
-                )
-                db.commit()
-
-            latex_source = assemble_document(db, document.id)
             document.status = DocumentStatus.review
-            document.latest_compile_status = CompileStatus.pending
             update_job(
                 job,
                 status=JobStatus.completed,
                 progress=1.0,
-                message="Document ready for review",
-                payload={"latex_length": len(latex_source)},
+                message="Document ready for manual segmentation",
+                payload={"page_count": len(page_records)},
             )
             db.commit()
         except Exception as exc:
@@ -217,7 +200,10 @@ def resegment_page_job(job_id: str, page_id: str) -> None:
 
             proposed_blocks = segment_page(absolute_path(page.image_path))
             _replace_page_blocks(db, page, proposed_blocks)
-            assemble_document(db, page.document_id)
+            page.review_status = PageReviewStatus.in_review
+            page.review_started_at = page.review_started_at or datetime.now(UTC)
+            page.review_completed_at = None
+            page.layout_version += 1
             page.document.status = DocumentStatus.review
             update_job(job, status=JobStatus.completed, progress=1.0, message="Page segmentation refreshed")
             db.commit()

@@ -1,33 +1,50 @@
 import { useState } from 'react'
 
-import { withApiRoot } from '../lib/api'
-import type { BlockApproval, BlockPatchPayload, BlockResponse, BlockType } from '../lib/types'
+import type { BlockApproval, BlockGeometry, BlockType } from '../lib/types'
+import type { DraftBlock } from '../lib/segmentation'
 
 interface BlockInspectorProps {
-  block: BlockResponse | null
-  onSave: (payload: BlockPatchPayload) => void
-  onRegenerate: (instruction: string) => void
+  block: DraftBlock | null
+  pageLocked: boolean
   isBusy: boolean
+  onApply: (payload: {
+    block_type: BlockType
+    approval: BlockApproval
+    geometry: BlockGeometry
+  }) => void
+  onDelete: () => void
+  onDuplicate: () => void
+  onMergePrevious: () => void
+  onMergeNext: () => void
+  onSplitHorizontal: () => void
+  onSplitVertical: () => void
 }
 
 const blockTypes: BlockType[] = ['text', 'math', 'figure', 'unknown']
 const approvals: BlockApproval[] = ['pending', 'approved', 'rejected']
 
-function initialFormState(block: BlockResponse | null) {
+function initialFormState(block: DraftBlock | null) {
   return {
     blockType: block?.block_type ?? 'unknown',
     approval: block?.approval ?? 'pending',
-    manualOutput: block?.manual_output ?? block?.generated_output ?? '',
-    instruction: block?.user_instruction ?? '',
     geometry: block?.geometry ?? { x: 0, y: 0, width: 0, height: 0 },
   }
 }
 
-export function BlockInspector({ block, onSave, onRegenerate, isBusy }: BlockInspectorProps) {
+export function BlockInspector({
+  block,
+  pageLocked,
+  isBusy,
+  onApply,
+  onDelete,
+  onDuplicate,
+  onMergePrevious,
+  onMergeNext,
+  onSplitHorizontal,
+  onSplitVertical,
+}: BlockInspectorProps) {
   const [blockType, setBlockType] = useState<BlockType>(initialFormState(block).blockType)
   const [approval, setApproval] = useState<BlockApproval>(initialFormState(block).approval)
-  const [manualOutput, setManualOutput] = useState(initialFormState(block).manualOutput)
-  const [instruction, setInstruction] = useState(initialFormState(block).instruction)
   const [geometry, setGeometry] = useState(initialFormState(block).geometry)
 
   if (!block) {
@@ -35,11 +52,11 @@ export function BlockInspector({ block, onSave, onRegenerate, isBusy }: BlockIns
       <aside className="inspector-panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Inspector</p>
+            <p className="eyebrow">Selected Block</p>
             <h2>No block selected</h2>
           </div>
         </div>
-        <p className="empty-state">Pick a region on the page to review its conversion, adjust its type, or provide a manual correction.</p>
+        <p className="empty-state">Select a block on the page or create one in draw mode to begin manual segmentation.</p>
       </aside>
     )
   }
@@ -48,19 +65,26 @@ export function BlockInspector({ block, onSave, onRegenerate, isBusy }: BlockIns
     <aside className="inspector-panel">
       <div className="panel-heading">
         <div>
-          <p className="eyebrow">Block #{block.order_index + 1}</p>
-          <h2>{block.block_type} region</h2>
+          <p className="eyebrow">Selected Block</p>
+          <h2>Block #{block.order_index + 1}</h2>
         </div>
         <span className={`status-chip status-${block.approval}`}>{block.approval}</span>
       </div>
 
-      <div className="crop-preview">
-        {block.crop_url ? <img src={withApiRoot(block.crop_url) ?? undefined} alt="Block crop" /> : <div className="empty-state">No crop available.</div>}
+      <div className="stats-grid">
+        <div className="stat-card">
+          <span>Source</span>
+          <strong>{block.source}</strong>
+        </div>
+        <div className="stat-card">
+          <span>Confidence</span>
+          <strong>{Math.round(block.confidence * 100)}%</strong>
+        </div>
       </div>
 
       <label className="field">
         <span>Block type</span>
-        <select value={blockType} onChange={(event) => setBlockType(event.target.value as BlockType)}>
+        <select disabled={pageLocked} value={blockType} onChange={(event) => setBlockType(event.target.value as BlockType)}>
           {blockTypes.map((type) => (
             <option key={type} value={type}>
               {type}
@@ -74,6 +98,7 @@ export function BlockInspector({ block, onSave, onRegenerate, isBusy }: BlockIns
           <button
             key={option}
             type="button"
+            disabled={pageLocked}
             className={`pill-button ${approval === option ? 'pill-button-active' : ''}`}
             onClick={() => setApproval(option)}
           >
@@ -88,6 +113,7 @@ export function BlockInspector({ block, onSave, onRegenerate, isBusy }: BlockIns
             <span>{key}</span>
             <input
               type="number"
+              disabled={pageLocked}
               min="0"
               max="1"
               step="0.01"
@@ -103,61 +129,44 @@ export function BlockInspector({ block, onSave, onRegenerate, isBusy }: BlockIns
         ))}
       </div>
 
-      <label className="field">
-        <span>Manual output</span>
-        <textarea
-          rows={7}
-          value={manualOutput}
-          onChange={(event) => setManualOutput(event.target.value)}
-        />
-      </label>
-
-      <label className="field">
-        <span>Regeneration hint</span>
-        <textarea
-          rows={3}
-          value={instruction}
-          onChange={(event) => setInstruction(event.target.value)}
-          placeholder="Explain how this block should be interpreted."
-        />
-      </label>
-
-      <details className="generated-output" open>
-        <summary>Generated output</summary>
-        <pre>{block.generated_output ?? '% No generated output yet.'}</pre>
-        {block.warnings.length > 0 ? (
-          <ul className="warning-list">
-            {block.warnings.map((warning) => (
-              <li key={warning}>{warning}</li>
-            ))}
-          </ul>
-        ) : null}
-      </details>
+      <div className="inspector-section">
+        <h3>Structure</h3>
+        <div className="button-grid">
+          <button type="button" className="secondary-button" disabled={pageLocked || isBusy} onClick={onDuplicate}>
+            Duplicate
+          </button>
+          <button type="button" className="secondary-button" disabled={pageLocked || isBusy} onClick={onDelete}>
+            Delete
+          </button>
+          <button type="button" className="secondary-button" disabled={pageLocked || isBusy} onClick={onMergePrevious}>
+            Merge Prev
+          </button>
+          <button type="button" className="secondary-button" disabled={pageLocked || isBusy} onClick={onMergeNext}>
+            Merge Next
+          </button>
+          <button type="button" className="secondary-button" disabled={pageLocked || isBusy} onClick={onSplitHorizontal}>
+            Split H
+          </button>
+          <button type="button" className="secondary-button" disabled={pageLocked || isBusy} onClick={onSplitVertical}>
+            Split V
+          </button>
+        </div>
+      </div>
 
       <div className="button-row">
         <button
           type="button"
           className="primary-button"
-          disabled={isBusy}
+          disabled={pageLocked || isBusy}
           onClick={() =>
-            onSave({
+            onApply({
               block_type: blockType,
               approval,
               geometry,
-              manual_output: manualOutput,
-              user_instruction: instruction,
             })
           }
         >
-          Save block
-        </button>
-        <button
-          type="button"
-          className="secondary-button"
-          disabled={isBusy}
-          onClick={() => onRegenerate(instruction)}
-        >
-          Regenerate
+          Apply To Draft
         </button>
       </div>
     </aside>

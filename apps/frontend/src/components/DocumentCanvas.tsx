@@ -1,40 +1,55 @@
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
 
-import type { BlockGeometry, PageResponse } from '../lib/types'
 import { withApiRoot } from '../lib/api'
+import { clamp, clampGeometry, draftBlockKey, type DraftBlock } from '../lib/segmentation'
+import type { BlockGeometry, PageResponse } from '../lib/types'
 
-interface PointerState {
-  pointerId: number
-  start: { x: number; y: number }
-  current: { x: number; y: number }
-}
+type ActiveTool = 'select' | 'create'
+type ResizeHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
 
-interface ResizeState {
-  pointerId: number
-  blockId: string
-  initial: BlockGeometry
-}
+type InteractionState =
+  | {
+      kind: 'create'
+      pointerId: number
+      start: { x: number; y: number }
+      current: { x: number; y: number }
+    }
+  | {
+      kind: 'move'
+      pointerId: number
+      blockId: string
+      start: { x: number; y: number }
+      initial: BlockGeometry
+    }
+  | {
+      kind: 'resize'
+      pointerId: number
+      blockId: string
+      start: { x: number; y: number }
+      handle: ResizeHandle
+      initial: BlockGeometry
+    }
 
 interface DocumentCanvasProps {
   page: PageResponse
+  blocks: DraftBlock[]
   selectedBlockId: string | null
+  activeTool: ActiveTool
+  isLocked: boolean
   onSelectBlock: (blockId: string) => void
   onCreateBlock: (geometry: BlockGeometry) => void
-  onResizeBlock: (blockId: string, geometry: BlockGeometry) => void
+  onUpdateBlockGeometry: (blockId: string, geometry: BlockGeometry) => void
 }
 
 const MIN_SIZE = 0.02
-
-function clamp(value: number): number {
-  return Math.max(0, Math.min(1, value))
-}
+const resizeHandles: ResizeHandle[] = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']
 
 function normalizeGeometry(start: { x: number; y: number }, end: { x: number; y: number }): BlockGeometry {
   const x = clamp(Math.min(start.x, end.x))
   const y = clamp(Math.min(start.y, end.y))
-  const width = clamp(Math.abs(end.x - start.x))
-  const height = clamp(Math.abs(end.y - start.y))
+  const width = clamp(Math.abs(end.x - start.x), MIN_SIZE, 1 - x)
+  const height = clamp(Math.abs(end.y - start.y), MIN_SIZE, 1 - y)
   return { x, y, width, height }
 }
 
@@ -49,61 +64,112 @@ function pointerToRelative(
   }
 }
 
+function resizeGeometry(
+  geometry: BlockGeometry,
+  handle: ResizeHandle,
+  point: { x: number; y: number },
+): BlockGeometry {
+  const left = geometry.x
+  const top = geometry.y
+  const right = geometry.x + geometry.width
+  const bottom = geometry.y + geometry.height
+
+  let nextLeft = left
+  let nextTop = top
+  let nextRight = right
+  let nextBottom = bottom
+
+  if (handle.includes('w')) {
+    nextLeft = clamp(point.x, 0, right - MIN_SIZE)
+  }
+  if (handle.includes('e')) {
+    nextRight = clamp(point.x, left + MIN_SIZE, 1)
+  }
+  if (handle.includes('n')) {
+    nextTop = clamp(point.y, 0, bottom - MIN_SIZE)
+  }
+  if (handle.includes('s')) {
+    nextBottom = clamp(point.y, top + MIN_SIZE, 1)
+  }
+
+  return clampGeometry({
+    x: nextLeft,
+    y: nextTop,
+    width: nextRight - nextLeft,
+    height: nextBottom - nextTop,
+  })
+}
+
 export function DocumentCanvas({
   page,
+  blocks,
   selectedBlockId,
+  activeTool,
+  isLocked,
   onSelectBlock,
   onCreateBlock,
-  onResizeBlock,
+  onUpdateBlockGeometry,
 }: DocumentCanvasProps) {
   const frameRef = useRef<HTMLDivElement | null>(null)
-  const [draft, setDraft] = useState<PointerState | null>(null)
-  const [resize, setResize] = useState<ResizeState | null>(null)
+  const [interaction, setInteraction] = useState<InteractionState | null>(null)
 
   useEffect(() => {
-    if (!draft && !resize) {
+    if (!interaction || isLocked) {
       return undefined
     }
+    const currentInteraction = interaction
 
     function handlePointerMove(event: PointerEvent) {
       if (!frameRef.current) {
         return
       }
-      if (draft && event.pointerId === draft.pointerId) {
-        setDraft((current) =>
-          current
-            ? {
-                ...current,
-                current: pointerToRelative(event, frameRef.current!),
-              }
-            : null,
-        )
+      const point = pointerToRelative(event, frameRef.current)
+
+      if (currentInteraction.pointerId !== event.pointerId) {
+        return
       }
 
-      if (resize && event.pointerId === resize.pointerId) {
-        const point = pointerToRelative(event, frameRef.current)
-        const width = Math.max(MIN_SIZE, clamp(point.x - resize.initial.x))
-        const height = Math.max(MIN_SIZE, clamp(point.y - resize.initial.y))
-        onResizeBlock(resize.blockId, {
-          x: resize.initial.x,
-          y: resize.initial.y,
-          width,
-          height,
+      if (currentInteraction.kind === 'create') {
+        setInteraction({
+          kind: 'create',
+          pointerId: currentInteraction.pointerId,
+          start: currentInteraction.start,
+          current: point,
         })
+        return
       }
+
+      if (currentInteraction.kind === 'move') {
+        const deltaX = point.x - currentInteraction.start.x
+        const deltaY = point.y - currentInteraction.start.y
+        onUpdateBlockGeometry(
+          currentInteraction.blockId,
+          clampGeometry({
+            ...currentInteraction.initial,
+            x: currentInteraction.initial.x + deltaX,
+            y: currentInteraction.initial.y + deltaY,
+          }),
+        )
+        return
+      }
+
+      onUpdateBlockGeometry(
+        currentInteraction.blockId,
+        resizeGeometry(currentInteraction.initial, currentInteraction.handle, point),
+      )
     }
 
     function handlePointerUp(event: PointerEvent) {
-      if (draft && frameRef.current && event.pointerId === draft.pointerId) {
-        const geometry = normalizeGeometry(draft.start, draft.current)
+      if (currentInteraction.pointerId !== event.pointerId) {
+        return
+      }
+      if (currentInteraction.kind === 'create') {
+        const geometry = normalizeGeometry(currentInteraction.start, currentInteraction.current)
         if (geometry.width >= MIN_SIZE && geometry.height >= MIN_SIZE) {
           onCreateBlock(geometry)
         }
-        setDraft(null)
       }
-      if (resize && event.pointerId === resize.pointerId) {
-        setResize(null)
-      }
+      setInteraction(null)
     }
 
     window.addEventListener('pointermove', handlePointerMove)
@@ -112,39 +178,45 @@ export function DocumentCanvas({
       window.removeEventListener('pointermove', handlePointerMove)
       window.removeEventListener('pointerup', handlePointerUp)
     }
-  }, [draft, onCreateBlock, onResizeBlock, resize])
+  }, [interaction, isLocked, onCreateBlock, onUpdateBlockGeometry])
 
   const draftGeometry =
-    draft && normalizeGeometry(draft.start, draft.current)
+    interaction?.kind === 'create' ? normalizeGeometry(interaction.start, interaction.current) : null
 
   return (
     <section className="canvas-panel">
       <div className="panel-heading">
         <div>
           <p className="eyebrow">Page {page.page_index + 1}</p>
-          <h2>Region Review</h2>
+          <h2>Manual Segmentation</h2>
         </div>
-        <p className="canvas-hint">Drag on empty space to add a new block. Drag the handle to resize the selected block.</p>
+        <p className="canvas-hint">
+          {isLocked
+            ? 'This page is marked segmented. Reopen it to edit the layout.'
+            : activeTool === 'create'
+              ? 'Drag on the page to create a new block.'
+              : 'Drag blocks to move them. Use the handles to resize.'}
+        </p>
       </div>
       <div
-        className="canvas-frame"
+        className={`canvas-frame ${activeTool === 'create' && !isLocked ? 'canvas-frame-draw' : ''}`}
         ref={frameRef}
         style={{ aspectRatio: `${page.width} / ${page.height}` }}
         onPointerDown={(event) => {
-          if (event.target !== event.currentTarget) {
+          if (isLocked || activeTool !== 'create' || event.target !== event.currentTarget) {
             return
           }
           const point = pointerToRelative(event, event.currentTarget)
-          setDraft({ pointerId: event.pointerId, start: point, current: point })
+          setInteraction({ kind: 'create', pointerId: event.pointerId, start: point, current: point })
         }}
       >
         <img className="canvas-image" src={withApiRoot(page.image_url) ?? undefined} alt={`Page ${page.page_index + 1}`} />
-        {page.blocks.map((block) => {
-          const isSelected = block.id === selectedBlockId
+        {blocks.map((block) => {
+          const blockId = draftBlockKey(block)
+          const isSelected = blockId === selectedBlockId
           return (
-            <button
-              key={block.id}
-              type="button"
+            <div
+              key={blockId}
               className={`region region-${block.block_type} ${isSelected ? 'region-selected' : ''}`}
               style={{
                 left: `${block.geometry.x * 100}%`,
@@ -152,27 +224,46 @@ export function DocumentCanvas({
                 width: `${block.geometry.width * 100}%`,
                 height: `${block.geometry.height * 100}%`,
               }}
-              onClick={() => onSelectBlock(block.id)}
+              onPointerDown={(event) => {
+                event.stopPropagation()
+                onSelectBlock(blockId)
+                if (isLocked || activeTool !== 'select') {
+                  return
+                }
+                setInteraction({
+                  kind: 'move',
+                  pointerId: event.pointerId,
+                  blockId,
+                  start: pointerToRelative(event, event.currentTarget),
+                  initial: block.geometry,
+                })
+              }}
             >
               <span className="region-label">
                 {block.block_type}
                 <strong>#{block.order_index + 1}</strong>
               </span>
-              {isSelected ? (
-                <span
-                  className="region-resize-handle"
-                  onPointerDown={(event) => {
-                    event.preventDefault()
-                    event.stopPropagation()
-                    setResize({
-                      pointerId: event.pointerId,
-                      blockId: block.id,
-                      initial: block.geometry,
-                    })
-                  }}
-                />
-              ) : null}
-            </button>
+              {isSelected && !isLocked
+                ? resizeHandles.map((handle) => (
+                    <span
+                      key={handle}
+                      className={`region-handle region-handle-${handle}`}
+                      onPointerDown={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        setInteraction({
+                          kind: 'resize',
+                          pointerId: event.pointerId,
+                          blockId,
+                          handle,
+                          start: pointerToRelative(event, event.currentTarget),
+                          initial: block.geometry,
+                        })
+                      }}
+                    />
+                  ))
+                : null}
+            </div>
           )
         })}
         {draftGeometry ? (
