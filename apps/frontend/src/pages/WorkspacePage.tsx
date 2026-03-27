@@ -5,6 +5,7 @@ import { Link, useParams } from 'react-router-dom'
 import { BlockInspector } from '../components/BlockInspector'
 import { DocumentCanvas, type CanvasViewportState, type DocumentCanvasHandle } from '../components/DocumentCanvas'
 import { PageProgressSummary } from '../components/PageProgressSummary'
+import { WorkspaceDebugToolbar } from '../components/WorkspaceDebugToolbar'
 import { api, withApiRoot } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import {
@@ -28,6 +29,13 @@ import {
 import type { DraftBlock } from '../lib/segmentation'
 import type { PageReviewStatus } from '../lib/types'
 import type { DocumentDetailResponse } from '../lib/types'
+import {
+  DEFAULT_WORKSPACE_DEBUG_SETTINGS,
+  WORKSPACE_DEBUG_STORAGE_KEY,
+  loadWorkspaceDebugSettings,
+  normalizeWorkspaceDebugSettings,
+  type WorkspaceDebugSettings,
+} from '../lib/workspaceDebug'
 
 const POLLABLE_STATUSES = new Set(['uploaded', 'rendering', 'segmenting'])
 const LAYOUT_BACKUP_KEY_PREFIX = 'onemoon:layout-backup'
@@ -66,6 +74,7 @@ export function WorkspacePage() {
     panY: 0,
   })
   const [toast, setToast] = useState<WorkspaceToast | null>(null)
+  const [debugSettings, setDebugSettings] = useState<WorkspaceDebugSettings>(() => loadWorkspaceDebugSettings())
   const canvasRef = useRef<DocumentCanvasHandle | null>(null)
   const toastTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
 
@@ -171,6 +180,13 @@ export function WorkspacePage() {
       }
     }
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+    window.localStorage.setItem(WORKSPACE_DEBUG_STORAGE_KEY, JSON.stringify(debugSettings))
+  }, [debugSettings])
 
   useEffect(() => {
     function handleBeforeUnload(event: BeforeUnloadEvent) {
@@ -347,6 +363,10 @@ export function WorkspacePage() {
     pageStatusMutation.mutate({ pageId: selectedPage.id, action: 'reopen' })
   }
 
+  function updateDebugSetting(key: keyof WorkspaceDebugSettings, value: number) {
+    setDebugSettings((current) => normalizeWorkspaceDebugSettings({ ...current, [key]: value }))
+  }
+
   if (documentQuery.isLoading) {
     return (
       <main className="page-shell">
@@ -428,6 +448,7 @@ export function WorkspacePage() {
               ref={canvasRef}
               page={selectedPage}
               blocks={pageDraft.blocks}
+              debugSettings={debugSettings}
               toolbar={{
                 currentPageIndex,
                 totalPages: document.pages.length,
@@ -639,6 +660,11 @@ export function WorkspacePage() {
           />
         </div>
       </section>
+      <WorkspaceDebugToolbar
+        settings={debugSettings}
+        onChange={updateDebugSetting}
+        onReset={() => setDebugSettings({ ...DEFAULT_WORKSPACE_DEBUG_SETTINGS })}
+      />
     </main>
   )
 }

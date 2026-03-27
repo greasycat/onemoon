@@ -1,5 +1,7 @@
 # Changelog
 
+- Added a workspace-only floating debug toolbar with persisted free-form drawing thresholds and placeholder LLM controls for future request overrides.
+- Tightened the default free-form vertex merge tolerance in the workspace debug controls from `0.005` to `0.003`.
 - Added the initial OneMoon full-stack scaffold with interactive block review, LaTeX assembly, and a Python ingestion pipeline.
 - Added the Phase 1 manual-segmentation workflow with page drafts, atomic layout save, and page review state.
 - Added a root dev runner so frontend and backend can be started together with one command.

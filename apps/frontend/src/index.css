@@ -635,7 +635,7 @@ button {
 .region-unknown,
 .region-draft {
   border-style: dashed;
-  border-color: var(--region-unknown-border);
+  border-color: rgba(52, 37, 21, 0.78);
 }
 
 .region-label {
@@ -720,8 +720,8 @@ button {
 }
 
 .canvas-draft-polygon {
-  fill: rgba(255, 255, 255, 0.12);
-  stroke: var(--region-unknown-border);
+  fill: rgba(49, 35, 20, 0.16);
+  stroke: rgba(37, 25, 14, 0.9);
   stroke-width: 0.3;
   stroke-dasharray: 1.2 0.8;
   vector-effect: non-scaling-stroke;
@@ -1295,6 +1295,161 @@ button {
   pointer-events: auto;
 }
 
+.workspace-debug-dock {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 14;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.workspace-debug-panel {
+  width: min(28rem, calc(100vw - 2rem));
+  max-height: min(72vh, 46rem);
+  overflow: auto;
+  padding: 1rem;
+  border: 1px solid rgba(98, 74, 44, 0.14);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(255, 251, 245, 0.98), rgba(248, 239, 226, 0.96));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.76),
+    0 22px 40px rgba(57, 39, 19, 0.14);
+  backdrop-filter: blur(12px);
+}
+
+.workspace-debug-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.workspace-debug-panel-header h2 {
+  margin: 0.18rem 0 0;
+  font-size: 1.15rem;
+  color: var(--workspace-ink);
+}
+
+.workspace-debug-copy {
+  margin: 0.8rem 0 0;
+  line-height: 1.55;
+}
+
+.workspace-debug-section {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(112, 83, 50, 0.12);
+}
+
+.workspace-debug-field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.workspace-debug-field-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--workspace-ink);
+}
+
+.workspace-debug-field-header code {
+  padding: 0.16rem 0.42rem;
+  border-radius: 999px;
+  background: rgba(52, 38, 23, 0.08);
+  color: rgba(46, 32, 18, 0.82);
+  font-size: 0.74rem;
+}
+
+.workspace-debug-field p {
+  margin: 0;
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
+.workspace-debug-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 5.5rem;
+  gap: 0.7rem;
+  align-items: center;
+}
+
+.workspace-debug-input-row input[type='range'] {
+  width: 100%;
+  accent-color: #8e5b35;
+}
+
+.workspace-debug-number {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(112, 83, 50, 0.12);
+  background: rgba(255, 252, 247, 0.9);
+  color: var(--workspace-ink);
+  padding: 0.72rem 0.8rem;
+}
+
+.workspace-debug-placeholder summary {
+  cursor: pointer;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--workspace-ink);
+}
+
+.workspace-debug-placeholder summary::marker {
+  color: rgba(78, 58, 37, 0.72);
+}
+
+.workspace-debug-placeholder-grid {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.9rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.workspace-debug-launcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 3rem;
+  padding: 0.75rem 0.95rem;
+  border: 1px solid rgba(98, 74, 44, 0.16);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(47, 35, 23, 0.96), rgba(68, 47, 26, 0.94));
+  color: rgba(255, 248, 238, 0.98);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 18px 34px rgba(57, 39, 19, 0.2);
+  font-weight: 700;
+}
+
+.workspace-debug-launcher-label {
+  font-size: 0.76rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.workspace-debug-launcher-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 999px;
+  background: rgba(255, 248, 238, 0.12);
+  font-size: 1rem;
+  line-height: 1;
+}
+
 .canvas-tooltip {
   display: flex;
   align-items: center;
@@ -1445,6 +1600,33 @@ button {
     top: 0.6rem;
     left: 0.6rem;
     gap: 0.55rem;
+  }
+
+  .workspace-debug-dock {
+    right: 0.75rem;
+    bottom: 0.75rem;
+    left: 0.75rem;
+    align-items: stretch;
+  }
+
+  .workspace-debug-panel {
+    width: 100%;
+    max-height: min(62vh, 34rem);
+    border-radius: 22px;
+  }
+
+  .workspace-debug-panel-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .workspace-debug-input-row,
+  .workspace-debug-placeholder-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-debug-launcher {
+    align-self: flex-end;
   }
 
   .canvas-tooltip {

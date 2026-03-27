@@ -15,6 +15,7 @@ import {
   type DraftBlock,
 } from '../lib/segmentation'
 import type { BlockGeometry, BlockShapeType, BlockVertex, PageResponse } from '../lib/types'
+import type { WorkspaceDebugSettings } from '../lib/workspaceDebug'
 
 type ActiveTool = 'select' | 'rect' | 'freeform'
 type ResizeHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
@@ -43,12 +44,14 @@ type InteractionState =
       pointerId: number
       start: CanvasPoint
       current: CanvasPoint
+      settings: WorkspaceDebugSettings
     }
   | {
       kind: 'freeform-create'
       pointerId: number
       points: CanvasPoint[]
       current: CanvasPoint
+      settings: WorkspaceDebugSettings
     }
   | {
       kind: 'move'
@@ -65,6 +68,7 @@ type InteractionState =
       start: CanvasPoint
       handle: ResizeHandle
       initial: BlockGeometry
+      settings: WorkspaceDebugSettings
     }
   | {
       kind: 'vertex'
@@ -72,6 +76,7 @@ type InteractionState =
       blockId: string
       vertexIndex: number
       initialVertices: BlockVertex[]
+      settings: WorkspaceDebugSettings
     }
 
 interface DocumentCanvasProps {
@@ -87,26 +92,23 @@ interface DocumentCanvasProps {
   selectedBlockId: string | null
   activeTool: ActiveTool
   isLocked: boolean
+  debugSettings: WorkspaceDebugSettings
   onViewportChange: (viewport: CanvasViewportState) => void
   onSelectBlock: (blockId: string | null) => void
   onCreateBlock: (payload: { shape_type: BlockShapeType; geometry: BlockGeometry; vertices: BlockVertex[] | null }) => void
   onUpdateBlock: (blockId: string, payload: { geometry: BlockGeometry; vertices: BlockVertex[] | null }) => void
 }
 
-const MIN_SIZE = 0.02
 const MIN_ZOOM = 0.35
 const MAX_ZOOM = 4
 const ZOOM_STEP = 0.2
-const FREEFORM_DRAW_STEP = 0.0015
-const POINT_EPSILON = 0.002
-const FREEFORM_SIMPLIFY_EPSILON = 0.005
 const resizeHandles: ResizeHandle[] = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']
 
-function normalizeGeometry(start: CanvasPoint, end: CanvasPoint): BlockGeometry {
+function normalizeGeometry(start: CanvasPoint, end: CanvasPoint, minBlockSize: number): BlockGeometry {
   const x = clamp(Math.min(start.x, end.x))
   const y = clamp(Math.min(start.y, end.y))
-  const width = clamp(Math.abs(end.x - start.x), MIN_SIZE, 1 - x)
-  const height = clamp(Math.abs(end.y - start.y), MIN_SIZE, 1 - y)
+  const width = clamp(Math.abs(end.x - start.x), minBlockSize, 1 - x)
+  const height = clamp(Math.abs(end.y - start.y), minBlockSize, 1 - y)
   return { x, y, width, height }
 }
 
@@ -125,6 +127,7 @@ function resizeGeometry(
   geometry: BlockGeometry,
   handle: ResizeHandle,
   point: CanvasPoint,
+  minBlockSize: number,
 ): BlockGeometry {
   const left = geometry.x
   const top = geometry.y
@@ -137,16 +140,16 @@ function resizeGeometry(
   let nextBottom = bottom
 
   if (handle.includes('w')) {
-    nextLeft = clamp(point.x, 0, right - MIN_SIZE)
+    nextLeft = clamp(point.x, 0, right - minBlockSize)
   }
   if (handle.includes('e')) {
-    nextRight = clamp(point.x, left + MIN_SIZE, 1)
+    nextRight = clamp(point.x, left + minBlockSize, 1)
   }
   if (handle.includes('n')) {
-    nextTop = clamp(point.y, 0, bottom - MIN_SIZE)
+    nextTop = clamp(point.y, 0, bottom - minBlockSize)
   }
   if (handle.includes('s')) {
-    nextBottom = clamp(point.y, top + MIN_SIZE, 1)
+    nextBottom = clamp(point.y, top + minBlockSize, 1)
   }
 
   return clampGeometry({
@@ -161,8 +164,8 @@ function distanceBetween(a: CanvasPoint, b: CanvasPoint) {
   return Math.hypot(a.x - b.x, a.y - b.y)
 }
 
-function pointsAreNear(a: CanvasPoint, b: CanvasPoint) {
-  return distanceBetween(a, b) <= POINT_EPSILON
+function pointsAreNear(a: CanvasPoint, b: CanvasPoint, pointEpsilon: number) {
+  return distanceBetween(a, b) <= pointEpsilon
 }
 
 function distanceToSegment(point: CanvasPoint, start: CanvasPoint, end: CanvasPoint) {
@@ -181,7 +184,11 @@ function distanceToSegment(point: CanvasPoint, start: CanvasPoint, end: CanvasPo
   return distanceBetween(point, projectedPoint)
 }
 
-function simplifyFreeformVertices(vertices: BlockVertex[]): BlockVertex[] {
+function simplifyFreeformVertices(
+  vertices: BlockVertex[],
+  pointEpsilon: number,
+  freeformSimplifyEpsilon: number,
+): BlockVertex[] {
   if (vertices.length <= 3) {
     return vertices
   }
@@ -195,9 +202,9 @@ function simplifyFreeformVertices(vertices: BlockVertex[]): BlockVertex[] {
       const current = simplified[index]
       const next = simplified[(index + 1) % simplified.length]
       if (
-        pointsAreNear(previous, current) ||
-        pointsAreNear(current, next) ||
-        distanceToSegment(current, previous, next) > FREEFORM_SIMPLIFY_EPSILON
+        pointsAreNear(previous, current, pointEpsilon) ||
+        pointsAreNear(current, next, pointEpsilon) ||
+        distanceToSegment(current, previous, next) > freeformSimplifyEpsilon
       ) {
         continue
       }
@@ -209,33 +216,37 @@ function simplifyFreeformVertices(vertices: BlockVertex[]): BlockVertex[] {
   return simplified
 }
 
-function buildDraftFreeformVertices(points: CanvasPoint[], current: CanvasPoint): BlockVertex[] {
+function buildDraftFreeformVertices(points: CanvasPoint[], current: CanvasPoint, pointEpsilon: number): BlockVertex[] {
   const deduped = points.reduce<CanvasPoint[]>((accumulator, point) => {
-    if (accumulator.length === 0 || !pointsAreNear(accumulator[accumulator.length - 1], point)) {
+    if (accumulator.length === 0 || !pointsAreNear(accumulator[accumulator.length - 1], point, pointEpsilon)) {
       accumulator.push(clampVertex(point))
     }
     return accumulator
   }, [])
 
-  if (deduped.length === 0 || !pointsAreNear(deduped[deduped.length - 1], current)) {
+  if (deduped.length === 0 || !pointsAreNear(deduped[deduped.length - 1], current, pointEpsilon)) {
     deduped.push(clampVertex(current))
   }
 
-  if (deduped.length > 1 && pointsAreNear(deduped[0], deduped[deduped.length - 1])) {
+  if (deduped.length > 1 && pointsAreNear(deduped[0], deduped[deduped.length - 1], pointEpsilon)) {
     deduped.pop()
   }
 
   return deduped
 }
 
-function finalizeFreeformVertices(points: CanvasPoint[], current: CanvasPoint): BlockVertex[] {
-  const draftVertices = buildDraftFreeformVertices(points, current)
-  const simplifiedVertices = simplifyFreeformVertices(draftVertices)
-  return isValidPolygon(simplifiedVertices) ? simplifiedVertices : draftVertices
+function finalizeFreeformVertices(points: CanvasPoint[], current: CanvasPoint, settings: WorkspaceDebugSettings): BlockVertex[] {
+  const draftVertices = buildDraftFreeformVertices(points, current, settings.pointEpsilon)
+  const simplifiedVertices = simplifyFreeformVertices(
+    draftVertices,
+    settings.pointEpsilon,
+    settings.freeformSimplifyEpsilon,
+  )
+  return isValidPolygon(simplifiedVertices, settings.minBlockSize) ? simplifiedVertices : draftVertices
 }
 
-function maybeAppendPoint(points: CanvasPoint[], current: CanvasPoint): CanvasPoint[] {
-  if (points.length === 0 || distanceBetween(points[points.length - 1], current) >= FREEFORM_DRAW_STEP) {
+function maybeAppendPoint(points: CanvasPoint[], current: CanvasPoint, freeformDrawStep: number): CanvasPoint[] {
+  if (points.length === 0 || distanceBetween(points[points.length - 1], current) >= freeformDrawStep) {
     return [...points, current]
   }
   return points
@@ -305,12 +316,12 @@ function isSelfIntersectingPolygon(vertices: BlockVertex[]) {
   return false
 }
 
-function isValidPolygon(vertices: BlockVertex[]) {
+function isValidPolygon(vertices: BlockVertex[], minBlockSize = 0.02) {
   if (vertices.length < 3) {
     return false
   }
   const geometry = geometryFromVertices(vertices)
-  return geometry.width >= MIN_SIZE && geometry.height >= MIN_SIZE && !isSelfIntersectingPolygon(vertices)
+  return geometry.width >= minBlockSize && geometry.height >= minBlockSize && !isSelfIntersectingPolygon(vertices)
 }
 
 function pointInPolygon(point: CanvasPoint, vertices: BlockVertex[]) {
@@ -363,6 +374,7 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
     selectedBlockId,
     activeTool,
     isLocked,
+    debugSettings,
     onViewportChange,
     onSelectBlock,
     onCreateBlock,
@@ -533,6 +545,7 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
           pointerId: currentInteraction.pointerId,
           start: currentInteraction.start,
           current: point,
+          settings: currentInteraction.settings,
         })
         return
       }
@@ -541,8 +554,9 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
         setInteraction({
           kind: 'freeform-create',
           pointerId: currentInteraction.pointerId,
-          points: maybeAppendPoint(currentInteraction.points, point),
+          points: maybeAppendPoint(currentInteraction.points, point, currentInteraction.settings.freeformDrawStep),
           current: point,
+          settings: currentInteraction.settings,
         })
         return
       }
@@ -575,7 +589,12 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
       if (currentInteraction.kind === 'resize') {
         onUpdateBlock(currentInteraction.blockId, {
           vertices: null,
-          geometry: resizeGeometry(currentInteraction.initial, currentInteraction.handle, point),
+          geometry: resizeGeometry(
+            currentInteraction.initial,
+            currentInteraction.handle,
+            point,
+            currentInteraction.settings.minBlockSize,
+          ),
         })
         return
       }
@@ -595,15 +614,22 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
       }
 
       if (currentInteraction.kind === 'rect-create') {
-        const geometry = normalizeGeometry(currentInteraction.start, currentInteraction.current)
-        if (geometry.width >= MIN_SIZE && geometry.height >= MIN_SIZE) {
+        const geometry = normalizeGeometry(
+          currentInteraction.start,
+          currentInteraction.current,
+          currentInteraction.settings.minBlockSize,
+        )
+        if (
+          geometry.width >= currentInteraction.settings.minBlockSize &&
+          geometry.height >= currentInteraction.settings.minBlockSize
+        ) {
           onCreateBlock({ shape_type: 'rect', geometry, vertices: null })
         }
       }
 
       if (currentInteraction.kind === 'freeform-create') {
-        const vertices = finalizeFreeformVertices(currentInteraction.points, currentInteraction.current)
-        if (!isValidPolygon(vertices)) {
+        const vertices = finalizeFreeformVertices(currentInteraction.points, currentInteraction.current, currentInteraction.settings)
+        if (!isValidPolygon(vertices, currentInteraction.settings.minBlockSize)) {
           showCanvasToast({ tone: 'error', message: 'Ignored invalid free-form path.' })
           setInteraction(null)
           return
@@ -617,7 +643,11 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
 
       if (currentInteraction.kind === 'vertex') {
         const nextBlock = blocks.find((block) => draftBlockKey(block) === currentInteraction.blockId)
-        if (!nextBlock || !nextBlock.vertices || isValidPolygon(nextBlock.vertices)) {
+        if (
+          !nextBlock ||
+          !nextBlock.vertices ||
+          isValidPolygon(nextBlock.vertices, currentInteraction.settings.minBlockSize)
+        ) {
           setInteraction(null)
           return
         }
@@ -678,9 +708,13 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
   }, [isPanning, onViewportChange, viewport])
 
   const draftRectGeometry =
-    interaction?.kind === 'rect-create' ? normalizeGeometry(interaction.start, interaction.current) : null
+    interaction?.kind === 'rect-create'
+      ? normalizeGeometry(interaction.start, interaction.current, interaction.settings.minBlockSize)
+      : null
   const draftFreeformPoints =
-    interaction?.kind === 'freeform-create' ? buildDraftFreeformVertices(interaction.points, interaction.current) : null
+    interaction?.kind === 'freeform-create'
+      ? buildDraftFreeformVertices(interaction.points, interaction.current, interaction.settings.pointEpsilon)
+      : null
   const activeToast = toast ?? localToast
 
   return (
@@ -748,7 +782,13 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
               }
               const point = pointerToRelative(event, event.currentTarget)
               if (activeTool === 'rect') {
-                setInteraction({ kind: 'rect-create', pointerId: event.pointerId, start: point, current: point })
+                setInteraction({
+                  kind: 'rect-create',
+                  pointerId: event.pointerId,
+                  start: point,
+                  current: point,
+                  settings: { ...debugSettings },
+                })
                 return
               }
               setInteraction({
@@ -756,6 +796,7 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
                 pointerId: event.pointerId,
                 points: [point],
                 current: point,
+                settings: { ...debugSettings },
               })
             }}
           >
@@ -826,6 +867,7 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
                                 blockId,
                                 vertexIndex: index,
                                 initialVertices: polygonVertices,
+                                settings: { ...debugSettings },
                               })
                             }}
                           />
@@ -882,6 +924,7 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
                               handle,
                               start: pointerToRelative(event, surfaceRef.current),
                               initial: block.geometry,
+                              settings: { ...debugSettings },
                             })
                           }}
                         />
