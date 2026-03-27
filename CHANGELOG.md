@@ -1,5 +1,7 @@
 # Changelog
 
+- Prevented page overscroll chaining at the document boundary so hitting the end of a page no longer keeps scrolling into browser bounce/pull-to-refresh behavior.
+
 - Merged the document editor header into a single top bar that only shows the project name and the source filename without its extension.
 
 - Moved the selected-block inspector into a canvas-right overlay so block information stays attached to the work surface while the side column focuses on page review.
