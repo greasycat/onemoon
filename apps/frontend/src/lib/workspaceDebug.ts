@@ -20,7 +20,7 @@ export const DEFAULT_WORKSPACE_DEBUG_SETTINGS: WorkspaceDebugSettings = {
   minBlockSize: 0.02,
   freeformDrawStep: 0.0015,
   pointEpsilon: 0.002,
-  freeformSimplifyEpsilon: 0.003,
+  freeformSimplifyEpsilon: 0.002,
 }
 
 export const WORKSPACE_DEBUG_SETTING_CONFIGS: WorkspaceDebugSettingConfig[] = [

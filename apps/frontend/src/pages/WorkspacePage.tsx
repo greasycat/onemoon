@@ -1,8 +1,10 @@
+import { ArrowLeft } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 
 import { BlockInspector } from '../components/BlockInspector'
 import { DocumentCanvas } from '../components/DocumentCanvas'
 import { WorkspaceDebugToolbar } from '../components/WorkspaceDebugToolbar'
+import { FRONTEND_DEBUG } from '../lib/debug'
 import { WorkspacePageSidebar } from './workspace/WorkspacePageSidebar'
 import { WorkspaceReviewPanel } from './workspace/WorkspaceReviewPanel'
 import { useWorkspaceController } from './workspace/useWorkspaceController'
@@ -31,17 +33,20 @@ export function WorkspacePage() {
     resetDebugSettings,
     reviewCounts,
     selectedBlock,
+    selectedBlockCount,
+    selectedBlockIds,
     selectedBlockKey,
     selectedBlockLabel,
     selectedPage,
+    selectBlock,
     selectPage,
-    setSelectedBlockId,
     setViewportState,
     splitSelectedBlock,
     toast,
     toolbar,
     updateDebugSetting,
     viewportState,
+    deleteSelectedBlocks,
     duplicateSelectedBlock,
   } = useWorkspaceController(documentId)
 
@@ -61,12 +66,31 @@ export function WorkspacePage() {
     )
   }
 
+  const blockInfoPanel = (
+    <BlockInspector
+      key={selectedBlockCount > 1 ? `bulk-${selectedBlockCount}` : selectedBlockKey ?? 'empty'}
+      block={selectedBlock}
+      selectedCount={selectedBlockCount}
+      pageLocked={activePageLocked}
+      isBusy={blockInspectorBusy}
+      onApply={applySelectedBlock}
+      onDelete={deleteSelectedBlock}
+      onDeleteSelection={deleteSelectedBlocks}
+      onDuplicate={duplicateSelectedBlock}
+      onMergePrevious={() => mergeSelectedBlock('previous')}
+      onMergeNext={() => mergeSelectedBlock('next')}
+      onSplitHorizontal={() => splitSelectedBlock('horizontal')}
+      onSplitVertical={() => splitSelectedBlock('vertical')}
+    />
+  )
+
   return (
     <main className="workspace-shell">
       <header className="workspace-header">
         <div>
           <Link className="back-link" to="/">
-            ← Projects
+            <ArrowLeft className="back-link-icon" aria-hidden="true" />
+            <span>Projects</span>
           </Link>
           <p className="eyebrow">{document.filename}</p>
           <h1>{document.title}</h1>
@@ -110,14 +134,16 @@ export function WorkspacePage() {
               cutCeilingPath={activeCutCeilingPath}
               debugSettings={debugSettings}
               toolbar={toolbar}
+              blockInfoPanel={blockInfoPanel}
               toast={toast}
               tooltipLabel={selectedBlockLabel}
               tooltipText={editorHelperText}
-              selectedBlockId={selectedBlockKey}
+              selectedBlockIds={selectedBlockIds}
+              activeBlockId={selectedBlockKey}
               activeTool={activeTool}
               isLocked={activePageLocked}
               onViewportChange={setViewportState}
-              onSelectBlock={setSelectedBlockId}
+              onSelectBlock={selectBlock}
               onCreateBlock={handleCreateBlock}
               onUpdateBlock={handleUpdateBlock}
             />
@@ -126,32 +152,24 @@ export function WorkspacePage() {
 
         <div className="workspace-sidepanels">
           <WorkspaceReviewPanel
+            activeBlockId={selectedBlockKey}
             pageDraft={pageDraft}
+            selectedBlockIds={selectedBlockIds}
             selectedBlock={selectedBlock}
+            selectionCount={selectedBlockCount}
             selectedPageLayoutVersion={selectedPage.layout_version}
             viewportState={viewportState}
-            onSelectBlock={setSelectedBlockId}
-          />
-
-          <BlockInspector
-            block={selectedBlock}
-            pageLocked={activePageLocked}
-            isBusy={blockInspectorBusy}
-            onApply={applySelectedBlock}
-            onDelete={deleteSelectedBlock}
-            onDuplicate={duplicateSelectedBlock}
-            onMergePrevious={() => mergeSelectedBlock('previous')}
-            onMergeNext={() => mergeSelectedBlock('next')}
-            onSplitHorizontal={() => splitSelectedBlock('horizontal')}
-            onSplitVertical={() => splitSelectedBlock('vertical')}
+            onSelectBlock={selectBlock}
           />
         </div>
       </section>
-      <WorkspaceDebugToolbar
-        settings={debugSettings}
-        onChange={updateDebugSetting}
-        onReset={resetDebugSettings}
-      />
+      {FRONTEND_DEBUG ? (
+        <WorkspaceDebugToolbar
+          settings={debugSettings}
+          onChange={updateDebugSetting}
+          onReset={resetDebugSettings}
+        />
+      ) : null}
     </main>
   )
 }

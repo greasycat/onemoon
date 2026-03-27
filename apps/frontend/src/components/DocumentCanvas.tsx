@@ -1,4 +1,4 @@
-import type { PointerEvent as ReactPointerEvent } from 'react'
+import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 
 import { CanvasTooltip } from './CanvasTooltip'
@@ -14,7 +14,7 @@ import {
   translateVertices,
   type DraftBlock,
 } from '../lib/segmentation'
-import type { BlockGeometry, BlockShapeType, BlockVertex, PageResponse } from '../lib/types'
+import type { BlockGeometry, BlockSelectionMode, BlockShapeType, BlockVertex, PageResponse } from '../lib/types'
 import type { WorkspaceDebugSettings } from '../lib/workspaceDebug'
 
 type ActiveTool = 'select' | 'rect' | 'freeform' | 'cut'
@@ -91,18 +91,20 @@ interface DocumentCanvasProps {
   blocks: DraftBlock[]
   cutCeilingPath: BlockVertex[] | null
   toolbar: EditorToolbarProps
+  blockInfoPanel?: ReactNode
   toast?: {
     tone: 'saving' | 'success' | 'error'
     message: string
   } | null
   tooltipLabel: string
   tooltipText: string
-  selectedBlockId: string | null
+  selectedBlockIds: string[]
+  activeBlockId: string | null
   activeTool: ActiveTool
   isLocked: boolean
   debugSettings: WorkspaceDebugSettings
   onViewportChange: (viewport: CanvasViewportState) => void
-  onSelectBlock: (blockId: string | null) => void
+  onSelectBlock: (blockId: string | null, mode?: BlockSelectionMode) => void
   onCreateBlock: (payload: {
     shape_type: BlockShapeType
     geometry: BlockGeometry
@@ -402,6 +404,31 @@ function pointInPolygon(point: CanvasPoint, vertices: BlockVertex[]) {
   return inside
 }
 
+function pointInGeometry(point: CanvasPoint, geometry: BlockGeometry) {
+  return (
+    point.x >= geometry.x &&
+    point.x <= geometry.x + geometry.width &&
+    point.y >= geometry.y &&
+    point.y <= geometry.y + geometry.height
+  )
+}
+
+function findTopmostBlockAtPoint(blocks: DraftBlock[], point: CanvasPoint) {
+  for (let index = blocks.length - 1; index >= 0; index -= 1) {
+    const block = blocks[index]
+    if (isPolygonBlock(block) && block.vertices) {
+      if (pointInPolygon(point, block.vertices)) {
+        return block
+      }
+      continue
+    }
+    if (pointInGeometry(point, block.geometry)) {
+      return block
+    }
+  }
+  return null
+}
+
 function clampMoveDelta(geometry: BlockGeometry, deltaX: number, deltaY: number) {
   return {
     x: clamp(deltaX, -geometry.x, 1 - (geometry.x + geometry.width)),
@@ -692,11 +719,13 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
     page,
     blocks,
     cutCeilingPath,
-    toolbar,
-    toast,
-    tooltipLabel,
+  toolbar,
+  blockInfoPanel,
+  toast,
+  tooltipLabel,
     tooltipText,
-    selectedBlockId,
+    selectedBlockIds,
+    activeBlockId,
     activeTool,
     isLocked,
     debugSettings,
@@ -1074,6 +1103,20 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
       ? buildCutRegion(draftCutPoints, interaction.settings, draftCutPoints, cutCeilingPath)?.polygon ?? null
       : null
   const activeToast = toast ?? localToast
+  const selectedBlockIdSet = new Set(selectedBlockIds)
+  const hasSingleSelectedBlock = selectedBlockIds.length === 1
+
+  function selectionModeForEvent(
+    event: Pick<ReactPointerEvent<HTMLElement>, 'metaKey' | 'ctrlKey' | 'shiftKey'>,
+  ): BlockSelectionMode {
+    if (event.shiftKey) {
+      return 'range'
+    }
+    if (event.metaKey || event.ctrlKey) {
+      return 'toggle'
+    }
+    return 'replace'
+  }
 
   return (
     <section className="canvas-panel canvas-panel-embedded">
@@ -1082,6 +1125,7 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
           <EditorToolbar {...toolbar} />
           <CanvasTooltip label={tooltipLabel} message={tooltipText} />
         </div>
+        {blockInfoPanel ? <div className="canvas-side-overlay">{blockInfoPanel}</div> : null}
         {activeToast ? (
           <div
             className={`canvas-toast canvas-toast-${activeToast.tone}`}
@@ -1116,7 +1160,7 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
               return
             }
             if (event.button === 0 && (isLocked || activeTool === 'select')) {
-              onSelectBlock(null)
+              onSelectBlock(null, 'replace')
             }
           }}
         >
@@ -1134,7 +1178,7 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
               }
               if (isLocked || activeTool === 'select') {
                 if (event.button === 0) {
-                  onSelectBlock(null)
+                  onSelectBlock(null, 'replace')
                 }
                 return
               }
@@ -1171,7 +1215,8 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
             <img className="canvas-image" src={withApiRoot(page.image_url) ?? undefined} alt={`Page ${page.page_index + 1}`} />
             {blocks.map((block) => {
               const blockId = draftBlockKey(block)
-              const isSelected = blockId === selectedBlockId
+              const isSelected = selectedBlockIdSet.has(blockId)
+              const isPrimarySelected = blockId === activeBlockId
               const commonStyle = {
                 left: `${block.geometry.x * 100}%`,
                 top: `${block.geometry.y * 100}%`,
@@ -1184,20 +1229,31 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
                 return (
                   <div
                     key={blockId}
-                    className={`region region-${block.block_type} region-polygon ${isSelected ? 'region-selected' : ''}`}
+                    className={`region region-${block.block_type} region-polygon ${isSelected ? 'region-selected' : ''} ${isPrimarySelected ? 'region-selected-primary' : ''}`}
                     style={commonStyle}
                     onPointerDown={(event) => {
+                      const point = surfaceRef.current ? pointerToRelative(event, surfaceRef.current) : null
+                      const selectionMode = selectionModeForEvent(event)
+                      if (activeTool === 'select' && point && !pointInPolygon(point, polygonVertices)) {
+                        event.stopPropagation()
+                        const hitBlock = findTopmostBlockAtPoint(blocks, point)
+                        if (!hitBlock) {
+                          onSelectBlock(null, 'replace')
+                          return
+                        }
+                        onSelectBlock(draftBlockKey(hitBlock), selectionMode)
+                        return
+                      }
                       event.stopPropagation()
-                      onSelectBlock(blockId)
+                      onSelectBlock(blockId, selectionMode)
+                      if (selectionMode !== 'replace') {
+                        return
+                      }
                       if (spacePressed || event.button === 1) {
                         startPanning(event)
                         return
                       }
-                      if (isLocked || activeTool !== 'select' || !surfaceRef.current) {
-                        return
-                      }
-                      const point = pointerToRelative(event, surfaceRef.current)
-                      if (!pointInPolygon(point, polygonVertices)) {
+                      if (isLocked || activeTool !== 'select' || !point) {
                         return
                       }
                       setInteraction({
@@ -1217,7 +1273,7 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
                       {block.block_type}
                       <strong>#{block.order_index + 1}</strong>
                     </span>
-                    {isSelected && !isLocked
+                    {isPrimarySelected && hasSingleSelectedBlock && !isLocked
                       ? polygonVertices.map((vertex, index) => (
                           <span
                             key={`${blockId}-vertex-${index}`}
@@ -1248,11 +1304,15 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
               return (
                 <div
                   key={blockId}
-                  className={`region region-${block.block_type} ${isSelected ? 'region-selected' : ''}`}
+                  className={`region region-${block.block_type} ${isSelected ? 'region-selected' : ''} ${isPrimarySelected ? 'region-selected-primary' : ''}`}
                   style={commonStyle}
                   onPointerDown={(event) => {
                     event.stopPropagation()
-                    onSelectBlock(blockId)
+                    const selectionMode = selectionModeForEvent(event)
+                    onSelectBlock(blockId, selectionMode)
+                    if (selectionMode !== 'replace') {
+                      return
+                    }
                     if (spacePressed || event.button === 1) {
                       startPanning(event)
                       return
@@ -1274,7 +1334,7 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
                     {block.block_type}
                     <strong>#{block.order_index + 1}</strong>
                   </span>
-                  {isSelected && !isLocked
+                  {isPrimarySelected && hasSingleSelectedBlock && !isLocked
                     ? resizeHandles.map((handle) => (
                         <span
                           key={handle}

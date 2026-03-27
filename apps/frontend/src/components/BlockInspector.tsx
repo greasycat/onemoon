@@ -1,11 +1,12 @@
 import { useState } from 'react'
 
 import { isPolygonBlock } from '../lib/segmentation'
-import type { BlockApproval, BlockGeometry, BlockType } from '../lib/types'
 import type { DraftBlock } from '../lib/segmentation'
+import type { BlockApproval, BlockGeometry, BlockType } from '../lib/types'
 
 interface BlockInspectorProps {
   block: DraftBlock | null
+  selectedCount: number
   pageLocked: boolean
   isBusy: boolean
   onApply: (payload: {
@@ -14,6 +15,7 @@ interface BlockInspectorProps {
     geometry: BlockGeometry
   }) => void
   onDelete: () => void
+  onDeleteSelection: () => void
   onDuplicate: () => void
   onMergePrevious: () => void
   onMergeNext: () => void
@@ -34,10 +36,12 @@ function initialFormState(block: DraftBlock | null) {
 
 export function BlockInspector({
   block,
+  selectedCount,
   pageLocked,
   isBusy,
   onApply,
   onDelete,
+  onDeleteSelection,
   onDuplicate,
   onMergePrevious,
   onMergeNext,
@@ -46,8 +50,40 @@ export function BlockInspector({
 }: BlockInspectorProps) {
   const [blockType, setBlockType] = useState<BlockType>(initialFormState(block).blockType)
   const [approval, setApproval] = useState<BlockApproval>(initialFormState(block).approval)
-  const [geometry, setGeometry] = useState(initialFormState(block).geometry)
   const polygonBlock = isPolygonBlock(block)
+
+  if (selectedCount > 1) {
+    return (
+      <aside className="inspector-panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Selection</p>
+            <h2>{selectedCount} blocks selected</h2>
+          </div>
+          <span className="status-chip status-review">bulk</span>
+        </div>
+
+        <div className="stats-grid">
+          <div className="stat-card">
+            <span>Selected</span>
+            <strong>{selectedCount}</strong>
+          </div>
+          <div className="stat-card">
+            <span>Available action</span>
+            <strong>Delete</strong>
+          </div>
+        </div>
+
+        <p className="muted-text">Single-block editing is disabled while multiple blocks are selected.</p>
+
+        <div className="button-row">
+          <button type="button" className="secondary-button" disabled={pageLocked || isBusy} onClick={onDeleteSelection}>
+            Delete Selected
+          </button>
+        </div>
+      </aside>
+    )
+  }
 
   if (!block) {
     return (
@@ -62,6 +98,8 @@ export function BlockInspector({
       </aside>
     )
   }
+
+  const geometry = block.geometry
 
   return (
     <aside className="inspector-panel">
@@ -111,32 +149,6 @@ export function BlockInspector({
             {option}
           </button>
         ))}
-      </div>
-
-      <div className="inspector-section">
-        <h3>{polygonBlock ? 'Bounding Box' : 'Geometry'}</h3>
-        <div className="geometry-grid">
-        {(['x', 'y', 'width', 'height'] as const).map((key) => (
-          <label className="field" key={key}>
-            <span>{key}</span>
-            <input
-              type="number"
-              disabled={pageLocked || polygonBlock}
-              min="0"
-              max="1"
-              step="0.01"
-              value={geometry[key]}
-              onChange={(event) =>
-                setGeometry((current) => ({
-                  ...current,
-                  [key]: Number(event.target.value),
-                }))
-              }
-            />
-          </label>
-        ))}
-        </div>
-        {polygonBlock ? <p className="muted-text">Polygon blocks are reshaped from the canvas by dragging vertices.</p> : null}
       </div>
 
       <div className="inspector-section">

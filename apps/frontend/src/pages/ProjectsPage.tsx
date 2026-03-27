@@ -71,24 +71,33 @@ export function ProjectsPage() {
           >
             <label className="field">
               <span>Name</span>
-              <input value={projectName} onChange={(event) => setProjectName(event.target.value)} />
+              <input
+                name="projectName"
+                autoComplete="off"
+                value={projectName}
+                onChange={(event) => setProjectName(event.target.value)}
+              />
             </label>
             <button type="submit" className="primary-button" disabled={createProjectMutation.isPending || !projectName.trim()}>
-              {createProjectMutation.isPending ? 'Creating...' : 'Create project'}
+              {createProjectMutation.isPending ? 'Creating…' : 'Create project'}
             </button>
           </form>
 
           <div className="project-list">
             {projects.map((project) => (
-              <article
-                key={project.id}
-                className={`project-card ${activeProjectId === project.id ? 'project-card-active' : ''}`}
-                onClick={() => setSelectedProjectId(project.id)}
-              >
-                <div className="project-card-head">
-                  <h3>{project.name}</h3>
-                  <span className="status-chip status-review">{project.document_count} docs</span>
-                </div>
+              <article key={project.id} className={`project-card ${activeProjectId === project.id ? 'project-card-active' : ''}`}>
+                <button
+                  type="button"
+                  className="project-card-select"
+                  aria-pressed={activeProjectId === project.id}
+                  onClick={() => setSelectedProjectId(project.id)}
+                >
+                  <div className="project-card-head">
+                    <h3>{project.name}</h3>
+                    <span className="status-chip status-review">{project.document_count} docs</span>
+                  </div>
+                  <span className="project-card-action">{activeProjectId === project.id ? 'Selected' : 'Select project'}</span>
+                </button>
                 {project.documents.length > 0 ? (
                   <ul className="document-list">
                     {project.documents.map((document) => (
@@ -128,7 +137,7 @@ export function ProjectsPage() {
           >
             <label className="field">
               <span>Target project</span>
-              <select value={activeProjectId} onChange={(event) => setSelectedProjectId(event.target.value)}>
+              <select name="projectId" value={activeProjectId} onChange={(event) => setSelectedProjectId(event.target.value)}>
                 <option value="">Select a project</option>
                 {projects.map((project) => (
                   <option key={project.id} value={project.id}>
@@ -140,14 +149,15 @@ export function ProjectsPage() {
             <label className="field">
               <span>Source file</span>
               <input
+                name="sourceFile"
                 type="file"
                 accept="application/pdf,image/*"
                 onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
               />
             </label>
-            {errorMessage ? <p className="error-text">{errorMessage}</p> : null}
+            {errorMessage ? <p className="error-text" role="alert">{errorMessage}</p> : null}
             <button type="submit" className="primary-button" disabled={!activeProjectId || !selectedFile || uploadMutation.isPending}>
-              {uploadMutation.isPending ? 'Uploading...' : 'Start ingestion'}
+              {uploadMutation.isPending ? 'Uploading…' : 'Start ingestion'}
             </button>
           </form>
         </div>

@@ -16,3 +16,9 @@ npm install
 npm run dev
 npm run build
 ```
+
+## Debug Flag
+
+- `VITE_FRONTEND_DEBUG=true` forces frontend debug UI on.
+- `VITE_FRONTEND_DEBUG=false` forces frontend debug UI off.
+- If unset, frontend debug UI follows Vite dev mode and is enabled during `npm run dev`.

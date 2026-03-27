@@ -1,8 +1,49 @@
 # Changelog
 
+- Moved the selected-block inspector into a canvas-right overlay so block information stays attached to the work surface while the side column focuses on page review.
+
+- Removed the inspector panel bounding-box editor so block review focuses on type/approval and structural actions while geometry stays canvas-driven.
+
+- Added a shared frontend debug flag so workspace debug controls now default to Vite dev mode and can be overridden with `VITE_FRONTEND_DEBUG=true|false`.
+
+- Added review-workspace keyboard shortcuts for `Pick`, `Rect`, `Free`, `Cut`, `Save`, and `FIN`, plus modifier/range multi-selection with bulk block deletion.
+
+- Fixed overlapping polygon hit-testing so a lower cut block's bounding box no longer steals pick clicks from the real polygon above it.
+
+- Made pick-mode polygon selection respect the actual polygon shape instead of its bounding box, so clicks in the empty bbox area no longer select cut/free-form blocks.
+
+- Made empty-page `Discard`, `Save`, and `FIN` toolbar clicks show a `Nothing is created.` toast instead of staying disabled with no feedback.
+
+- Renamed the workspace segmented-action toolbar button from `Seg` to `FIN`.
+
+- Reconstructed saved cut polygons into reusable cut ceilings on load so cut mode still stacks correctly after saving and refreshing the page.
+
+- Fixed cut-mode deletion so removing the just-created cut block restores the previous remembered cut ceiling instead of leaving cut creation stuck on stale path state.
+
+- Replaced the workspace glyph-based controls with `lucide-react` icons for the toolbar, theme toggle, debug launcher, and workspace back link.
+
+- Kept the active draw tool selected after creating a block instead of auto-switching back to `Pick`.
+
 - Remembered each page's last `Cut` stroke as the next cut ceiling, so consecutive cuts stack against the previous cut path instead of the page boundary.
 
+- Lowered the default `Vertex merge tolerance` workspace debug setting from `0.003` to `0.002`.
+
+- Changed `Cut` endpoint interpolation to use the raw deduped stroke instead of post-merge vertices when projecting to page boundaries.
+
+- Removed the projected outline from the `Cut` tool preview so drawing only shows the raw stroke plus the filled upper region.
+
+- Added a `Cut` canvas tool that turns an open stroke into a polygon block by extending its sampled endpoints to the page boundary and selecting the region above the cut.
+
+- Regrouped the workspace canvas toolbar into page, block, zoom, and save sections with inline labels so the control rail scans more clearly.
+
+- Fixed the workspace page sidebar so the selected page card keeps a visible active border and highlight state.
+
+- Prevented the mobile canvas toolbar and helper tooltip from overflowing the review canvas by collapsing the overlay stack above the viewport on very small screens.
+
+- Fixed the small-screen workspace layout so the review sidebar/canvas can shrink and the overlaid canvas toolbar wraps inside the canvas instead of overflowing it.
+- Refactored the workspace page into a page-local state hook and tightened frontend form/focus accessibility so the upload-to-review flow is easier to maintain.
 - Added a workspace-only floating debug toolbar with persisted free-form drawing thresholds and placeholder LLM controls for future request overrides.
+- Refactored the workspace frontend so `WorkspacePage` delegates draft state and panel rendering to a page-specific controller hook and local side-panel components.
 - Tightened the default free-form vertex merge tolerance in the workspace debug controls from `0.005` to `0.003`.
 - Added the initial OneMoon full-stack scaffold with interactive block review, LaTeX assembly, and a Python ingestion pipeline.
 - Added the Phase 1 manual-segmentation workflow with page drafts, atomic layout save, and page review state.

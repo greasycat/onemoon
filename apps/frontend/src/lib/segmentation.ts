@@ -20,6 +20,7 @@ export interface DraftBlock {
   source: BlockSource
   shape_type: BlockShapeType
   vertices: BlockVertex[] | null
+  cut_path?: BlockVertex[] | null
   parent_block_id?: string | null
   geometry: BlockGeometry
   confidence: number
@@ -87,6 +88,92 @@ export function normalizeVertices(vertices: BlockVertex[] | null | undefined): B
   return vertices.map(clampVertex)
 }
 
+function verticesAreNear(first: BlockVertex, second: BlockVertex, epsilon: number) {
+  return Math.abs(first.x - second.x) <= epsilon && Math.abs(first.y - second.y) <= epsilon
+}
+
+function dedupeSequentialVertices(vertices: BlockVertex[], epsilon: number) {
+  return vertices.reduce<BlockVertex[]>((accumulator, vertex) => {
+    const previous = accumulator[accumulator.length - 1]
+    if (!previous || !verticesAreNear(previous, vertex, epsilon)) {
+      accumulator.push(vertex)
+    }
+    return accumulator
+  }, [])
+}
+
+function normalizePathOrientation(path: BlockVertex[]) {
+  if (path.length < 2) {
+    return path
+  }
+  const start = path[0]
+  const end = path[path.length - 1]
+  if (start.x < end.x - Number.EPSILON) {
+    return path
+  }
+  if (start.x > end.x + Number.EPSILON) {
+    return [...path].reverse()
+  }
+  return start.y <= end.y ? path : [...path].reverse()
+}
+
+function pathAverageY(path: BlockVertex[]) {
+  return path.reduce((sum, vertex) => sum + vertex.y, 0) / path.length
+}
+
+function circularSlice(vertices: BlockVertex[], startIndex: number, endIndex: number) {
+  if (vertices.length === 0) {
+    return []
+  }
+  const result: BlockVertex[] = []
+  let index = startIndex
+  while (true) {
+    result.push(vertices[index])
+    if (index === endIndex) {
+      return result
+    }
+    index = (index + 1) % vertices.length
+  }
+}
+
+function deriveCutPath(vertices: BlockVertex[] | null): BlockVertex[] | null {
+  if (!vertices || vertices.length < 4) {
+    return null
+  }
+
+  const epsilon = 0.001
+  const geometry = geometryFromVertices(vertices)
+  if (geometry.x > epsilon || geometry.x + geometry.width < 1 - epsilon || geometry.width < 1 - epsilon * 2) {
+    return null
+  }
+
+  const leftIndices = vertices.flatMap((vertex, index) => (vertex.x <= epsilon ? [index] : []))
+  const rightIndices = vertices.flatMap((vertex, index) => (vertex.x >= 1 - epsilon ? [index] : []))
+  if (leftIndices.length === 0 || rightIndices.length === 0) {
+    return null
+  }
+
+  const leftCutIndex = leftIndices.reduce((selected, index) =>
+    vertices[index].y > vertices[selected].y ? index : selected,
+  )
+  const rightCutIndex = rightIndices.reduce((selected, index) =>
+    vertices[index].y > vertices[selected].y ? index : selected,
+  )
+  if (leftCutIndex === rightCutIndex) {
+    return null
+  }
+
+  const firstChain = normalizePathOrientation(dedupeSequentialVertices(circularSlice(vertices, leftCutIndex, rightCutIndex), epsilon))
+  const secondChain = normalizePathOrientation(dedupeSequentialVertices(circularSlice(vertices, rightCutIndex, leftCutIndex), epsilon))
+  const lowerChain = pathAverageY(firstChain) > pathAverageY(secondChain) ? firstChain : secondChain
+  const upperChain = lowerChain === firstChain ? secondChain : firstChain
+
+  if (lowerChain.length < 2 || lowerChain[0].x > epsilon || lowerChain[lowerChain.length - 1].x < 1 - epsilon) {
+    return null
+  }
+  return pathAverageY(lowerChain) > pathAverageY(upperChain) + epsilon ? lowerChain : null
+}
+
 export function translateVertices(vertices: BlockVertex[], deltaX: number, deltaY: number): BlockVertex[] {
   return vertices.map((vertex) =>
     clampVertex({
@@ -110,6 +197,7 @@ export function pageToDraft(page: PageResponse): DraftPageLayout {
 }
 
 export function toDraftBlock(block: BlockResponse): DraftBlock {
+  const vertices = normalizeVertices(block.vertices)
   return {
     id: block.id,
     client_id: block.id,
@@ -118,7 +206,8 @@ export function toDraftBlock(block: BlockResponse): DraftBlock {
     approval: block.approval,
     source: block.source,
     shape_type: block.shape_type,
-    vertices: normalizeVertices(block.vertices),
+    vertices,
+    cut_path: block.shape_type === 'polygon' ? deriveCutPath(vertices) : null,
     parent_block_id: block.parent_block_id,
     geometry: block.geometry,
     confidence: block.confidence,
@@ -134,10 +223,11 @@ function normalizeOrder(blocks: DraftBlock[]): DraftBlock[] {
 
 export function createManualBlock(
   geometry: BlockGeometry,
-  options: { shape_type?: BlockShapeType; vertices?: BlockVertex[] | null } = {},
+  options: { shape_type?: BlockShapeType; vertices?: BlockVertex[] | null; cut_path?: BlockVertex[] | null } = {},
 ): DraftBlock {
   const shapeType = options.shape_type ?? 'rect'
   const vertices = shapeType === 'polygon' ? normalizeVertices(options.vertices) : null
+  const cutPath = normalizeVertices(options.cut_path)
   const nextGeometry = shapeType === 'polygon' && vertices ? geometryFromVertices(vertices) : clampGeometry(geometry)
   return {
     client_id: makeClientId(),
@@ -147,6 +237,7 @@ export function createManualBlock(
     source: 'manual',
     shape_type: shapeType,
     vertices,
+    cut_path: cutPath,
     parent_block_id: null,
     geometry: nextGeometry,
     confidence: 1,
@@ -194,6 +285,28 @@ export function deleteDraftBlock(draft: DraftPageLayout, blockKey: string): Draf
     review_status: draft.review_status === 'unreviewed' ? 'in_review' : draft.review_status,
     blocks: normalizeOrder(draft.blocks.filter((block) => draftBlockKey(block) !== blockKey)),
   }
+}
+
+export function deleteDraftBlocks(draft: DraftPageLayout, blockKeys: Iterable<string>): DraftPageLayout {
+  const keysToDelete = new Set(blockKeys)
+  if (keysToDelete.size === 0) {
+    return draft
+  }
+  return {
+    ...draft,
+    review_status: draft.review_status === 'unreviewed' ? 'in_review' : draft.review_status,
+    blocks: normalizeOrder(draft.blocks.filter((block) => !keysToDelete.has(draftBlockKey(block)))),
+  }
+}
+
+export function getLatestDraftCutPath(draft: DraftPageLayout): BlockVertex[] | null {
+  for (let index = draft.blocks.length - 1; index >= 0; index -= 1) {
+    const cutPath = draft.blocks[index]?.cut_path
+    if (cutPath && cutPath.length > 1) {
+      return cutPath
+    }
+  }
+  return null
 }
 
 export function duplicateDraftBlock(draft: DraftPageLayout, blockKey: string): { draft: DraftPageLayout; selectedBlockKey: string } {

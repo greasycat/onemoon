@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import { Bug, X } from 'lucide-react'
 
 import {
   WORKSPACE_DEBUG_SETTING_CONFIGS,
@@ -142,7 +143,7 @@ export function WorkspaceDebugToolbar({ settings, onChange, onReset }: Workspace
       >
         <span className="workspace-debug-launcher-label">Debug</span>
         <span className="workspace-debug-launcher-icon" aria-hidden="true">
-          {isOpen ? '×' : '⊕'}
+          {isOpen ? <X /> : <Bug />}
         </span>
       </button>
     </div>

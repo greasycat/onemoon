@@ -14,6 +14,7 @@ export type JobStatus = 'pending' | 'running' | 'completed' | 'failed'
 export type PageReviewStatus = 'unreviewed' | 'in_review' | 'segmented'
 export type BlockSource = 'manual' | 'auto'
 export type BlockShapeType = 'rect' | 'polygon'
+export type BlockSelectionMode = 'replace' | 'toggle' | 'range'
 
 export interface ProjectDocumentSummary {
   id: string

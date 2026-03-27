@@ -1,8 +1,27 @@
+import type { LucideIcon } from 'lucide-react'
+import {
+  ArrowLeft,
+  ArrowRight,
+  BadgeCheck,
+  MousePointer2,
+  PenTool,
+  Play,
+  Ratio,
+  RotateCcw,
+  Save,
+  Scan,
+  Scissors,
+  Square,
+  Trash2,
+  ZoomIn,
+  ZoomOut,
+} from 'lucide-react'
+
 type ActiveTool = 'select' | 'rect' | 'freeform' | 'cut'
 type ViewMode = 'fit-page' | 'fit-width' | 'manual'
 
-function reviewIcon(label: string) {
-  return label === 'Reopen Page' ? '↺' : '▶'
+function reviewIcon(label: string): LucideIcon {
+  return label === 'Reopen Page' ? RotateCcw : Play
 }
 
 function reviewShortLabel(label: string) {
@@ -12,19 +31,24 @@ function reviewShortLabel(label: string) {
 interface ToolbarButtonProps {
   className: string
   label: string
-  icon: string
+  icon: LucideIcon
   ariaLabel: string
   title: string
+  shortcut?: string
   disabled?: boolean
   onClick: () => void
 }
 
-function ToolbarButton({ className, label, icon, ariaLabel, title, disabled, onClick }: ToolbarButtonProps) {
+function ToolbarButton({ className, label, icon, ariaLabel, title, shortcut, disabled, onClick }: ToolbarButtonProps) {
+  const Icon = icon
   return (
     <button type="button" className={className} aria-label={ariaLabel} title={title} disabled={disabled} onClick={onClick}>
-      <span className="toolbar-button-text">{label}</span>
+      <span className="toolbar-button-main">
+        <span className="toolbar-button-text">{label}</span>
+        {shortcut ? <span className="toolbar-button-shortcut">{shortcut}</span> : null}
+      </span>
       <span className="toolbar-button-icon" aria-hidden="true">
-        {icon}
+        <Icon />
       </span>
     </button>
   )
@@ -116,7 +140,7 @@ export function EditorToolbar({
           <ToolbarButton
             className="secondary-button toolbar-icon-button"
             label="Prev"
-            icon="←"
+            icon={ArrowLeft}
             ariaLabel="Previous page"
             title="Previous page"
             disabled={!canGoPrevious}
@@ -125,7 +149,7 @@ export function EditorToolbar({
           <ToolbarButton
             className="secondary-button toolbar-icon-button"
             label="Next"
-            icon="→"
+            icon={ArrowRight}
             ariaLabel="Next page"
             title="Next page"
             disabled={!canGoNext}
@@ -139,35 +163,39 @@ export function EditorToolbar({
           <ToolbarButton
             className={`pill-button toolbar-icon-button ${activeTool === 'select' ? 'pill-button-active' : ''}`}
             label="Pick"
-            icon="↖"
+            icon={MousePointer2}
             ariaLabel="Select tool"
-            title="Select tool"
+            title="Select tool (P)"
+            shortcut="P"
             onClick={() => onSetTool('select')}
           />
           <ToolbarButton
             className={`pill-button toolbar-icon-button ${activeTool === 'rect' ? 'pill-button-active' : ''}`}
             label="Rect"
-            icon="✎"
+            icon={Square}
             ariaLabel="Draw rectangle block"
-            title="Draw rectangle block"
+            title="Draw rectangle block (R)"
+            shortcut="R"
             disabled={activePageLocked}
             onClick={() => onSetTool('rect')}
           />
           <ToolbarButton
             className={`pill-button toolbar-icon-button ${activeTool === 'freeform' ? 'pill-button-active' : ''}`}
             label="Free"
-            icon="⌁"
+            icon={PenTool}
             ariaLabel="Draw free-form block"
-            title="Draw free-form block"
+            title="Draw free-form block (F)"
+            shortcut="F"
             disabled={activePageLocked}
             onClick={() => onSetTool('freeform')}
           />
           <ToolbarButton
             className={`pill-button toolbar-icon-button ${activeTool === 'cut' ? 'pill-button-active' : ''}`}
             label="Cut"
-            icon="≈"
+            icon={Scissors}
             ariaLabel="Draw cut block"
-            title="Draw cut block"
+            title="Draw cut block (C)"
+            shortcut="C"
             disabled={activePageLocked}
             onClick={() => onSetTool('cut')}
           />
@@ -179,7 +207,7 @@ export function EditorToolbar({
           <ToolbarButton
             className="secondary-button toolbar-icon-button"
             label="Out"
-            icon="−"
+            icon={ZoomOut}
             ariaLabel="Zoom out"
             title="Zoom out"
             onClick={onZoomOut}
@@ -187,7 +215,7 @@ export function EditorToolbar({
           <ToolbarButton
             className="secondary-button toolbar-icon-button"
             label="In"
-            icon="+"
+            icon={ZoomIn}
             ariaLabel="Zoom in"
             title="Zoom in"
             onClick={onZoomIn}
@@ -195,7 +223,7 @@ export function EditorToolbar({
           <ToolbarButton
             className="secondary-button toolbar-icon-button"
             label="Fit"
-            icon="↔"
+            icon={Scan}
             ariaLabel="Fit page"
             title="Fit page"
             onClick={onFitPage}
@@ -203,7 +231,7 @@ export function EditorToolbar({
           <ToolbarButton
             className="secondary-button toolbar-icon-button toolbar-icon-button-wide"
             label="100%"
-            icon="1:1"
+            icon={Ratio}
             ariaLabel="Reset zoom to 100%"
             title="Reset zoom to 100%"
             onClick={onResetZoom}
@@ -216,7 +244,7 @@ export function EditorToolbar({
           <ToolbarButton
             className="secondary-button toolbar-icon-button"
             label="Discard"
-            icon="×"
+            icon={Trash2}
             ariaLabel="Discard draft changes"
             title="Discard draft changes"
             disabled={!canDiscard}
@@ -225,9 +253,10 @@ export function EditorToolbar({
           <ToolbarButton
             className="primary-button toolbar-icon-button"
             label="Save"
-            icon="✓"
+            icon={Save}
             ariaLabel="Save draft"
-            title="Save draft"
+            title="Save draft (S or Ctrl/Cmd+S)"
+            shortcut="S"
             disabled={!canSave}
             onClick={onSave}
           />
@@ -244,10 +273,11 @@ export function EditorToolbar({
           ) : null}
           <ToolbarButton
             className="secondary-button toolbar-icon-button"
-            label="Seg"
-            icon="▣"
+            label="FIN"
+            icon={BadgeCheck}
             ariaLabel="Mark segmented"
-            title="Mark segmented"
+            title="Mark segmented (Enter or Ctrl/Cmd+Enter)"
+            shortcut="Enter"
             disabled={!canMarkSegmented}
             onClick={onMarkSegmented}
           />

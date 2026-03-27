@@ -45,19 +45,27 @@ export function LoginPage() {
         >
           <label className="field">
             <span>Username</span>
-            <input value={username} onChange={(event) => setUsername(event.target.value)} />
+            <input
+              name="username"
+              autoComplete="username"
+              spellCheck={false}
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+            />
           </label>
           <label className="field">
             <span>Password</span>
             <input
+              name="password"
               type="password"
+              autoComplete="current-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
           </label>
-          {errorMessage ? <p className="error-text">{errorMessage}</p> : null}
+          {errorMessage ? <p className="error-text" role="alert">{errorMessage}</p> : null}
           <button type="submit" className="primary-button" disabled={loginMutation.isPending}>
-            {loginMutation.isPending ? 'Signing in...' : 'Sign in'}
+            {loginMutation.isPending ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
       </section>
