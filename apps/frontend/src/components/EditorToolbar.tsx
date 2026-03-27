@@ -1,4 +1,4 @@
-type ActiveTool = 'select' | 'rect' | 'freeform'
+type ActiveTool = 'select' | 'rect' | 'freeform' | 'cut'
 type ViewMode = 'fit-page' | 'fit-width' | 'manual'
 
 function reviewIcon(label: string) {
@@ -27,6 +27,19 @@ function ToolbarButton({ className, label, icon, ariaLabel, title, disabled, onC
         {icon}
       </span>
     </button>
+  )
+}
+
+interface ToolbarSectionBreakProps {
+  label: string
+}
+
+function ToolbarSectionBreak({ label }: ToolbarSectionBreakProps) {
+  return (
+    <div className="toolbar-section-break" aria-hidden="true">
+      <div className="toolbar-divider" />
+      <span className="toolbar-group-caption">{label}</span>
+    </div>
   )
 }
 
@@ -120,9 +133,9 @@ export function EditorToolbar({
           />
         </div>
 
-        <div className="toolbar-divider" aria-hidden="true" />
+        <ToolbarSectionBreak label="Blocks" />
 
-        <div className="toolbar-button-cluster" aria-label="Tool selection">
+        <div className="toolbar-button-cluster" aria-label="Block tools">
           <ToolbarButton
             className={`pill-button toolbar-icon-button ${activeTool === 'select' ? 'pill-button-active' : ''}`}
             label="Pick"
@@ -149,14 +162,23 @@ export function EditorToolbar({
             disabled={activePageLocked}
             onClick={() => onSetTool('freeform')}
           />
+          <ToolbarButton
+            className={`pill-button toolbar-icon-button ${activeTool === 'cut' ? 'pill-button-active' : ''}`}
+            label="Cut"
+            icon="≈"
+            ariaLabel="Draw cut block"
+            title="Draw cut block"
+            disabled={activePageLocked}
+            onClick={() => onSetTool('cut')}
+          />
         </div>
 
-        <div className="toolbar-divider" aria-hidden="true" />
+        <ToolbarSectionBreak label="Zoom" />
 
         <div className="toolbar-button-cluster" aria-label="Zoom controls">
           <ToolbarButton
             className="secondary-button toolbar-icon-button"
-            label="Zoom"
+            label="Out"
             icon="−"
             ariaLabel="Zoom out"
             title="Zoom out"
@@ -164,7 +186,7 @@ export function EditorToolbar({
           />
           <ToolbarButton
             className="secondary-button toolbar-icon-button"
-            label="Zoom"
+            label="In"
             icon="+"
             ariaLabel="Zoom in"
             title="Zoom in"
@@ -172,7 +194,7 @@ export function EditorToolbar({
           />
           <ToolbarButton
             className="secondary-button toolbar-icon-button"
-            label="PAGE W"
+            label="Fit"
             icon="↔"
             ariaLabel="Fit page"
             title="Fit page"
@@ -180,7 +202,7 @@ export function EditorToolbar({
           />
           <ToolbarButton
             className="secondary-button toolbar-icon-button toolbar-icon-button-wide"
-            label="Reset"
+            label="100%"
             icon="1:1"
             ariaLabel="Reset zoom to 100%"
             title="Reset zoom to 100%"
@@ -188,12 +210,12 @@ export function EditorToolbar({
           />
         </div>
 
-        <div className="toolbar-divider" aria-hidden="true" />
+        <ToolbarSectionBreak label="Save" />
 
         <div className="toolbar-button-cluster toolbar-button-cluster-actions" aria-label="Draft actions">
           <ToolbarButton
             className="secondary-button toolbar-icon-button"
-            label="ALL"
+            label="Discard"
             icon="×"
             ariaLabel="Discard draft changes"
             title="Discard draft changes"

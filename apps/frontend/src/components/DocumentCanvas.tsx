@@ -17,7 +17,7 @@ import {
 import type { BlockGeometry, BlockShapeType, BlockVertex, PageResponse } from '../lib/types'
 import type { WorkspaceDebugSettings } from '../lib/workspaceDebug'
 
-type ActiveTool = 'select' | 'rect' | 'freeform'
+type ActiveTool = 'select' | 'rect' | 'freeform' | 'cut'
 type ResizeHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
 type CanvasPoint = { x: number; y: number }
 
@@ -54,6 +54,13 @@ type InteractionState =
       settings: WorkspaceDebugSettings
     }
   | {
+      kind: 'cut-create'
+      pointerId: number
+      points: CanvasPoint[]
+      current: CanvasPoint
+      settings: WorkspaceDebugSettings
+    }
+  | {
       kind: 'move'
       pointerId: number
       blockId: string
@@ -82,6 +89,7 @@ type InteractionState =
 interface DocumentCanvasProps {
   page: PageResponse
   blocks: DraftBlock[]
+  cutCeilingPath: BlockVertex[] | null
   toolbar: EditorToolbarProps
   toast?: {
     tone: 'saving' | 'success' | 'error'
@@ -95,7 +103,12 @@ interface DocumentCanvasProps {
   debugSettings: WorkspaceDebugSettings
   onViewportChange: (viewport: CanvasViewportState) => void
   onSelectBlock: (blockId: string | null) => void
-  onCreateBlock: (payload: { shape_type: BlockShapeType; geometry: BlockGeometry; vertices: BlockVertex[] | null }) => void
+  onCreateBlock: (payload: {
+    shape_type: BlockShapeType
+    geometry: BlockGeometry
+    vertices: BlockVertex[] | null
+    cut_path?: BlockVertex[] | null
+  }) => void
   onUpdateBlock: (blockId: string, payload: { geometry: BlockGeometry; vertices: BlockVertex[] | null }) => void
 }
 
@@ -216,7 +229,44 @@ function simplifyFreeformVertices(
   return simplified
 }
 
-function buildDraftFreeformVertices(points: CanvasPoint[], current: CanvasPoint, pointEpsilon: number): BlockVertex[] {
+function simplifyOpenPathVertices(
+  vertices: BlockVertex[],
+  pointEpsilon: number,
+  freeformSimplifyEpsilon: number,
+): BlockVertex[] {
+  if (vertices.length <= 2) {
+    return vertices
+  }
+
+  const simplified = [...vertices]
+  let changed = true
+  while (changed && simplified.length > 2) {
+    changed = false
+    for (let index = 1; index < simplified.length - 1; index += 1) {
+      const previous = simplified[index - 1]
+      const current = simplified[index]
+      const next = simplified[index + 1]
+      if (
+        pointsAreNear(previous, current, pointEpsilon) ||
+        pointsAreNear(current, next, pointEpsilon) ||
+        distanceToSegment(current, previous, next) > freeformSimplifyEpsilon
+      ) {
+        continue
+      }
+      simplified.splice(index, 1)
+      changed = true
+      break
+    }
+  }
+  return simplified
+}
+
+function buildDraftPathVertices(
+  points: CanvasPoint[],
+  current: CanvasPoint,
+  pointEpsilon: number,
+  shouldCloseLoop: boolean,
+): BlockVertex[] {
   const deduped = points.reduce<CanvasPoint[]>((accumulator, point) => {
     if (accumulator.length === 0 || !pointsAreNear(accumulator[accumulator.length - 1], point, pointEpsilon)) {
       accumulator.push(clampVertex(point))
@@ -228,11 +278,19 @@ function buildDraftFreeformVertices(points: CanvasPoint[], current: CanvasPoint,
     deduped.push(clampVertex(current))
   }
 
-  if (deduped.length > 1 && pointsAreNear(deduped[0], deduped[deduped.length - 1], pointEpsilon)) {
+  if (shouldCloseLoop && deduped.length > 1 && pointsAreNear(deduped[0], deduped[deduped.length - 1], pointEpsilon)) {
     deduped.pop()
   }
 
   return deduped
+}
+
+function buildDraftFreeformVertices(points: CanvasPoint[], current: CanvasPoint, pointEpsilon: number): BlockVertex[] {
+  return buildDraftPathVertices(points, current, pointEpsilon, true)
+}
+
+function buildDraftCutVertices(points: CanvasPoint[], current: CanvasPoint, pointEpsilon: number): BlockVertex[] {
+  return buildDraftPathVertices(points, current, pointEpsilon, false)
 }
 
 function finalizeFreeformVertices(points: CanvasPoint[], current: CanvasPoint, settings: WorkspaceDebugSettings): BlockVertex[] {
@@ -243,6 +301,11 @@ function finalizeFreeformVertices(points: CanvasPoint[], current: CanvasPoint, s
     settings.freeformSimplifyEpsilon,
   )
   return isValidPolygon(simplifiedVertices, settings.minBlockSize) ? simplifiedVertices : draftVertices
+}
+
+function finalizeCutPathVertices(points: CanvasPoint[], current: CanvasPoint, settings: WorkspaceDebugSettings): BlockVertex[] {
+  const draftVertices = buildDraftCutVertices(points, current, settings.pointEpsilon)
+  return simplifyOpenPathVertices(draftVertices, settings.pointEpsilon, settings.freeformSimplifyEpsilon)
 }
 
 function maybeAppendPoint(points: CanvasPoint[], current: CanvasPoint, freeformDrawStep: number): CanvasPoint[] {
@@ -363,10 +426,272 @@ function polygonPointsToCanvasString(points: CanvasPoint[]) {
   return points.map((point) => `${point.x * 100},${point.y * 100}`).join(' ')
 }
 
+function lineMagnitude(vector: CanvasPoint) {
+  return Math.hypot(vector.x, vector.y)
+}
+
+function sampleCountForPath(points: CanvasPoint[]) {
+  return Math.min(points.length, Math.max(2, Math.min(8, Math.round(points.length * 0.2))))
+}
+
+function boundaryProgress(point: CanvasPoint) {
+  const epsilon = 1e-6
+  if (Math.abs(point.y) <= epsilon) {
+    return clamp(point.x)
+  }
+  if (Math.abs(point.x - 1) <= epsilon) {
+    return 1 + clamp(point.y)
+  }
+  if (Math.abs(point.y - 1) <= epsilon) {
+    return 3 - clamp(point.x)
+  }
+  return 4 - clamp(point.y)
+}
+
+function rayToBoundary(origin: CanvasPoint, direction: CanvasPoint): CanvasPoint | null {
+  const candidates: CanvasPoint[] = []
+  const epsilon = 1e-6
+
+  if (Math.abs(direction.x) > epsilon) {
+    for (const boundaryX of [0, 1]) {
+      const t = (boundaryX - origin.x) / direction.x
+      if (t <= epsilon) {
+        continue
+      }
+      const y = origin.y + t * direction.y
+      if (y >= -epsilon && y <= 1 + epsilon) {
+        candidates.push(clampVertex({ x: boundaryX, y }))
+      }
+    }
+  }
+
+  if (Math.abs(direction.y) > epsilon) {
+    for (const boundaryY of [0, 1]) {
+      const t = (boundaryY - origin.y) / direction.y
+      if (t <= epsilon) {
+        continue
+      }
+      const x = origin.x + t * direction.x
+      if (x >= -epsilon && x <= 1 + epsilon) {
+        candidates.push(clampVertex({ x, y: boundaryY }))
+      }
+    }
+  }
+
+  if (candidates.length === 0) {
+    return null
+  }
+
+  return candidates.reduce((nearest, candidate) =>
+    distanceBetween(origin, candidate) < distanceBetween(origin, nearest) ? candidate : nearest,
+  )
+}
+
+const perimeterCorners: CanvasPoint[] = [
+  { x: 0, y: 0 },
+  { x: 1, y: 0 },
+  { x: 1, y: 1 },
+  { x: 0, y: 1 },
+]
+
+function clockwiseBoundaryCorners(from: CanvasPoint, to: CanvasPoint) {
+  const fromProgress = boundaryProgress(from)
+  let toProgress = boundaryProgress(to)
+  if (toProgress < fromProgress) {
+    toProgress += 4
+  }
+
+  return perimeterCorners.filter((_, index) => {
+    let progress = index
+    if (progress < fromProgress) {
+      progress += 4
+    }
+    return progress > fromProgress && progress < toProgress
+  })
+}
+
+function dedupeSequentialVertices(vertices: BlockVertex[], pointEpsilon: number) {
+  return vertices.reduce<BlockVertex[]>((accumulator, vertex) => {
+    if (accumulator.length === 0 || !pointsAreNear(accumulator[accumulator.length - 1], vertex, pointEpsilon)) {
+      accumulator.push(vertex)
+    }
+    return accumulator
+  }, [])
+}
+
+function polygonSignedArea(vertices: BlockVertex[]) {
+  let area = 0
+  for (let index = 0; index < vertices.length; index += 1) {
+    const current = vertices[index]
+    const next = vertices[(index + 1) % vertices.length]
+    area += current.x * next.y - next.x * current.y
+  }
+  return area / 2
+}
+
+function polygonCentroid(vertices: BlockVertex[]) {
+  const area = polygonSignedArea(vertices)
+  if (Math.abs(area) <= Number.EPSILON) {
+    const fallback = vertices.reduce(
+      (sum, vertex) => ({ x: sum.x + vertex.x, y: sum.y + vertex.y }),
+      { x: 0, y: 0 },
+    )
+    return { x: fallback.x / vertices.length, y: fallback.y / vertices.length }
+  }
+
+  let centroidX = 0
+  let centroidY = 0
+  for (let index = 0; index < vertices.length; index += 1) {
+    const current = vertices[index]
+    const next = vertices[(index + 1) % vertices.length]
+    const cross = current.x * next.y - next.x * current.y
+    centroidX += (current.x + next.x) * cross
+    centroidY += (current.y + next.y) * cross
+  }
+
+  return {
+    x: centroidX / (6 * area),
+    y: centroidY / (6 * area),
+  }
+}
+
+function normalizeCutPathOrientation(path: BlockVertex[]) {
+  if (path.length < 2) {
+    return path
+  }
+  const start = path[0]
+  const end = path[path.length - 1]
+  if (start.x < end.x - Number.EPSILON) {
+    return path
+  }
+  if (start.x > end.x + Number.EPSILON) {
+    return [...path].reverse()
+  }
+  return start.y <= end.y ? path : [...path].reverse()
+}
+
+function pathAverageY(path: BlockVertex[]) {
+  return path.reduce((sum, vertex) => sum + vertex.y, 0) / path.length
+}
+
+function buildExtendedCutPath(
+  path: BlockVertex[],
+  settings: WorkspaceDebugSettings,
+  interpolationPath: BlockVertex[] = path,
+): BlockVertex[] | null {
+  if (path.length < 2 || interpolationPath.length < 2) {
+    return null
+  }
+
+  const start = interpolationPath[0]
+  const end = interpolationPath[interpolationPath.length - 1]
+  if (pointsAreNear(start, end, settings.pointEpsilon * 2)) {
+    return null
+  }
+
+  const sampleCount = sampleCountForPath(interpolationPath)
+  const startSample = interpolationPath.slice(0, sampleCount)
+  const endSample = interpolationPath.slice(-sampleCount)
+  const fallbackDirection = {
+    x: end.x - start.x,
+    y: end.y - start.y,
+  }
+
+  const startDirection = {
+    x: startSample[0].x - startSample[startSample.length - 1].x,
+    y: startSample[0].y - startSample[startSample.length - 1].y,
+  }
+  const endDirection = {
+    x: endSample[endSample.length - 1].x - endSample[0].x,
+    y: endSample[endSample.length - 1].y - endSample[0].y,
+  }
+
+  const safeStartDirection = lineMagnitude(startDirection) > Number.EPSILON ? startDirection : { ...fallbackDirection, x: -fallbackDirection.x, y: -fallbackDirection.y }
+  const safeEndDirection = lineMagnitude(endDirection) > Number.EPSILON ? endDirection : fallbackDirection
+  const startBoundary = rayToBoundary(start, safeStartDirection)
+  const endBoundary = rayToBoundary(end, safeEndDirection)
+  if (!startBoundary || !endBoundary || pointsAreNear(startBoundary, endBoundary, settings.pointEpsilon)) {
+    return null
+  }
+
+  if (Math.abs(endBoundary.x - startBoundary.x) < Math.abs(endBoundary.y - startBoundary.y)) {
+    return null
+  }
+
+  const cutPath = dedupeSequentialVertices(
+    [
+      ...(pointsAreNear(startBoundary, start, settings.pointEpsilon) ? [] : [startBoundary]),
+      ...path,
+      ...(pointsAreNear(endBoundary, end, settings.pointEpsilon) ? [] : [endBoundary]),
+    ],
+    settings.pointEpsilon,
+  )
+  return normalizeCutPathOrientation(cutPath)
+}
+
+function buildRegionBetweenPaths(ceilingPath: BlockVertex[], floorPath: BlockVertex[], settings: WorkspaceDebugSettings) {
+  if (ceilingPath.length < 2 || floorPath.length < 2) {
+    return null
+  }
+
+  if (pathAverageY(floorPath) <= pathAverageY(ceilingPath) + settings.pointEpsilon) {
+    return null
+  }
+
+  const polygon = dedupeSequentialVertices([...ceilingPath, ...[...floorPath].reverse()], settings.pointEpsilon)
+  if (polygon.length > 1 && pointsAreNear(polygon[0], polygon[polygon.length - 1], settings.pointEpsilon)) {
+    polygon.pop()
+  }
+  return isValidPolygon(polygon, settings.minBlockSize) ? polygon : null
+}
+
+function buildBoundaryCeilingCandidates(path: BlockVertex[], settings: WorkspaceDebugSettings) {
+  const start = path[0]
+  const end = path[path.length - 1]
+  return [
+    dedupeSequentialVertices([start, ...clockwiseBoundaryCorners(start, end), end], settings.pointEpsilon),
+    dedupeSequentialVertices([start, ...clockwiseBoundaryCorners(end, start).reverse(), end], settings.pointEpsilon),
+  ]
+}
+
+function buildCutRegion(
+  path: BlockVertex[],
+  settings: WorkspaceDebugSettings,
+  interpolationPath: BlockVertex[] = path,
+  ceilingPath: BlockVertex[] | null = null,
+): { polygon: BlockVertex[]; cutPath: BlockVertex[] } | null {
+  const cutPath = buildExtendedCutPath(path, settings, interpolationPath)
+  if (!cutPath) {
+    return null
+  }
+
+  const normalizedCeilingPath = ceilingPath ? normalizeCutPathOrientation(dedupeSequentialVertices(ceilingPath, settings.pointEpsilon)) : null
+  if (normalizedCeilingPath) {
+    const polygon = buildRegionBetweenPaths(normalizedCeilingPath, cutPath, settings)
+    return polygon ? { polygon, cutPath } : null
+  }
+
+  const candidates = buildBoundaryCeilingCandidates(cutPath, settings)
+    .map((candidate) => {
+      const polygon = buildRegionBetweenPaths(candidate, cutPath, settings)
+      return polygon ? { polygon, cutPath } : null
+    })
+    .filter((candidate): candidate is { polygon: BlockVertex[]; cutPath: BlockVertex[] } => candidate !== null)
+
+  if (candidates.length === 0) {
+    return null
+  }
+
+  return candidates.reduce((selected, candidate) =>
+    polygonCentroid(candidate.polygon).y < polygonCentroid(selected.polygon).y ? candidate : selected,
+  )
+}
+
 export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasProps>(function DocumentCanvas(
   {
     page,
     blocks,
+    cutCeilingPath,
     toolbar,
     toast,
     tooltipLabel,
@@ -550,9 +875,9 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
         return
       }
 
-      if (currentInteraction.kind === 'freeform-create') {
+      if (currentInteraction.kind === 'freeform-create' || currentInteraction.kind === 'cut-create') {
         setInteraction({
-          kind: 'freeform-create',
+          kind: currentInteraction.kind,
           pointerId: currentInteraction.pointerId,
           points: maybeAppendPoint(currentInteraction.points, point, currentInteraction.settings.freeformDrawStep),
           current: point,
@@ -641,6 +966,31 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
         })
       }
 
+      if (currentInteraction.kind === 'cut-create') {
+        const rawPathVertices = buildDraftCutVertices(
+          currentInteraction.points,
+          currentInteraction.current,
+          currentInteraction.settings.pointEpsilon,
+        )
+        const pathVertices = finalizeCutPathVertices(
+          currentInteraction.points,
+          currentInteraction.current,
+          currentInteraction.settings,
+        )
+        const cutRegion = buildCutRegion(pathVertices, currentInteraction.settings, rawPathVertices, cutCeilingPath)
+        if (!cutRegion || !isValidPolygon(cutRegion.polygon, currentInteraction.settings.minBlockSize)) {
+          showCanvasToast({ tone: 'error', message: 'Ignored invalid cut path.' })
+          setInteraction(null)
+          return
+        }
+        onCreateBlock({
+          shape_type: 'polygon',
+          geometry: geometryFromVertices(cutRegion.polygon),
+          vertices: cutRegion.polygon,
+          cut_path: cutRegion.cutPath,
+        })
+      }
+
       if (currentInteraction.kind === 'vertex') {
         const nextBlock = blocks.find((block) => draftBlockKey(block) === currentInteraction.blockId)
         if (
@@ -667,7 +1017,7 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
       window.removeEventListener('pointermove', handlePointerMove)
       window.removeEventListener('pointerup', handlePointerUp)
     }
-  }, [blocks, interaction, isLocked, onCreateBlock, onUpdateBlock])
+  }, [blocks, cutCeilingPath, interaction, isLocked, onCreateBlock, onUpdateBlock])
 
   useEffect(() => {
     if (!isPanning) {
@@ -714,6 +1064,14 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
   const draftFreeformPoints =
     interaction?.kind === 'freeform-create'
       ? buildDraftFreeformVertices(interaction.points, interaction.current, interaction.settings.pointEpsilon)
+      : null
+  const draftCutPoints =
+    interaction?.kind === 'cut-create'
+      ? buildDraftCutVertices(interaction.points, interaction.current, interaction.settings.pointEpsilon)
+      : null
+  const draftCutPolygon =
+    interaction?.kind === 'cut-create' && draftCutPoints
+      ? buildCutRegion(draftCutPoints, interaction.settings, draftCutPoints, cutCeilingPath)?.polygon ?? null
       : null
   const activeToast = toast ?? localToast
 
@@ -791,13 +1149,23 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
                 })
                 return
               }
-              setInteraction({
-                kind: 'freeform-create',
-                pointerId: event.pointerId,
-                points: [point],
-                current: point,
-                settings: { ...debugSettings },
-              })
+              setInteraction(
+                activeTool === 'freeform'
+                  ? {
+                      kind: 'freeform-create',
+                      pointerId: event.pointerId,
+                      points: [point],
+                      current: point,
+                      settings: { ...debugSettings },
+                    }
+                  : {
+                      kind: 'cut-create',
+                      pointerId: event.pointerId,
+                      points: [point],
+                      current: point,
+                      settings: { ...debugSettings },
+                    },
+              )
             }}
           >
             <img className="canvas-image" src={withApiRoot(page.image_url) ?? undefined} alt={`Page ${page.page_index + 1}`} />
@@ -947,6 +1315,14 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
             {draftFreeformPoints && draftFreeformPoints.length >= 2 ? (
               <svg className="canvas-draft-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
                 <polygon className="canvas-draft-polygon" points={polygonPointsToCanvasString(draftFreeformPoints)} />
+              </svg>
+            ) : null}
+            {draftCutPoints && draftCutPoints.length >= 2 ? (
+              <svg className="canvas-draft-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                {draftCutPolygon ? (
+                  <polygon className="canvas-draft-cut-region" points={polygonPointsToCanvasString(draftCutPolygon)} />
+                ) : null}
+                <polyline className="canvas-draft-polyline" points={polygonPointsToCanvasString(draftCutPoints)} />
               </svg>
             ) : null}
           </div>

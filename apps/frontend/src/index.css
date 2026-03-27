@@ -1,4 +1,5 @@
 :root {
+  color-scheme: dark;
   font-family: "Space Grotesk", "Avenir Next", "Segoe UI", sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -51,6 +52,7 @@
 }
 
 :root[data-theme='light'] {
+  color-scheme: light;
   --page-background:
     radial-gradient(circle at top left, rgba(224, 89, 76, 0.16), transparent 28%),
     radial-gradient(circle at top right, rgba(73, 164, 135, 0.12), transparent 34%),
@@ -252,6 +254,7 @@ button {
 .login-card h1 {
   margin: 0;
   font-size: clamp(1.4rem, 3vw, 2.4rem);
+  text-wrap: balance;
 }
 
 .eyebrow {
@@ -294,6 +297,23 @@ button {
   background: var(--control-bg);
   color: var(--text);
   padding: 0.9rem 1rem;
+}
+
+.field input:focus-visible,
+.field select:focus-visible,
+.field textarea:focus-visible,
+.primary-button:focus-visible,
+.secondary-button:focus-visible,
+.pill-button:focus-visible,
+.page-card:focus-visible,
+.block-list-item:focus-visible,
+.theme-toggle:focus-visible,
+.document-list a:focus-visible,
+.project-card-select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-color: var(--accent-strong);
+  box-shadow: 0 0 0 4px var(--accent-ring);
 }
 
 .primary-button,
@@ -410,6 +430,17 @@ button {
   text-align: left;
 }
 
+.project-card-select {
+  width: 100%;
+  display: grid;
+  gap: 0.65rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
 .project-card-active,
 .page-card-active {
   border-color: var(--card-active-border);
@@ -421,6 +452,11 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+}
+
+.project-card-action {
+  font-size: 0.88rem;
+  color: var(--muted);
 }
 
 .document-list {
@@ -727,6 +763,19 @@ button {
   vector-effect: non-scaling-stroke;
 }
 
+.canvas-draft-cut-region {
+  fill: rgba(49, 35, 20, 0.16);
+}
+
+.canvas-draft-polyline {
+  fill: none;
+  stroke: rgba(37, 25, 14, 0.92);
+  stroke-width: 0.42;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
 .crop-preview {
   border-radius: 18px;
   overflow: hidden;
@@ -1009,11 +1058,18 @@ button {
 
 .workspace-main,
 .workspace-sidepanels {
+  min-width: 0;
   align-content: start;
 }
 
 .page-sidebar {
+  min-width: 0;
   padding: 1.1rem;
+}
+
+.editor-workbench,
+.workspace-sidepanels > .panel {
+  min-width: 0;
 }
 
 .workspace-shell .muted-text,
@@ -1123,6 +1179,15 @@ button {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
+.workspace-shell .page-card-active,
+.workspace-shell .page-card-active:hover {
+  border-color: rgba(192, 102, 70, 0.62);
+  background: rgba(255, 239, 231, 0.94);
+  box-shadow:
+    inset 0 0 0 1px rgba(192, 102, 70, 0.18),
+    0 16px 30px rgba(128, 69, 47, 0.08);
+}
+
 .workspace-shell .page-card img {
   box-shadow: 0 12px 24px rgba(64, 46, 24, 0.12);
 }
@@ -1144,8 +1209,8 @@ button {
 .workspace-shell .editor-toolbar {
   display: grid;
   gap: 0.4rem;
-  width: 6.35rem;
-  max-width: 6.35rem;
+  width: 6.85rem;
+  max-width: 6.85rem;
   padding: 0.5rem 0.45rem;
   border: 1px solid rgba(98, 74, 44, 0.14);
   border-radius: 20px;
@@ -1200,10 +1265,27 @@ button {
   margin-left: 0;
 }
 
+.toolbar-section-break {
+  display: grid;
+  gap: 0.24rem;
+  justify-items: stretch;
+}
+
 .toolbar-divider {
   height: 1px;
   width: 100%;
   background: linear-gradient(90deg, transparent, rgba(112, 83, 50, 0.16), transparent);
+}
+
+.toolbar-group-caption {
+  display: inline-flex;
+  justify-content: center;
+  width: 100%;
+  color: rgba(98, 72, 43, 0.62);
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
 }
 
 .workspace-shell .editor-toolbar .secondary-button,
@@ -1249,8 +1331,8 @@ button {
   flex: 1 1 auto;
   min-width: 0;
   color: rgba(67, 51, 33, 0.86);
-  font-size: 0.63rem;
-  letter-spacing: 0.08em;
+  font-size: 0.61rem;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
 }
 
@@ -1585,9 +1667,13 @@ button {
     display: none;
   }
 
+  .toolbar-section-break {
+    gap: 0.12rem;
+  }
+
   .workspace-shell .editor-toolbar {
-    width: 6rem;
-    max-width: 6rem;
+    width: 6.45rem;
+    max-width: 6.45rem;
     padding: 0.45rem;
   }
 
@@ -1599,7 +1685,20 @@ button {
   .workspace-shell .canvas-overlay-stack {
     top: 0.6rem;
     left: 0.6rem;
+    right: 0.6rem;
+    width: auto;
+    flex-wrap: wrap;
     gap: 0.55rem;
+  }
+
+  .workspace-shell .canvas-overlay-stack .editor-toolbar {
+    flex: 0 0 6.45rem;
+    max-width: 6.45rem;
+  }
+
+  .workspace-shell .canvas-overlay-stack .canvas-tooltip {
+    flex: 1 1 10rem;
+    min-width: 0;
   }
 
   .workspace-debug-dock {
@@ -1630,7 +1729,8 @@ button {
   }
 
   .canvas-tooltip {
-    max-width: min(15rem, calc(100vw - 6.4rem));
+    width: min(15rem, 100%);
+    max-width: 100%;
     padding: 0.6rem 0.7rem;
     gap: 0.45rem;
   }
@@ -1638,5 +1738,35 @@ button {
   .canvas-tooltip-primary,
   .canvas-tooltip-secondary {
     width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .workspace-shell .canvas-stage {
+    display: grid;
+    gap: 0.55rem;
+  }
+
+  .workspace-shell .canvas-overlay-stack {
+    position: static;
+    display: grid;
+    gap: 0.55rem;
+    align-items: stretch;
+  }
+
+  .workspace-shell .canvas-overlay-stack .editor-toolbar {
+    flex: initial;
+    width: auto;
+    max-width: none;
+  }
+
+  .canvas-tooltip {
+    width: 100%;
+    max-width: none;
+    margin-top: 0;
+  }
+
+  .workspace-shell .canvas-viewport {
+    padding-top: 0.75rem;
   }
 }
