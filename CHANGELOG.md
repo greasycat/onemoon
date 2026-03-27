@@ -34,3 +34,12 @@
 - Added save toasts in the workspace so the Save action now shows saving, success, and error feedback.
 - Moved save toasts into the canvas top-right corner and disabled Save when a page has no blocks.
 - Lowered the canvas toast so it no longer sits on top of the nearby status badges.
+- Removed the block preview panel from the workspace side column.
+- Removed the redundant `Layout Draft` heading from the page review panel.
+- Added consistent internal spacing to the inspector panel so its sections are separated more clearly.
+- Saved a browser-side localStorage backup on each layout save in addition to the backend request.
+- Replaced the Pick icon with a cursor glyph and made empty-canvas clicks clear the current block selection.
+- Fixed pick-mode viewport gutter clicks so empty space around the page also clears the current block selection.
+- Added polygon-backed free-form block selection with self-intersection rejection, masked backend crops, and polygon-aware review editing.
+- Increased free-form capture density while still merging nearly straight vertices after the stroke is complete.
+- Reduced free-form merge aggressiveness slightly so completed strokes retain a few more vertices.

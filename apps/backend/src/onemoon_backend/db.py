@@ -59,6 +59,10 @@ def _apply_development_schema_compatibility() -> None:
         statements.append("ALTER TABLE blocks ADD COLUMN source VARCHAR(32) DEFAULT 'manual'")
     if "parent_block_id" not in block_columns:
         statements.append("ALTER TABLE blocks ADD COLUMN parent_block_id VARCHAR(32)")
+    if "shape_type" not in block_columns:
+        statements.append("ALTER TABLE blocks ADD COLUMN shape_type VARCHAR(32) DEFAULT 'rect'")
+    if "vertices" not in block_columns:
+        statements.append("ALTER TABLE blocks ADD COLUMN vertices JSON")
 
     if not statements:
         return

@@ -13,6 +13,7 @@ export type CompileStatus = 'pending' | 'completed' | 'failed' | 'skipped'
 export type JobStatus = 'pending' | 'running' | 'completed' | 'failed'
 export type PageReviewStatus = 'unreviewed' | 'in_review' | 'segmented'
 export type BlockSource = 'manual' | 'auto'
+export type BlockShapeType = 'rect' | 'polygon'
 
 export interface ProjectDocumentSummary {
   id: string
@@ -37,6 +38,11 @@ export interface BlockGeometry {
   height: number
 }
 
+export interface BlockVertex {
+  x: number
+  y: number
+}
+
 export interface BlockResponse {
   id: string
   page_id: string
@@ -44,6 +50,8 @@ export interface BlockResponse {
   block_type: BlockType
   approval: BlockApproval
   source: BlockSource
+  shape_type: BlockShapeType
+  vertices: BlockVertex[] | null
   parent_block_id: string | null
   geometry: BlockGeometry
   confidence: number
@@ -115,6 +123,8 @@ export interface LoginResponse {
 
 export interface BlockPatchPayload {
   geometry?: BlockGeometry
+  shape_type?: BlockShapeType
+  vertices?: BlockVertex[] | null
   block_type?: BlockType
   approval?: BlockApproval
   order_index?: number
@@ -128,6 +138,8 @@ export interface PageLayoutBlockPayload {
   block_type: BlockType
   approval: BlockApproval
   source: BlockSource
+  shape_type?: BlockShapeType
+  vertices?: BlockVertex[] | null
   parent_block_id?: string | null
   geometry: BlockGeometry
 }

@@ -3,7 +3,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { BlockInspector } from '../components/BlockInspector'
-import { BlockPreviewCard } from '../components/BlockPreviewCard'
 import { DocumentCanvas, type CanvasViewportState, type DocumentCanvasHandle } from '../components/DocumentCanvas'
 import { PageProgressSummary } from '../components/PageProgressSummary'
 import { api, withApiRoot } from '../lib/api'
@@ -14,12 +13,15 @@ import {
   deleteDraftBlock,
   draftBlockKey,
   duplicateDraftBlock,
+  geometryFromVertices,
+  isPolygonBlock,
   mergeDraftBlock,
   nudgeGeometry,
   pageToDraft,
   reorderDraftBlock,
   splitDraftBlock,
   toPageLayoutPayload,
+  translateVertices,
   updateDraftBlock,
   type DraftPageLayout,
 } from '../lib/segmentation'
@@ -28,10 +30,17 @@ import type { PageReviewStatus } from '../lib/types'
 import type { DocumentDetailResponse } from '../lib/types'
 
 const POLLABLE_STATUSES = new Set(['uploaded', 'rendering', 'segmenting'])
+const LAYOUT_BACKUP_KEY_PREFIX = 'onemoon:layout-backup'
 
 interface WorkspaceToast {
   tone: 'saving' | 'success' | 'error'
   message: string
+}
+
+interface SaveLayoutVariables {
+  pageId: string
+  pageIndex: number
+  draft: DraftPageLayout
 }
 
 function isEditableTarget(target: EventTarget | null) {
@@ -47,8 +56,8 @@ export function WorkspacePage() {
   const { token } = useAuth()
   const queryClient = useQueryClient()
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null)
-  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
-  const [activeTool, setActiveTool] = useState<'select' | 'create'>('select')
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null | undefined>(undefined)
+  const [activeTool, setActiveTool] = useState<'select' | 'rect' | 'freeform'>('select')
   const [pageDrafts, setPageDrafts] = useState<Record<string, DraftPageLayout>>({})
   const [viewportState, setViewportState] = useState<CanvasViewportState>({
     zoom: 1,
@@ -102,23 +111,42 @@ export function WorkspacePage() {
     )
   }, [document, pageDrafts])
 
+  useEffect(() => {
+    setSelectedBlockId(undefined)
+  }, [activePageId])
+
   const activeBlockId =
-    selectedBlockId && pageDraft?.blocks.some((block) => draftBlockKey(block) === selectedBlockId)
-      ? selectedBlockId
-      : pageDraft?.blocks[0]
-        ? draftBlockKey(pageDraft.blocks[0])
-        : null
+    selectedBlockId === null
+      ? null
+      : selectedBlockId && pageDraft?.blocks.some((block) => draftBlockKey(block) === selectedBlockId)
+        ? selectedBlockId
+        : pageDraft?.blocks[0]
+          ? draftBlockKey(pageDraft.blocks[0])
+          : null
 
   const selectedBlock = useMemo<DraftBlock | null>(
-    () =>
-      pageDraft?.blocks.find((block) => draftBlockKey(block) === activeBlockId) ??
-      pageDraft?.blocks[0] ??
-      null,
+    () => (activeBlockId ? pageDraft?.blocks.find((block) => draftBlockKey(block) === activeBlockId) ?? null : null),
     [activeBlockId, pageDraft],
   )
 
   const refreshDocument = async () => {
     await queryClient.invalidateQueries({ queryKey: ['document', token, documentId] })
+  }
+
+  function persistLocalLayoutBackup(variables: SaveLayoutVariables) {
+    if (typeof window === 'undefined') {
+      return
+    }
+    const storageKey = `${LAYOUT_BACKUP_KEY_PREFIX}:${documentId}:${variables.pageId}`
+    const payload = {
+      documentId,
+      documentTitle: document?.title ?? null,
+      pageId: variables.pageId,
+      pageIndex: variables.pageIndex,
+      savedAt: new Date().toISOString(),
+      draft: variables.draft,
+    }
+    window.localStorage.setItem(storageKey, JSON.stringify(payload))
   }
 
   function showToast(nextToast: WorkspaceToast, autoHide = true) {
@@ -206,10 +234,24 @@ export function WorkspacePage() {
       event.preventDefault()
       setPageDrafts((current) => ({
         ...current,
-        [selectedPage.id]: updateDraftBlock(pageDraft, draftBlockKey(selectedBlock), (block) => ({
-          ...block,
-          geometry: nudgeGeometry(block.geometry, delta[0], delta[1]),
-        })),
+        [selectedPage.id]: updateDraftBlock(pageDraft, draftBlockKey(selectedBlock), (block) => {
+          if (isPolygonBlock(block) && block.vertices) {
+            const nextGeometry = nudgeGeometry(block.geometry, delta[0], delta[1])
+            const moveX = nextGeometry.x - block.geometry.x
+            const moveY = nextGeometry.y - block.geometry.y
+            const nextVertices = translateVertices(block.vertices, moveX, moveY)
+            return {
+              ...block,
+              geometry: geometryFromVertices(nextVertices),
+              vertices: nextVertices,
+            }
+          }
+          return {
+            ...block,
+            geometry: nudgeGeometry(block.geometry, delta[0], delta[1]),
+            vertices: null,
+          }
+        }),
       }))
     }
 
@@ -220,10 +262,11 @@ export function WorkspacePage() {
   }, [pageDraft, selectedBlock, selectedPage])
 
   const saveLayoutMutation = useMutation({
-    mutationFn: ({ pageId, draft }: { pageId: string; draft: DraftPageLayout }) =>
+    mutationFn: ({ pageId, draft }: SaveLayoutVariables) =>
       api.savePageLayout(token!, pageId, toPageLayoutPayload(draft)),
-    onMutate: () => {
-      showToast({ tone: 'saving', message: 'Saving page layout...' }, false)
+    onMutate: (variables) => {
+      persistLocalLayoutBackup(variables)
+      showToast({ tone: 'saving', message: 'Saving page layout and local copy...' }, false)
     },
     onSuccess: async (_, variables) => {
       setPageDrafts((current) => {
@@ -232,10 +275,10 @@ export function WorkspacePage() {
         return next
       })
       await refreshDocument()
-      showToast({ tone: 'success', message: 'Layout saved.' })
+      showToast({ tone: 'success', message: 'Layout saved. Local copy updated.' })
     },
     onError: (error: Error) => {
-      showToast({ tone: 'error', message: error.message || 'Unable to save layout.' })
+      showToast({ tone: 'error', message: error.message || 'Backend save failed. Local copy kept in browser.' })
     },
   })
 
@@ -274,8 +317,10 @@ export function WorkspacePage() {
     !pageStatusMutation.isPending && !activePageDirty && pageDraft?.blocks.length !== 0 && activeReviewStatus !== 'segmented'
   const editorHelperText = activePageLocked
     ? 'This page is marked segmented. Reopen it to edit the layout.'
-    : activeTool === 'create'
-      ? 'Draw mode is active. Drag on the page to create a new block.'
+    : activeTool === 'rect'
+      ? 'Rect mode is active. Drag on the page to create a rectangular block.'
+      : activeTool === 'freeform'
+        ? 'Free-form mode is active. Draw a closed shape without crossing the stroke.'
       : 'Select mode is active. Drag blocks to move them and use the handles to resize.'
 
   function updateActiveDraft(updater: (draft: DraftPageLayout) => DraftPageLayout) {
@@ -415,7 +460,12 @@ export function WorkspacePage() {
                 onZoomIn: () => canvasRef.current?.zoomIn(),
                 onFitPage: () => canvasRef.current?.fitPage(),
                 onResetZoom: () => canvasRef.current?.resetZoom(),
-                onSave: () => saveLayoutMutation.mutate({ pageId: selectedPage.id, draft: pageDraft }),
+                onSave: () =>
+                  saveLayoutMutation.mutate({
+                    pageId: selectedPage.id,
+                    pageIndex: selectedPage.page_index,
+                    draft: pageDraft,
+                  }),
                 onDiscard: () =>
                   setPageDrafts((current) => {
                     const next = { ...current }
@@ -433,8 +483,8 @@ export function WorkspacePage() {
               isLocked={activePageLocked}
               onViewportChange={setViewportState}
               onSelectBlock={setSelectedBlockId}
-              onCreateBlock={(geometry) => {
-                const nextBlock = createManualBlock(geometry)
+              onCreateBlock={({ shape_type, geometry, vertices }) => {
+                const nextBlock = createManualBlock(geometry, { shape_type, vertices })
                 updateActiveDraft((draft) => ({
                   ...draft,
                   review_status: draft.review_status === 'unreviewed' ? 'in_review' : draft.review_status,
@@ -443,13 +493,14 @@ export function WorkspacePage() {
                 setSelectedBlockId(draftBlockKey(nextBlock))
                 setActiveTool('select')
               }}
-              onUpdateBlockGeometry={(blockId, geometry) => {
+              onUpdateBlock={(blockId, { geometry, vertices }) => {
                 updateActiveDraft((draft) =>
                   updateDraftBlock(draft, blockId, (block) => ({
                     ...block,
                     crop_url: null,
                     warnings: [],
                     geometry: clampGeometry(geometry),
+                    vertices: block.shape_type === 'polygon' ? vertices : null,
                   })),
                 )
               }}
@@ -462,7 +513,6 @@ export function WorkspacePage() {
             <div className="panel-heading">
               <div>
                 <p className="eyebrow">Page Review</p>
-                <h2>Layout Draft</h2>
               </div>
             </div>
             <div className="stats-grid">
@@ -506,8 +556,6 @@ export function WorkspacePage() {
               })}
             </div>
           </section>
-
-          <BlockPreviewCard block={selectedBlock} />
 
           <BlockInspector
             key={selectedBlock ? draftBlockKey(selectedBlock) : 'empty'}

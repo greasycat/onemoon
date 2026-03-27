@@ -1,5 +1,6 @@
 import { useState } from 'react'
 
+import { isPolygonBlock } from '../lib/segmentation'
 import type { BlockApproval, BlockGeometry, BlockType } from '../lib/types'
 import type { DraftBlock } from '../lib/segmentation'
 
@@ -46,6 +47,7 @@ export function BlockInspector({
   const [blockType, setBlockType] = useState<BlockType>(initialFormState(block).blockType)
   const [approval, setApproval] = useState<BlockApproval>(initialFormState(block).approval)
   const [geometry, setGeometry] = useState(initialFormState(block).geometry)
+  const polygonBlock = isPolygonBlock(block)
 
   if (!block) {
     return (
@@ -80,6 +82,10 @@ export function BlockInspector({
           <span>Confidence</span>
           <strong>{Math.round(block.confidence * 100)}%</strong>
         </div>
+        <div className="stat-card">
+          <span>Shape</span>
+          <strong>{block.shape_type}</strong>
+        </div>
       </div>
 
       <label className="field">
@@ -107,13 +113,15 @@ export function BlockInspector({
         ))}
       </div>
 
-      <div className="geometry-grid">
+      <div className="inspector-section">
+        <h3>{polygonBlock ? 'Bounding Box' : 'Geometry'}</h3>
+        <div className="geometry-grid">
         {(['x', 'y', 'width', 'height'] as const).map((key) => (
           <label className="field" key={key}>
             <span>{key}</span>
             <input
               type="number"
-              disabled={pageLocked}
+              disabled={pageLocked || polygonBlock}
               min="0"
               max="1"
               step="0.01"
@@ -127,6 +135,8 @@ export function BlockInspector({
             />
           </label>
         ))}
+        </div>
+        {polygonBlock ? <p className="muted-text">Polygon blocks are reshaped from the canvas by dragging vertices.</p> : null}
       </div>
 
       <div className="inspector-section">
@@ -138,16 +148,16 @@ export function BlockInspector({
           <button type="button" className="secondary-button" disabled={pageLocked || isBusy} onClick={onDelete}>
             Delete
           </button>
-          <button type="button" className="secondary-button" disabled={pageLocked || isBusy} onClick={onMergePrevious}>
+          <button type="button" className="secondary-button" disabled={pageLocked || isBusy || polygonBlock} onClick={onMergePrevious}>
             Merge Prev
           </button>
-          <button type="button" className="secondary-button" disabled={pageLocked || isBusy} onClick={onMergeNext}>
+          <button type="button" className="secondary-button" disabled={pageLocked || isBusy || polygonBlock} onClick={onMergeNext}>
             Merge Next
           </button>
-          <button type="button" className="secondary-button" disabled={pageLocked || isBusy} onClick={onSplitHorizontal}>
+          <button type="button" className="secondary-button" disabled={pageLocked || isBusy || polygonBlock} onClick={onSplitHorizontal}>
             Split H
           </button>
-          <button type="button" className="secondary-button" disabled={pageLocked || isBusy} onClick={onSplitVertical}>
+          <button type="button" className="secondary-button" disabled={pageLocked || isBusy || polygonBlock} onClick={onSplitVertical}>
             Split V
           </button>
         </div>

@@ -15,6 +15,7 @@ from ..db import SessionLocal, get_db
 from ..models import (
     Block,
     BlockApproval,
+    BlockShapeType,
     BlockSource,
     CompileArtifact,
     CompileStatus,
@@ -30,6 +31,7 @@ from ..schemas import (
     BlockGeometry,
     BlockPatch,
     BlockResponse,
+    BlockVertex,
     CompileArtifactResponse,
     DocumentDetailResponse,
     DocumentPatch,
@@ -52,6 +54,48 @@ from ..storage import public_url, relative_path, sanitize_filename, upload_path
 router = APIRouter(tags=["documents"])
 
 
+def normalize_vertices(vertices: list[BlockVertex] | None) -> list[dict[str, float]] | None:
+    if vertices is None:
+        return None
+
+    normalized = [{"x": float(vertex.x), "y": float(vertex.y)} for vertex in vertices]
+    if len(normalized) > 1 and normalized[0] == normalized[-1]:
+        normalized = normalized[:-1]
+    if len(normalized) < 3:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Polygon blocks require at least three vertices")
+    return normalized
+
+
+def geometry_from_vertices(vertices: list[dict[str, float]]) -> BlockGeometry:
+    return BlockGeometry(
+        x=min(vertex["x"] for vertex in vertices),
+        y=min(vertex["y"] for vertex in vertices),
+        width=max(vertex["x"] for vertex in vertices) - min(vertex["x"] for vertex in vertices),
+        height=max(vertex["y"] for vertex in vertices) - min(vertex["y"] for vertex in vertices),
+    )
+
+
+def resolve_shape_payload(
+    *,
+    shape_type: BlockShapeType | None,
+    geometry: BlockGeometry,
+    vertices: list[BlockVertex] | None,
+) -> tuple[BlockShapeType, BlockGeometry, list[dict[str, float]] | None]:
+    effective_shape = shape_type or BlockShapeType.rect
+    if effective_shape == BlockShapeType.polygon:
+        normalized_vertices = normalize_vertices(vertices)
+        if normalized_vertices is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Polygon blocks require vertices")
+        return effective_shape, geometry_from_vertices(normalized_vertices), normalized_vertices
+    return BlockShapeType.rect, geometry, None
+
+
+def serialize_vertices(vertices: list[dict[str, float]] | None) -> list[BlockVertex] | None:
+    if not vertices:
+        return None
+    return [BlockVertex(x=vertex["x"], y=vertex["y"]) for vertex in vertices]
+
+
 def serialize_block(block: Block) -> BlockResponse:
     return BlockResponse(
         id=block.id,
@@ -60,6 +104,8 @@ def serialize_block(block: Block) -> BlockResponse:
         block_type=block.block_type,
         approval=block.approval,
         source=block.source,
+        shape_type=block.shape_type or BlockShapeType.rect,
+        vertices=serialize_vertices(block.vertices),
         parent_block_id=block.parent_block_id,
         geometry=BlockGeometry(x=block.x, y=block.y, width=block.width, height=block.height),
         confidence=block.confidence,
@@ -130,22 +176,30 @@ def upsert_page_layout(db: Session, page: Page, blocks: list[PageLayoutBlockPayl
         if block is None:
             block = Block(page_id=page.id)
             db.add(block)
-            db.flush()
+
+        shape_type, geometry, vertices = resolve_shape_payload(
+            shape_type=payload.shape_type,
+            geometry=payload.geometry,
+            vertices=payload.vertices,
+        )
 
         block.order_index = fallback_order
         block.block_type = payload.block_type
         block.approval = payload.approval
         block.source = payload.source
+        block.shape_type = shape_type
+        block.vertices = vertices
         block.parent_block_id = payload.parent_block_id
-        block.x = payload.geometry.x
-        block.y = payload.geometry.y
-        block.width = payload.geometry.width
-        block.height = payload.geometry.height
+        block.x = geometry.x
+        block.y = geometry.y
+        block.width = geometry.width
+        block.height = geometry.height
         block.is_user_corrected = payload.source == BlockSource.manual
         block.confidence = 1.0 if payload.source == BlockSource.manual else block.confidence
         block.generated_output = None
         block.raw_response = None
         block.warnings = []
+        db.flush()
         save_crop(page, block)
         kept_ids.add(block.id)
 
@@ -367,14 +421,21 @@ def create_block(
         order_index=next_order,
         block_type=payload.block_type,
         approval=BlockApproval.pending,
-        x=payload.geometry.x,
-        y=payload.geometry.y,
-        width=payload.geometry.width,
-        height=payload.geometry.height,
         confidence=1.0,
         is_user_corrected=True,
         source=BlockSource.manual,
     )
+    shape_type, geometry, vertices = resolve_shape_payload(
+        shape_type=payload.shape_type,
+        geometry=payload.geometry,
+        vertices=payload.vertices,
+    )
+    block.shape_type = shape_type
+    block.vertices = vertices
+    block.x = geometry.x
+    block.y = geometry.y
+    block.width = geometry.width
+    block.height = geometry.height
     db.add(block)
     db.flush()
     save_crop(page, block)
@@ -397,11 +458,32 @@ def update_block(
     if block is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Block not found")
 
-    if payload.geometry is not None:
-        block.x = payload.geometry.x
-        block.y = payload.geometry.y
-        block.width = payload.geometry.width
-        block.height = payload.geometry.height
+    if payload.shape_type is not None or payload.vertices is not None or payload.geometry is not None:
+        next_shape_type = payload.shape_type or block.shape_type or BlockShapeType.rect
+        if next_shape_type == BlockShapeType.polygon:
+            if payload.vertices is None:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Polygon block updates require vertices")
+            shape_type, geometry, vertices = resolve_shape_payload(
+                shape_type=next_shape_type,
+                geometry=payload.geometry or BlockGeometry(x=block.x, y=block.y, width=block.width, height=block.height),
+                vertices=payload.vertices,
+            )
+            block.shape_type = shape_type
+            block.vertices = vertices
+            block.x = geometry.x
+            block.y = geometry.y
+            block.width = geometry.width
+            block.height = geometry.height
+        elif payload.geometry is not None:
+            block.shape_type = BlockShapeType.rect
+            block.vertices = None
+            block.x = payload.geometry.x
+            block.y = payload.geometry.y
+            block.width = payload.geometry.width
+            block.height = payload.geometry.height
+        elif payload.shape_type == BlockShapeType.rect:
+            block.shape_type = BlockShapeType.rect
+            block.vertices = None
         block.is_user_corrected = True
         save_crop(block.page, block)
     if payload.block_type is not None:

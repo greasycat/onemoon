@@ -190,7 +190,12 @@ export const api = {
   createBlock: (
     token: string,
     pageId: string,
-    payload: { geometry: BlockResponse['geometry']; block_type: BlockResponse['block_type'] },
+    payload: {
+      geometry: BlockResponse['geometry']
+      block_type: BlockResponse['block_type']
+      shape_type?: BlockResponse['shape_type']
+      vertices?: BlockResponse['vertices']
+    },
   ) =>
     request<BlockResponse>(`/pages/${pageId}/blocks`, {
       method: 'POST',

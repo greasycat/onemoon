@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import fitz
-from PIL import Image
+from PIL import Image, ImageDraw
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -13,6 +13,7 @@ from ..db import SessionLocal
 from ..models import (
     Block,
     BlockApproval,
+    BlockShapeType,
     BlockSource,
     BlockType,
     CompileArtifact,
@@ -72,12 +73,23 @@ def render_document(document: Document) -> list[tuple[int, Path, int, int]]:
 
 
 def save_crop(page: Page, block: Block) -> None:
-    image = Image.open(absolute_path(page.image_path))
+    image = Image.open(absolute_path(page.image_path)).convert("RGBA")
     left = int(block.x * page.width)
     top = int(block.y * page.height)
     right = int((block.x + block.width) * page.width)
     bottom = int((block.y + block.height) * page.height)
-    cropped = image.crop((left, top, max(left + 1, right), max(top + 1, bottom)))
+    crop_box = (left, top, max(left + 1, right), max(top + 1, bottom))
+    cropped = image.crop(crop_box)
+    if (block.shape_type or BlockShapeType.rect) == BlockShapeType.polygon and block.vertices:
+        width = crop_box[2] - crop_box[0]
+        height = crop_box[3] - crop_box[1]
+        mask = Image.new("L", (width, height), 0)
+        polygon = [
+            ((vertex["x"] * page.width) - left, (vertex["y"] * page.height) - top)
+            for vertex in block.vertices
+        ]
+        ImageDraw.Draw(mask).polygon(polygon, fill=255)
+        cropped.putalpha(mask)
     target = crop_path(page.document_id, page.page_index, block.id)
     cropped.save(target)
     block.crop_path = relative_path(target)

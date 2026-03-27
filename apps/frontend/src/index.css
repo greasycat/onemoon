@@ -204,6 +204,12 @@ button {
   padding: 1.25rem;
 }
 
+.inspector-panel {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+}
+
 .hero-panel {
   margin-bottom: 1.5rem;
 }
@@ -579,11 +585,39 @@ button {
   background: var(--region-fill);
   border-radius: 14px;
   padding: 0;
+  overflow: visible;
   user-select: none;
 }
 
 .region-selected {
   box-shadow: 0 0 0 3px var(--accent-outline);
+}
+
+.region-polygon {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.region-polygon.region-selected .region-polygon-shape {
+  filter: drop-shadow(0 0 0.16rem var(--accent-outline));
+}
+
+.region-polygon-svg,
+.canvas-draft-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.region-polygon-shape {
+  fill: var(--region-fill);
+  stroke: var(--region-border);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
 }
 
 .region-text {
@@ -680,6 +714,19 @@ button {
   cursor: nesw-resize;
 }
 
+.region-handle-vertex {
+  transform: translate(-50%, -50%);
+  cursor: grab;
+}
+
+.canvas-draft-polygon {
+  fill: rgba(255, 255, 255, 0.12);
+  stroke: var(--region-unknown-border);
+  stroke-width: 0.3;
+  stroke-dasharray: 1.2 0.8;
+  vector-effect: non-scaling-stroke;
+}
+
 .crop-preview {
   border-radius: 18px;
   overflow: hidden;
@@ -742,7 +789,7 @@ button {
 }
 
 .progress-summary .stat-card {
-  min-height: 5.4rem;
+  min-height: 2rem;
   padding: 0.7rem 0.55rem;
   align-content: start;
   justify-items: center;
@@ -782,7 +829,7 @@ button {
 }
 
 .inspector-section {
-  margin-top: 1.2rem;
+  margin-top: 0;
 }
 
 .inspector-section h3 {

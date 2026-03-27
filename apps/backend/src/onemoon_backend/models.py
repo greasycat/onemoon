@@ -66,6 +66,11 @@ class BlockSource(str, Enum):
     auto = "auto"
 
 
+class BlockShapeType(str, Enum):
+    rect = "rect"
+    polygon = "polygon"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -158,6 +163,11 @@ class Block(Base):
         SqlEnum(BlockApproval, native_enum=False),
         default=BlockApproval.pending,
     )
+    shape_type: Mapped[BlockShapeType] = mapped_column(
+        SqlEnum(BlockShapeType, native_enum=False),
+        default=BlockShapeType.rect,
+    )
+    vertices: Mapped[list[dict[str, float]] | None] = mapped_column(JSON, nullable=True)
     x: Mapped[float] = mapped_column(Float)
     y: Mapped[float] = mapped_column(Float)
     width: Mapped[float] = mapped_column(Float)

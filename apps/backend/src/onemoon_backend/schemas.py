@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .models import (
     BlockApproval,
+    BlockShapeType,
     BlockSource,
     BlockType,
     CompileStatus,
@@ -37,12 +38,31 @@ class BlockGeometry(BaseModel):
     height: float = Field(gt=0, le=1)
 
 
-class BlockCreate(BaseModel):
+class BlockVertex(BaseModel):
+    x: float = Field(ge=0, le=1)
+    y: float = Field(ge=0, le=1)
+
+
+class BlockShapeMixin(BaseModel):
+    shape_type: BlockShapeType = BlockShapeType.rect
+    vertices: list[BlockVertex] | None = None
+
+    @model_validator(mode="after")
+    def validate_shape(self):
+        if self.shape_type == BlockShapeType.polygon:
+            if self.vertices is None or len(self.vertices) < 3:
+                raise ValueError("Polygon blocks require at least three vertices")
+        elif self.vertices:
+            raise ValueError("Rect blocks cannot include vertices")
+        return self
+
+
+class BlockCreate(BlockShapeMixin):
     geometry: BlockGeometry
     block_type: BlockType = BlockType.unknown
 
 
-class PageLayoutBlockPayload(BaseModel):
+class PageLayoutBlockPayload(BlockShapeMixin):
     id: str | None = None
     order_index: int
     block_type: BlockType
@@ -56,13 +76,22 @@ class PageLayoutPayload(BaseModel):
     blocks: list[PageLayoutBlockPayload]
 
 
-class BlockPatch(BaseModel):
+class BlockPatch(BlockShapeMixin):
+    shape_type: BlockShapeType | None = None
     geometry: BlockGeometry | None = None
     block_type: BlockType | None = None
     approval: BlockApproval | None = None
     order_index: int | None = None
     manual_output: str | None = None
     user_instruction: str | None = None
+
+    @model_validator(mode="after")
+    def require_shape_payload_if_polygon(self):
+        if self.shape_type == BlockShapeType.polygon and self.vertices is None:
+            raise ValueError("Polygon block updates must include vertices")
+        if self.shape_type == BlockShapeType.rect and self.vertices:
+            raise ValueError("Rect block updates cannot include vertices")
+        return self
 
 
 class RegenerateBlockRequest(BaseModel):
@@ -97,6 +126,8 @@ class BlockResponse(BaseModel):
     block_type: BlockType
     approval: BlockApproval
     source: BlockSource
+    shape_type: BlockShapeType
+    vertices: list[BlockVertex] | None
     parent_block_id: str | None
     geometry: BlockGeometry
     confidence: float

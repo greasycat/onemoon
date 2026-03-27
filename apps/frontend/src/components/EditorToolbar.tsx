@@ -1,4 +1,4 @@
-type ActiveTool = 'select' | 'create'
+type ActiveTool = 'select' | 'rect' | 'freeform'
 type ViewMode = 'fit-page' | 'fit-width' | 'manual'
 
 function reviewIcon(label: string) {
@@ -126,19 +126,28 @@ export function EditorToolbar({
           <ToolbarButton
             className={`pill-button toolbar-icon-button ${activeTool === 'select' ? 'pill-button-active' : ''}`}
             label="Pick"
-            icon="◎"
+            icon="↖"
             ariaLabel="Select tool"
             title="Select tool"
             onClick={() => onSetTool('select')}
           />
           <ToolbarButton
-            className={`pill-button toolbar-icon-button ${activeTool === 'create' ? 'pill-button-active' : ''}`}
+            className={`pill-button toolbar-icon-button ${activeTool === 'rect' ? 'pill-button-active' : ''}`}
             label="Rect"
             icon="✎"
-            ariaLabel="Draw block"
-            title="Draw block"
+            ariaLabel="Draw rectangle block"
+            title="Draw rectangle block"
             disabled={activePageLocked}
-            onClick={() => onSetTool('create')}
+            onClick={() => onSetTool('rect')}
+          />
+          <ToolbarButton
+            className={`pill-button toolbar-icon-button ${activeTool === 'freeform' ? 'pill-button-active' : ''}`}
+            label="Free"
+            icon="⌁"
+            ariaLabel="Draw free-form block"
+            title="Draw free-form block"
+            disabled={activePageLocked}
+            onClick={() => onSetTool('freeform')}
           />
         </div>
 

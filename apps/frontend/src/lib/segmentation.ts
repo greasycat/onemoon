@@ -2,8 +2,10 @@ import type {
   BlockApproval,
   BlockGeometry,
   BlockResponse,
+  BlockShapeType,
   BlockSource,
   BlockType,
+  BlockVertex,
   PageLayoutBlockPayload,
   PageResponse,
   PageReviewStatus,
@@ -16,6 +18,8 @@ export interface DraftBlock {
   block_type: BlockType
   approval: BlockApproval
   source: BlockSource
+  shape_type: BlockShapeType
+  vertices: BlockVertex[] | null
   parent_block_id?: string | null
   geometry: BlockGeometry
   confidence: number
@@ -45,12 +49,55 @@ export function clamp(value: number, min = 0, max = 1) {
   return Math.max(min, Math.min(max, value))
 }
 
+export function clampVertex(vertex: BlockVertex): BlockVertex {
+  return {
+    x: clamp(vertex.x),
+    y: clamp(vertex.y),
+  }
+}
+
 export function clampGeometry(geometry: BlockGeometry): BlockGeometry {
   const x = clamp(geometry.x)
   const y = clamp(geometry.y)
   const width = clamp(geometry.width, 0.01, 1 - x)
   const height = clamp(geometry.height, 0.01, 1 - y)
   return { x, y, width, height }
+}
+
+export function geometryFromVertices(vertices: BlockVertex[]): BlockGeometry {
+  const normalizedVertices = vertices.map(clampVertex)
+  const minX = Math.min(...normalizedVertices.map((vertex) => vertex.x))
+  const minY = Math.min(...normalizedVertices.map((vertex) => vertex.y))
+  const maxX = Math.max(...normalizedVertices.map((vertex) => vertex.x))
+  const maxY = Math.max(...normalizedVertices.map((vertex) => vertex.y))
+  const x = clamp(minX)
+  const y = clamp(minY)
+  return {
+    x,
+    y,
+    width: clamp(maxX - minX, 0, 1 - x),
+    height: clamp(maxY - minY, 0, 1 - y),
+  }
+}
+
+export function normalizeVertices(vertices: BlockVertex[] | null | undefined): BlockVertex[] | null {
+  if (!vertices || vertices.length === 0) {
+    return null
+  }
+  return vertices.map(clampVertex)
+}
+
+export function translateVertices(vertices: BlockVertex[], deltaX: number, deltaY: number): BlockVertex[] {
+  return vertices.map((vertex) =>
+    clampVertex({
+      x: vertex.x + deltaX,
+      y: vertex.y + deltaY,
+    }),
+  )
+}
+
+export function isPolygonBlock(block: Pick<DraftBlock, 'shape_type'> | null | undefined) {
+  return block?.shape_type === 'polygon'
 }
 
 export function pageToDraft(page: PageResponse): DraftPageLayout {
@@ -70,6 +117,8 @@ export function toDraftBlock(block: BlockResponse): DraftBlock {
     block_type: block.block_type,
     approval: block.approval,
     source: block.source,
+    shape_type: block.shape_type,
+    vertices: normalizeVertices(block.vertices),
     parent_block_id: block.parent_block_id,
     geometry: block.geometry,
     confidence: block.confidence,
@@ -83,15 +132,23 @@ function normalizeOrder(blocks: DraftBlock[]): DraftBlock[] {
   return blocks.map((block, index) => ({ ...block, order_index: index }))
 }
 
-export function createManualBlock(geometry: BlockGeometry): DraftBlock {
+export function createManualBlock(
+  geometry: BlockGeometry,
+  options: { shape_type?: BlockShapeType; vertices?: BlockVertex[] | null } = {},
+): DraftBlock {
+  const shapeType = options.shape_type ?? 'rect'
+  const vertices = shapeType === 'polygon' ? normalizeVertices(options.vertices) : null
+  const nextGeometry = shapeType === 'polygon' && vertices ? geometryFromVertices(vertices) : clampGeometry(geometry)
   return {
     client_id: makeClientId(),
     order_index: 0,
     block_type: 'unknown',
     approval: 'pending',
     source: 'manual',
+    shape_type: shapeType,
+    vertices,
     parent_block_id: null,
-    geometry: clampGeometry(geometry),
+    geometry: nextGeometry,
     confidence: 1,
     is_user_corrected: true,
     crop_url: null,
@@ -106,8 +163,10 @@ export function toPageLayoutPayload(draft: DraftPageLayout): PageLayoutBlockPayl
     block_type: block.block_type,
     approval: block.approval,
     source: block.source,
+    shape_type: block.shape_type,
+    vertices: normalizeVertices(block.vertices),
     parent_block_id: block.parent_block_id ?? null,
-    geometry: clampGeometry(block.geometry),
+    geometry: isPolygonBlock(block) && block.vertices ? geometryFromVertices(block.vertices) : clampGeometry(block.geometry),
   }))
 }
 
@@ -149,6 +208,9 @@ export function duplicateDraftBlock(draft: DraftPageLayout, blockKey: string): {
     y: clamp(original.geometry.y + 0.02),
     width: original.geometry.width,
     height: original.geometry.height,
+  }, {
+    shape_type: original.shape_type,
+    vertices: original.vertices ? translateVertices(original.vertices, 0.02, 0.02) : null,
   })
   duplicate.block_type = original.block_type
   duplicate.approval = original.approval
@@ -204,6 +266,9 @@ export function mergeDraftBlock(
   const secondaryIndex = direction === 'previous' ? index : neighborIndex
   const primary = blocks[primaryIndex]
   const secondary = blocks[secondaryIndex]
+  if (isPolygonBlock(primary) || isPolygonBlock(secondary)) {
+    return { draft, selectedBlockKey: blockKey }
+  }
   const left = Math.min(primary.geometry.x, secondary.geometry.x)
   const top = Math.min(primary.geometry.y, secondary.geometry.y)
   const right = Math.max(primary.geometry.x + primary.geometry.width, secondary.geometry.x + secondary.geometry.width)
@@ -247,6 +312,9 @@ export function splitDraftBlock(
   }
 
   const block = blocks[index]
+  if (isPolygonBlock(block)) {
+    return { draft, selectedBlockKey: blockKey }
+  }
   const first = createManualBlock(block.geometry)
   const second = createManualBlock(block.geometry)
   first.block_type = block.block_type
