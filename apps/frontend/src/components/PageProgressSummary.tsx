@@ -1,37 +1,16 @@
 import type { PageReviewStatus } from '../lib/types'
 
 interface PageProgressSummaryProps {
-  currentPageIndex: number
-  totalPages: number
   counts: Record<PageReviewStatus, number>
-  nextUnreviewedPageLabel: string | null
-  onJumpToNextUnreviewed: () => void
 }
 
-export function PageProgressSummary({
-  currentPageIndex,
-  totalPages,
-  counts,
-  nextUnreviewedPageLabel,
-  onJumpToNextUnreviewed,
-}: PageProgressSummaryProps) {
+export function PageProgressSummary({ counts }: PageProgressSummaryProps) {
   return (
     <section className="progress-summary">
       <div className="panel-heading">
         <div>
           <p className="eyebrow">Review Progress</p>
-          <h2>
-            Page {currentPageIndex + 1} of {totalPages}
-          </h2>
         </div>
-        <button
-          type="button"
-          className="secondary-button"
-          disabled={!nextUnreviewedPageLabel}
-          onClick={onJumpToNextUnreviewed}
-        >
-          {nextUnreviewedPageLabel ? `Jump to ${nextUnreviewedPageLabel}` : 'All pages reviewed'}
-        </button>
       </div>
 
       <div className="progress-grid">

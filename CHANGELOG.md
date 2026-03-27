@@ -11,3 +11,26 @@
 - Expanded document editing mode with an editor toolbar, sticky draft actions, review progress summary, block preview card, and zoomable canvas viewport.
 - Redesigned the document editor into a canvas-first workspace with a unified sticky control rail, lighter editorial styling, and less duplicated review chrome.
 - Fixed document editor draw mode so dragging on the page image reaches the canvas and can start a new block.
+- Tightened the editor toolbar into a compact floating control tray so the workbench stays canvas-first.
+- Moved the editor toolbar into a true top-left canvas overlay so it belongs to the review surface and preserves canvas interactions.
+- Reworked the canvas toolbar into a slim vertical icon rail to reduce visual weight over the page.
+- Split the canvas guidance copy out of the toolbar into a separate top-left floating tooltip so the icon rail stays compact.
+- Added short labels and larger icons to the canvas toolbar buttons so the vertical rail scans faster.
+- Loaded the workspace fonts from a third-party CDN so the editor typography is consistent across machines.
+- Switched the workspace document title to a CDN-loaded monospace face for a cleaner editorial header.
+- Returned the workspace document title to the Space Grotesk sans stack and removed the unused monospace CDN font.
+- Switched the workspace `h2` headings to the same Space Grotesk sans stack as the document title.
+- Removed the redundant page-count and workbench title headings from the review progress and editor panels.
+- Removed the review-progress jump button so the sidebar summary is read-only.
+- Tightened the review-progress stat cards so their labels wrap cleanly inside the sidebar without overflowing.
+- Added a dedicated top inset in the canvas viewport so the floating tooltip no longer covers the page image.
+- Increased region label contrast so the block-type badge text reads clearly against its chip background.
+- Renamed the canvas draw-mode toolbar label to `Rect` to match the current rectangular drawing behavior.
+- Removed the separate toolbar width control and switched the remaining page-fit button to a left-right arrow icon.
+- Updated the toolbar button copy to the current short labels used in the canvas rail.
+- Lowered the editor frame slightly by increasing the canvas top inset under the floating overlay.
+- Disabled the native right-click context menu on the canvas surface.
+- Fixed the active canvas tool styling so the selected toolbar button updates with a strong border and foreground state.
+- Added save toasts in the workspace so the Save action now shows saving, success, and error feedback.
+- Moved save toasts into the canvas top-right corner and disabled Save when a page has no blocks.
+- Lowered the canvas toast so it no longer sits on top of the nearby status badges.

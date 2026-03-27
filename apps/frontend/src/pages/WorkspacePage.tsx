@@ -5,7 +5,6 @@ import { Link, useParams } from 'react-router-dom'
 import { BlockInspector } from '../components/BlockInspector'
 import { BlockPreviewCard } from '../components/BlockPreviewCard'
 import { DocumentCanvas, type CanvasViewportState, type DocumentCanvasHandle } from '../components/DocumentCanvas'
-import { EditorToolbar } from '../components/EditorToolbar'
 import { PageProgressSummary } from '../components/PageProgressSummary'
 import { api, withApiRoot } from '../lib/api'
 import { useAuth } from '../lib/auth'
@@ -30,6 +29,11 @@ import type { DocumentDetailResponse } from '../lib/types'
 
 const POLLABLE_STATUSES = new Set(['uploaded', 'rendering', 'segmenting'])
 
+interface WorkspaceToast {
+  tone: 'saving' | 'success' | 'error'
+  message: string
+}
+
 function isEditableTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) {
     return false
@@ -52,7 +56,9 @@ export function WorkspacePage() {
     panX: 0,
     panY: 0,
   })
+  const [toast, setToast] = useState<WorkspaceToast | null>(null)
   const canvasRef = useRef<DocumentCanvasHandle | null>(null)
+  const toastTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
 
   const documentQuery = useQuery({
     queryKey: ['document', token, documentId],
@@ -114,6 +120,29 @@ export function WorkspacePage() {
   const refreshDocument = async () => {
     await queryClient.invalidateQueries({ queryKey: ['document', token, documentId] })
   }
+
+  function showToast(nextToast: WorkspaceToast, autoHide = true) {
+    if (toastTimeoutRef.current) {
+      window.clearTimeout(toastTimeoutRef.current)
+      toastTimeoutRef.current = null
+    }
+    setToast(nextToast)
+    if (!autoHide) {
+      return
+    }
+    toastTimeoutRef.current = window.setTimeout(() => {
+      setToast(null)
+      toastTimeoutRef.current = null
+    }, 2600)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) {
+        window.clearTimeout(toastTimeoutRef.current)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     function handleBeforeUnload(event: BeforeUnloadEvent) {
@@ -193,6 +222,9 @@ export function WorkspacePage() {
   const saveLayoutMutation = useMutation({
     mutationFn: ({ pageId, draft }: { pageId: string; draft: DraftPageLayout }) =>
       api.savePageLayout(token!, pageId, toPageLayoutPayload(draft)),
+    onMutate: () => {
+      showToast({ tone: 'saving', message: 'Saving page layout...' }, false)
+    },
     onSuccess: async (_, variables) => {
       setPageDrafts((current) => {
         const next = { ...current }
@@ -200,6 +232,10 @@ export function WorkspacePage() {
         return next
       })
       await refreshDocument()
+      showToast({ tone: 'success', message: 'Layout saved.' })
+    },
+    onError: (error: Error) => {
+      showToast({ tone: 'error', message: error.message || 'Unable to save layout.' })
     },
   })
 
@@ -231,14 +267,6 @@ export function WorkspacePage() {
       ),
     [pageEntries],
   )
-  const nextUnreviewedPage = useMemo(() => {
-    if (!selectedPage || pageEntries.length === 0) {
-      return null
-    }
-    const startIndex = pageEntries.findIndex((page) => page.id === selectedPage.id)
-    const orderedPages = [...pageEntries.slice(startIndex + 1), ...pageEntries.slice(0, startIndex + 1)]
-    return orderedPages.find((page) => page.effectiveReviewStatus === 'unreviewed') ?? null
-  }, [pageEntries, selectedPage])
   const selectedBlockLabel = selectedBlock ? `Selected block: #${selectedBlock.order_index + 1} ${selectedBlock.block_type}` : 'No block selected'
   const reviewActionLabel = activeReviewStatus === 'segmented' ? 'Reopen Page' : activeReviewStatus === 'unreviewed' ? 'Start Review' : null
   const canReviewAction = Boolean(reviewActionLabel) && !pageStatusMutation.isPending && !activePageDirty
@@ -309,17 +337,7 @@ export function WorkspacePage() {
 
       <section className="workspace-grid">
         <div className="page-sidebar panel">
-          <PageProgressSummary
-            currentPageIndex={currentPageIndex}
-            totalPages={document.pages.length}
-            counts={reviewCounts}
-            nextUnreviewedPageLabel={nextUnreviewedPage ? `Page ${nextUnreviewedPage.page_index + 1}` : null}
-            onJumpToNextUnreviewed={() => {
-              if (nextUnreviewedPage) {
-                selectPage(nextUnreviewedPage.id)
-              }
-            }}
-          />
+          <PageProgressSummary counts={reviewCounts} />
           <div className="page-list">
             {pageEntries.map((page) => {
               return (
@@ -349,7 +367,6 @@ export function WorkspacePage() {
             <div className="editor-workbench-header">
               <div className="editor-workbench-title">
                 <p className="eyebrow">Manual Segmentation</p>
-                <h2>Page {currentPageIndex + 1} Workbench</h2>
                 <p className="editor-workbench-copy">
                   Refine block boundaries, keep review state moving, and use the canvas as the primary editing surface.
                 </p>
@@ -362,58 +379,55 @@ export function WorkspacePage() {
                 <span className="status-chip status-review">{pageDraft.blocks.length} blocks</span>
               </div>
             </div>
-
-            <EditorToolbar
-              currentPageIndex={currentPageIndex}
-              totalPages={document.pages.length}
-              activeTool={activeTool}
-              activePageLocked={activePageLocked}
-              isDirty={activePageDirty}
-              selectedBlockLabel={selectedBlockLabel}
-              helperText={editorHelperText}
-              canGoPrevious={currentPageIndex > 0}
-              canGoNext={currentPageIndex < document.pages.length - 1}
-              canSave={!activePageLocked && activePageDirty && !saveLayoutMutation.isPending}
-              canDiscard={activePageDirty}
-              canReview={canReviewAction}
-              reviewLabel={reviewActionLabel}
-              canMarkSegmented={canMarkSegmented}
-              zoomPercent={Math.round(viewportState.zoom * 100)}
-              viewMode={viewportState.mode}
-              onPreviousPage={() => {
-                const previousPage = pageEntries[currentPageIndex - 1]
-                if (previousPage) {
-                  selectPage(previousPage.id)
-                }
-              }}
-              onNextPage={() => {
-                const nextPage = pageEntries[currentPageIndex + 1]
-                if (nextPage) {
-                  selectPage(nextPage.id)
-                }
-              }}
-              onSetTool={setActiveTool}
-              onZoomOut={() => canvasRef.current?.zoomOut()}
-              onZoomIn={() => canvasRef.current?.zoomIn()}
-              onFitPage={() => canvasRef.current?.fitPage()}
-              onFitWidth={() => canvasRef.current?.fitWidth()}
-              onResetZoom={() => canvasRef.current?.resetZoom()}
-              onSave={() => saveLayoutMutation.mutate({ pageId: selectedPage.id, draft: pageDraft })}
-              onDiscard={() =>
-                setPageDrafts((current) => {
-                  const next = { ...current }
-                  delete next[selectedPage.id]
-                  return next
-                })
-              }
-              onReviewAction={handleReviewAction}
-              onMarkSegmented={() => pageStatusMutation.mutate({ pageId: selectedPage.id, action: 'mark-segmented' })}
-            />
-
             <DocumentCanvas
               ref={canvasRef}
               page={selectedPage}
               blocks={pageDraft.blocks}
+              toolbar={{
+                currentPageIndex,
+                totalPages: document.pages.length,
+                activeTool,
+                activePageLocked,
+                isDirty: activePageDirty,
+                canGoPrevious: currentPageIndex > 0,
+                canGoNext: currentPageIndex < document.pages.length - 1,
+                canSave: !activePageLocked && activePageDirty && pageDraft.blocks.length !== 0 && !saveLayoutMutation.isPending,
+                canDiscard: activePageDirty,
+                canReview: canReviewAction,
+                reviewLabel: reviewActionLabel,
+                canMarkSegmented,
+                zoomPercent: Math.round(viewportState.zoom * 100),
+                viewMode: viewportState.mode,
+                onPreviousPage: () => {
+                  const previousPage = pageEntries[currentPageIndex - 1]
+                  if (previousPage) {
+                    selectPage(previousPage.id)
+                  }
+                },
+                onNextPage: () => {
+                  const nextPage = pageEntries[currentPageIndex + 1]
+                  if (nextPage) {
+                    selectPage(nextPage.id)
+                  }
+                },
+                onSetTool: setActiveTool,
+                onZoomOut: () => canvasRef.current?.zoomOut(),
+                onZoomIn: () => canvasRef.current?.zoomIn(),
+                onFitPage: () => canvasRef.current?.fitPage(),
+                onResetZoom: () => canvasRef.current?.resetZoom(),
+                onSave: () => saveLayoutMutation.mutate({ pageId: selectedPage.id, draft: pageDraft }),
+                onDiscard: () =>
+                  setPageDrafts((current) => {
+                    const next = { ...current }
+                    delete next[selectedPage.id]
+                    return next
+                  }),
+                onReviewAction: handleReviewAction,
+                onMarkSegmented: () => pageStatusMutation.mutate({ pageId: selectedPage.id, action: 'mark-segmented' }),
+              }}
+              toast={toast}
+              tooltipLabel={selectedBlockLabel}
+              tooltipText={editorHelperText}
               selectedBlockId={selectedBlock ? draftBlockKey(selectedBlock) : null}
               activeTool={activeTool}
               isLocked={activePageLocked}

@@ -390,6 +390,10 @@ button {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.progress-summary .progress-grid {
+  gap: 0.55rem;
+}
+
 .project-card,
 .page-card {
   width: 100%;
@@ -610,8 +614,13 @@ button {
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
   background: var(--region-label-bg);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: rgba(255, 250, 244, 0.98);
   font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   text-transform: capitalize;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
 }
 
 .region-handle {
@@ -732,6 +741,21 @@ button {
   font-size: 0.84rem;
 }
 
+.progress-summary .stat-card {
+  min-height: 5.4rem;
+  padding: 0.7rem 0.55rem;
+  align-content: start;
+  justify-items: center;
+  text-align: center;
+}
+
+.progress-summary .stat-card span {
+  font-size: 0.64rem;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  text-wrap: balance;
+}
+
 .block-list {
   margin-top: 1rem;
 }
@@ -842,6 +866,41 @@ button {
   position: relative;
 }
 
+.canvas-toast {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.85rem;
+  z-index: 8;
+  min-width: 13rem;
+  max-width: min(22rem, calc(100% - 1.7rem));
+  padding: 0.8rem 1rem;
+  border-radius: 16px;
+  border: 1px solid rgba(84, 65, 47, 0.12);
+  background: rgba(255, 251, 244, 0.96);
+  box-shadow: 0 18px 34px rgba(57, 39, 19, 0.12);
+  color: var(--workspace-ink);
+  font-size: 0.88rem;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.canvas-toast-saving {
+  border-color: rgba(109, 86, 53, 0.14);
+  background: rgba(253, 247, 239, 0.98);
+}
+
+.canvas-toast-success {
+  border-color: rgba(61, 132, 107, 0.18);
+  background: rgba(240, 249, 244, 0.98);
+  color: #225b46;
+}
+
+.canvas-toast-error {
+  border-color: rgba(177, 73, 59, 0.18);
+  background: rgba(255, 243, 240, 0.98);
+  color: #8d372d;
+}
+
 .workspace-shell::before {
   content: '';
   position: fixed;
@@ -879,13 +938,17 @@ button {
   color: rgba(121, 86, 49, 0.84);
 }
 
-.workspace-header h1,
 .page-sidebar .panel-heading h2,
 .workspace-sidepanels .panel-heading h2,
 .editor-workbench h2,
 .inspector-panel h2 {
-  font-family: 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', serif;
-  letter-spacing: -0.02em;
+  font-family: 'Space Grotesk', 'Avenir Next', 'Segoe UI', sans-serif;
+  letter-spacing: -0.03em;
+}
+
+.workspace-header h1 {
+  font-family: 'Space Grotesk', 'Avenir Next', 'Segoe UI', sans-serif;
+  letter-spacing: -0.03em;
 }
 
 .workspace-header .back-link {
@@ -1021,7 +1084,7 @@ button {
 .workspace-shell .block-list-item strong,
 .workspace-shell .stat-card strong,
 .workspace-shell .toolbar-label strong,
-.workspace-shell .editor-toolbar-meta-primary,
+.workspace-shell .canvas-tooltip-primary,
 .workspace-sidepanels h3,
 .workspace-sidepanels .field span {
   color: var(--workspace-ink);
@@ -1032,61 +1095,134 @@ button {
 }
 
 .workspace-shell .editor-toolbar {
-  position: sticky;
-  top: 1rem;
-  z-index: 5;
-  padding: 1rem 1.05rem;
-  border: 1px solid var(--workspace-line);
-  border-radius: 24px;
-  background:
-    linear-gradient(180deg, rgba(250, 243, 232, 0.98), rgba(255, 252, 246, 0.94));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.72),
-    0 18px 30px rgba(98, 74, 44, 0.08);
-}
-
-.workspace-shell .toolbar-group {
-  flex: 1 1 220px;
-  align-items: flex-start;
-  min-width: 0;
-  padding: 0.85rem 0.95rem;
-  border-radius: 20px;
-  border: 1px solid rgba(94, 70, 46, 0.1);
-  background: rgba(255, 250, 242, 0.74);
-}
-
-.workspace-shell .toolbar-group-actions {
-  margin-left: 0;
-  flex: 1.35 1 300px;
-}
-
-.toolbar-group-heading {
   display: grid;
+  gap: 0.4rem;
+  width: 6.35rem;
+  max-width: 6.35rem;
+  padding: 0.5rem 0.45rem;
+  border: 1px solid rgba(98, 74, 44, 0.14);
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 251, 244, 0.96), rgba(248, 239, 226, 0.94));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.76),
+    0 16px 26px rgba(98, 74, 44, 0.09);
+}
+
+.editor-toolbar-status-strip {
+  display: grid;
+  gap: 0.25rem;
+  justify-items: stretch;
+}
+
+.toolbar-status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.7rem;
+  width: 100%;
+  padding: 0.2rem 0.3rem;
+  border-radius: 10px;
+  border: 1px solid rgba(104, 77, 48, 0.1);
+  background: rgba(255, 252, 247, 0.88);
+  color: rgba(78, 58, 37, 0.82);
+  font-size: 0.66rem;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+.toolbar-status-pill-accent {
+  color: #9b4c35;
+  border-color: rgba(180, 93, 61, 0.18);
+  background: rgba(255, 233, 225, 0.92);
+}
+
+.workspace-shell .editor-toolbar-row {
+  flex-direction: column;
   gap: 0.35rem;
-  min-width: 7.5rem;
+  align-items: stretch;
 }
 
-.toolbar-kicker {
-  font-size: 0.7rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: rgba(124, 87, 49, 0.78);
+.toolbar-button-cluster {
+  display: grid;
+  gap: 0.3rem;
+  justify-items: stretch;
 }
 
-.toolbar-control-row {
-  display: flex;
-  gap: 0.55rem;
+.toolbar-button-cluster-actions {
+  margin-left: 0;
+}
+
+.toolbar-divider {
+  height: 1px;
+  width: 100%;
+  background: linear-gradient(90deg, transparent, rgba(112, 83, 50, 0.16), transparent);
+}
+
+.workspace-shell .editor-toolbar .secondary-button,
+.workspace-shell .editor-toolbar .pill-button,
+.workspace-shell .editor-toolbar .primary-button {
+  min-height: 2.1rem;
+  width: 100%;
+  padding: 0.42rem 0.45rem;
+  border-radius: 12px;
+  background: transparent;
+  border-color: rgba(112, 83, 50, 0.12);
+  box-shadow: none;
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.workspace-shell .editor-toolbar .primary-button {
+  color: var(--workspace-ink);
+}
+
+.workspace-shell .editor-toolbar .pill-button-active {
+  border-color: rgba(34, 25, 16, 0.88);
+  background: rgba(47, 35, 23, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(34, 25, 16, 0.14);
+}
+
+.workspace-shell .editor-toolbar .pill-button-active .toolbar-button-text,
+.workspace-shell .editor-toolbar .pill-button-active .toolbar-button-icon {
+  color: rgba(34, 25, 16, 0.96);
+}
+
+.toolbar-icon-button {
+  display: inline-flex;
   align-items: center;
-  flex-wrap: wrap;
-}
-
-.editor-toolbar-meta {
-  display: flex;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.35rem;
+  min-width: 0;
+  font-weight: 600;
+  text-align: left;
+}
+
+.toolbar-button-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: rgba(67, 51, 33, 0.86);
+  font-size: 0.63rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.toolbar-button-icon {
+  display: inline-flex;
   align-items: center;
-  flex-wrap: wrap;
-  padding: 0 0.2rem;
+  justify-content: center;
+  min-width: 1.15em;
+  font-size: 1.12rem;
+  line-height: 1;
+}
+
+.toolbar-icon-button-wide .toolbar-button-icon {
+  font-size: 0.82rem;
+  letter-spacing: -0.02em;
+}
+
+.workspace-shell .canvas-stage {
+  position: relative;
 }
 
 .workspace-shell .canvas-panel-embedded {
@@ -1097,12 +1233,57 @@ button {
   backdrop-filter: none;
 }
 
+.workspace-shell .canvas-overlay-stack {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 7;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  pointer-events: none;
+}
+
+.workspace-shell .canvas-overlay-stack .editor-toolbar {
+  pointer-events: auto;
+}
+
+.canvas-tooltip {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  pointer-events: none;
+  min-height: 3rem;
+  max-width: min(26rem, calc(100vw - 7.5rem));
+  margin-top: 0.15rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid rgba(98, 74, 44, 0.14);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 251, 245, 0.96), rgba(249, 241, 229, 0.93));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.76),
+    0 14px 24px rgba(98, 74, 44, 0.08);
+}
+
+.canvas-tooltip-primary {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.canvas-tooltip-secondary {
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
 .workspace-shell .canvas-viewport {
   border: 1px solid rgba(107, 81, 53, 0.12);
   background:
     linear-gradient(180deg, rgba(244, 235, 221, 0.7), rgba(241, 230, 214, 0.76)),
     var(--canvas-bg);
-  padding: 1.1rem;
+  padding: 6.25rem 1.1rem 1.1rem;
 }
 
 .workspace-shell .canvas-frame {
@@ -1118,7 +1299,9 @@ button {
 }
 
 .workspace-shell .region-label {
-  background: rgba(32, 24, 15, 0.78);
+  background: rgba(34, 25, 16, 0.9);
+  border-color: rgba(255, 239, 216, 0.16);
+  color: rgba(255, 250, 244, 0.98);
 }
 
 .workspace-shell .crop-preview,
@@ -1156,6 +1339,14 @@ button {
     padding: 1rem;
   }
 
+  .canvas-toast {
+    top: 4.15rem;
+    right: 0.6rem;
+    left: auto;
+    max-width: min(14rem, calc(100% - 1.2rem));
+    min-width: 0;
+  }
+
   .topbar,
   .workspace-header,
   .hero-panel,
@@ -1163,12 +1354,9 @@ button {
   .login-card-header,
   .editor-workbench-header,
   .editor-toolbar-row,
-  .toolbar-group,
-  .toolbar-group-actions,
   .draft-action-meta,
   .draft-action-buttons,
-  .draft-action-summary,
-  .editor-toolbar-meta {
+  .draft-action-summary {
     flex-direction: column;
     align-items: stretch;
   }
@@ -1184,14 +1372,42 @@ button {
 
   .canvas-viewport {
     height: clamp(320px, 58vh, 720px);
-    padding: 0.75rem;
+    padding: 5.45rem 0.75rem 0.75rem;
   }
 
-  .workspace-shell .toolbar-group {
-    padding: 0.8rem;
+  .toolbar-button-cluster-actions {
+    margin-left: 0;
   }
 
-  .toolbar-group-heading {
-    min-width: 0;
+  .toolbar-divider {
+    display: none;
+  }
+
+  .workspace-shell .editor-toolbar {
+    width: 6rem;
+    max-width: 6rem;
+    padding: 0.45rem;
+  }
+
+  .editor-toolbar-status-strip,
+  .toolbar-button-cluster {
+    width: 100%;
+  }
+
+  .workspace-shell .canvas-overlay-stack {
+    top: 0.6rem;
+    left: 0.6rem;
+    gap: 0.55rem;
+  }
+
+  .canvas-tooltip {
+    max-width: min(15rem, calc(100vw - 6.4rem));
+    padding: 0.6rem 0.7rem;
+    gap: 0.45rem;
+  }
+
+  .canvas-tooltip-primary,
+  .canvas-tooltip-secondary {
+    width: 100%;
   }
 }

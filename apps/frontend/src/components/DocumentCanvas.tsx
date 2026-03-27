@@ -1,6 +1,8 @@
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 
+import { CanvasTooltip } from './CanvasTooltip'
+import { EditorToolbar, type EditorToolbarProps } from './EditorToolbar'
 import { withApiRoot } from '../lib/api'
 import { clamp, clampGeometry, draftBlockKey, type DraftBlock } from '../lib/segmentation'
 import type { BlockGeometry, PageResponse } from '../lib/types'
@@ -51,6 +53,13 @@ type InteractionState =
 interface DocumentCanvasProps {
   page: PageResponse
   blocks: DraftBlock[]
+  toolbar: EditorToolbarProps
+  toast?: {
+    tone: 'saving' | 'success' | 'error'
+    message: string
+  } | null
+  tooltipLabel: string
+  tooltipText: string
   selectedBlockId: string | null
   activeTool: ActiveTool
   isLocked: boolean
@@ -125,6 +134,10 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
   {
     page,
     blocks,
+    toolbar,
+    toast,
+    tooltipLabel,
+    tooltipText,
     selectedBlockId,
     activeTool,
     isLocked,
@@ -357,130 +370,149 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
 
   return (
     <section className="canvas-panel canvas-panel-embedded">
-      <div
-        className={`canvas-viewport ${isPanning ? 'canvas-viewport-panning' : ''}`}
-        ref={viewportRef}
-        onScroll={(event) => {
-          setViewport({
-            ...viewport,
-            panX: event.currentTarget.scrollLeft,
-            panY: event.currentTarget.scrollTop,
-          })
-        }}
-        onPointerDown={(event) => {
-          if (!(spacePressed || event.button === 1) || viewport.zoom <= 1) {
-            return
-          }
-        }}
-      >
+      <div className="canvas-stage">
+        <div className="canvas-overlay-stack">
+          <EditorToolbar {...toolbar} />
+          <CanvasTooltip label={tooltipLabel} message={tooltipText} />
+        </div>
+        {toast ? (
+          <div
+            className={`canvas-toast canvas-toast-${toast.tone}`}
+            role={toast.tone === 'error' ? 'alert' : 'status'}
+            aria-live={toast.tone === 'error' ? 'assertive' : 'polite'}
+          >
+            {toast.message}
+          </div>
+        ) : null}
+
         <div
-          className={`canvas-frame ${activeTool === 'create' && !isLocked ? 'canvas-frame-draw' : ''}`}
-          ref={surfaceRef}
-          style={{
-            width: `${page.width * viewport.zoom}px`,
-            height: `${page.height * viewport.zoom}px`,
+          className={`canvas-viewport ${isPanning ? 'canvas-viewport-panning' : ''}`}
+          ref={viewportRef}
+          onContextMenu={(event) => {
+            event.preventDefault()
+          }}
+          onScroll={(event) => {
+            setViewport({
+              ...viewport,
+              panX: event.currentTarget.scrollLeft,
+              panY: event.currentTarget.scrollTop,
+            })
           }}
           onPointerDown={(event) => {
-            if (spacePressed || event.button === 1 || isLocked || activeTool !== 'create') {
-              if (spacePressed || event.button === 1) {
-                event.preventDefault()
-                panStateRef.current = {
-                  pointerId: event.pointerId,
-                  startX: event.clientX,
-                  startY: event.clientY,
-                  scrollLeft: viewportRef.current?.scrollLeft ?? 0,
-                  scrollTop: viewportRef.current?.scrollTop ?? 0,
-                }
-                setIsPanning(true)
-              }
+            if (!(spacePressed || event.button === 1) || viewport.zoom <= 1) {
               return
             }
-            const point = pointerToRelative(event, event.currentTarget)
-            setInteraction({ kind: 'create', pointerId: event.pointerId, start: point, current: point })
           }}
         >
-          <img className="canvas-image" src={withApiRoot(page.image_url) ?? undefined} alt={`Page ${page.page_index + 1}`} />
-          {blocks.map((block) => {
-            const blockId = draftBlockKey(block)
-            const isSelected = blockId === selectedBlockId
-            return (
-              <div
-                key={blockId}
-                className={`region region-${block.block_type} ${isSelected ? 'region-selected' : ''}`}
-                style={{
-                  left: `${block.geometry.x * 100}%`,
-                  top: `${block.geometry.y * 100}%`,
-                  width: `${block.geometry.width * 100}%`,
-                  height: `${block.geometry.height * 100}%`,
-                }}
-                onPointerDown={(event) => {
-                  event.stopPropagation()
-                  onSelectBlock(blockId)
-                  if (spacePressed || event.button === 1) {
-                    event.preventDefault()
-                    panStateRef.current = {
-                      pointerId: event.pointerId,
-                      startX: event.clientX,
-                      startY: event.clientY,
-                      scrollLeft: viewportRef.current?.scrollLeft ?? 0,
-                      scrollTop: viewportRef.current?.scrollTop ?? 0,
-                    }
-                    setIsPanning(true)
-                    return
-                  }
-                  if (isLocked || activeTool !== 'select' || !surfaceRef.current) {
-                    return
-                  }
-                  setInteraction({
-                    kind: 'move',
+          <div
+            className={`canvas-frame ${activeTool === 'create' && !isLocked ? 'canvas-frame-draw' : ''}`}
+            ref={surfaceRef}
+            style={{
+              width: `${page.width * viewport.zoom}px`,
+              height: `${page.height * viewport.zoom}px`,
+            }}
+            onPointerDown={(event) => {
+              if (spacePressed || event.button === 1 || isLocked || activeTool !== 'create') {
+                if (spacePressed || event.button === 1) {
+                  event.preventDefault()
+                  panStateRef.current = {
                     pointerId: event.pointerId,
-                    blockId,
-                    start: pointerToRelative(event, surfaceRef.current),
-                    initial: block.geometry,
-                  })
+                    startX: event.clientX,
+                    startY: event.clientY,
+                    scrollLeft: viewportRef.current?.scrollLeft ?? 0,
+                    scrollTop: viewportRef.current?.scrollTop ?? 0,
+                  }
+                  setIsPanning(true)
+                }
+                return
+              }
+              const point = pointerToRelative(event, event.currentTarget)
+              setInteraction({ kind: 'create', pointerId: event.pointerId, start: point, current: point })
+            }}
+          >
+            <img className="canvas-image" src={withApiRoot(page.image_url) ?? undefined} alt={`Page ${page.page_index + 1}`} />
+            {blocks.map((block) => {
+              const blockId = draftBlockKey(block)
+              const isSelected = blockId === selectedBlockId
+              return (
+                <div
+                  key={blockId}
+                  className={`region region-${block.block_type} ${isSelected ? 'region-selected' : ''}`}
+                  style={{
+                    left: `${block.geometry.x * 100}%`,
+                    top: `${block.geometry.y * 100}%`,
+                    width: `${block.geometry.width * 100}%`,
+                    height: `${block.geometry.height * 100}%`,
+                  }}
+                  onPointerDown={(event) => {
+                    event.stopPropagation()
+                    onSelectBlock(blockId)
+                    if (spacePressed || event.button === 1) {
+                      event.preventDefault()
+                      panStateRef.current = {
+                        pointerId: event.pointerId,
+                        startX: event.clientX,
+                        startY: event.clientY,
+                        scrollLeft: viewportRef.current?.scrollLeft ?? 0,
+                        scrollTop: viewportRef.current?.scrollTop ?? 0,
+                      }
+                      setIsPanning(true)
+                      return
+                    }
+                    if (isLocked || activeTool !== 'select' || !surfaceRef.current) {
+                      return
+                    }
+                    setInteraction({
+                      kind: 'move',
+                      pointerId: event.pointerId,
+                      blockId,
+                      start: pointerToRelative(event, surfaceRef.current),
+                      initial: block.geometry,
+                    })
+                  }}
+                >
+                  <span className="region-label">
+                    {block.block_type}
+                    <strong>#{block.order_index + 1}</strong>
+                  </span>
+                  {isSelected && !isLocked
+                    ? resizeHandles.map((handle) => (
+                        <span
+                          key={handle}
+                          className={`region-handle region-handle-${handle}`}
+                          onPointerDown={(event) => {
+                            if (!surfaceRef.current) {
+                              return
+                            }
+                            event.preventDefault()
+                            event.stopPropagation()
+                            setInteraction({
+                              kind: 'resize',
+                              pointerId: event.pointerId,
+                              blockId,
+                              handle,
+                              start: pointerToRelative(event, surfaceRef.current),
+                              initial: block.geometry,
+                            })
+                          }}
+                        />
+                      ))
+                    : null}
+                </div>
+              )
+            })}
+            {draftGeometry ? (
+              <div
+                className="region region-draft"
+                style={{
+                  left: `${draftGeometry.x * 100}%`,
+                  top: `${draftGeometry.y * 100}%`,
+                  width: `${draftGeometry.width * 100}%`,
+                  height: `${draftGeometry.height * 100}%`,
                 }}
-              >
-                <span className="region-label">
-                  {block.block_type}
-                  <strong>#{block.order_index + 1}</strong>
-                </span>
-                {isSelected && !isLocked
-                  ? resizeHandles.map((handle) => (
-                      <span
-                        key={handle}
-                        className={`region-handle region-handle-${handle}`}
-                        onPointerDown={(event) => {
-                          if (!surfaceRef.current) {
-                            return
-                          }
-                          event.preventDefault()
-                          event.stopPropagation()
-                          setInteraction({
-                            kind: 'resize',
-                            pointerId: event.pointerId,
-                            blockId,
-                            handle,
-                            start: pointerToRelative(event, surfaceRef.current),
-                            initial: block.geometry,
-                          })
-                        }}
-                      />
-                    ))
-                  : null}
-              </div>
-            )
-          })}
-          {draftGeometry ? (
-            <div
-              className="region region-draft"
-              style={{
-                left: `${draftGeometry.x * 100}%`,
-                top: `${draftGeometry.y * 100}%`,
-                width: `${draftGeometry.width * 100}%`,
-                height: `${draftGeometry.height * 100}%`,
-              }}
-            />
-          ) : null}
+              />
+            ) : null}
+          </div>
         </div>
       </div>
     </section>
