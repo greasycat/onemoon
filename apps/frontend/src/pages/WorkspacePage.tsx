@@ -1,5 +1,5 @@
-import { ArrowLeft } from 'lucide-react'
-import { Link, useParams } from 'react-router-dom'
+import { useMemo } from 'react'
+import { useParams } from 'react-router-dom'
 
 import { BlockInspector } from '../components/BlockInspector'
 import { DocumentCanvas } from '../components/DocumentCanvas'
@@ -30,6 +30,7 @@ export function WorkspacePage() {
     mergeSelectedBlock,
     pageDraft,
     pageEntries,
+    projectName,
     resetDebugSettings,
     reviewCounts,
     selectedBlock,
@@ -49,6 +50,14 @@ export function WorkspacePage() {
     deleteSelectedBlocks,
     duplicateSelectedBlock,
   } = useWorkspaceController(documentId)
+
+  const filenameStem = useMemo(() => {
+    if (!document?.filename) {
+      return ''
+    }
+    const extensionIndex = document.filename.lastIndexOf('.')
+    return extensionIndex > 0 ? document.filename.slice(0, extensionIndex) : document.filename
+  }, [document?.filename])
 
   if (documentQuery.isLoading) {
     return (
@@ -86,22 +95,6 @@ export function WorkspacePage() {
 
   return (
     <main className="workspace-shell">
-      <header className="workspace-header">
-        <div>
-          <Link className="back-link" to="/">
-            <ArrowLeft className="back-link-icon" aria-hidden="true" />
-            <span>Projects</span>
-          </Link>
-          <p className="eyebrow">{document.filename}</p>
-          <h1>{document.title}</h1>
-        </div>
-        <div className="status-stack">
-          <span className={`status-chip status-${document.status}`}>{document.status}</span>
-          <span className={`status-chip status-${activeReviewStatus}`}>{activeReviewStatus}</span>
-          {activePageDirty ? <span className="status-chip status-pending">unsaved</span> : null}
-        </div>
-      </header>
-
       <section className="workspace-grid">
         <WorkspacePageSidebar
           pageEntries={pageEntries}
@@ -114,17 +107,8 @@ export function WorkspacePage() {
           <section className="panel editor-workbench">
             <div className="editor-workbench-header">
               <div className="editor-workbench-title">
-                <p className="eyebrow">Manual Segmentation</p>
-                <p className="editor-workbench-copy">
-                  Refine block boundaries, keep review state moving, and use the canvas as the primary editing surface.
-                </p>
-              </div>
-
-              <div className="editor-workbench-status">
-                <span className={`status-chip status-${activeReviewStatus}`}>{activeReviewStatus.replace('_', ' ')}</span>
-                {activePageLocked ? <span className="status-chip status-pending">locked</span> : null}
-                {activePageDirty ? <span className="status-chip status-pending">unsaved changes</span> : null}
-                <span className="status-chip status-review">{pageDraft.blocks.length} blocks</span>
+                <p className="eyebrow">{projectName || 'Project'}</p>
+                <h1>{filenameStem}</h1>
               </div>
             </div>
             <DocumentCanvas

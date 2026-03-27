@@ -130,7 +130,17 @@ export function useWorkspaceController(documentId: string) {
     },
   })
 
+  const projectsQuery = useQuery({
+    queryKey: ['projects', token],
+    queryFn: () => api.getProjects(token!),
+    enabled: Boolean(token),
+  })
+
   const document = documentQuery.data
+  const projectName = useMemo(
+    () => projectsQuery.data?.find((project) => project.id === document?.project_id)?.name ?? '',
+    [document?.project_id, projectsQuery.data],
+  )
   const activePageId =
     selectedPageId && document?.pages.some((page) => page.id === selectedPageId)
       ? selectedPageId
@@ -746,6 +756,7 @@ export function useWorkspaceController(documentId: string) {
     mergeSelectedBlock,
     pageDraft,
     pageEntries,
+    projectName,
     resetDebugSettings,
     reviewCounts,
     selectedBlock,

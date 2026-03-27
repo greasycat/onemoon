@@ -1207,6 +1207,8 @@ button {
   justify-content: space-between;
   gap: 1rem;
   align-items: flex-start;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid rgba(97, 71, 46, 0.1);
 }
 
 .editor-workbench-title {
@@ -1214,6 +1216,7 @@ button {
   gap: 0.35rem;
 }
 
+.editor-workbench-title h1,
 .editor-workbench-title h2 {
   margin: 0;
   font-size: clamp(1.6rem, 3vw, 2.3rem);
