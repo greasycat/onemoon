@@ -117,55 +117,7 @@ interface DocumentCanvasProps {
 const MIN_ZOOM = 0.35
 const MAX_ZOOM = 4
 const ZOOM_STEP = 0.2
-const WHEEL_SCROLL_EPSILON = 1
 const resizeHandles: ResizeHandle[] = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']
-
-function isScrollableOnY(element: HTMLElement) {
-  const style = window.getComputedStyle(element)
-  if (!['auto', 'scroll', 'overlay'].includes(style.overflowY)) {
-    return false
-  }
-  return element.scrollHeight - element.clientHeight > WHEEL_SCROLL_EPSILON
-}
-
-function getScrollableAncestors(start: HTMLElement | null) {
-  const ancestors: HTMLElement[] = []
-  let current = start
-
-  while (current) {
-    if (isScrollableOnY(current)) {
-      ancestors.push(current)
-    }
-    current = current.parentElement
-  }
-
-  const scrollingElement = document.scrollingElement
-  if (scrollingElement instanceof HTMLElement && !ancestors.includes(scrollingElement)) {
-    ancestors.push(scrollingElement)
-  }
-
-  return ancestors
-}
-
-function scrollElementByDeltaY(element: HTMLElement, deltaY: number) {
-  const maxScrollTop = element.scrollHeight - element.clientHeight
-  if (maxScrollTop <= WHEEL_SCROLL_EPSILON) {
-    return false
-  }
-
-  const nextScrollTop = clamp(element.scrollTop + deltaY, 0, maxScrollTop)
-  if (Math.abs(nextScrollTop - element.scrollTop) <= WHEEL_SCROLL_EPSILON) {
-    return false
-  }
-
-  element.scrollTop = nextScrollTop
-  return true
-}
-
-function scrollNearestScrollableAncestor(start: HTMLElement | null, deltaY: number) {
-  const scrollableAncestors = getScrollableAncestors(start)
-  return scrollableAncestors.some((element) => scrollElementByDeltaY(element, deltaY))
-}
 
 function normalizeGeometry(start: CanvasPoint, end: CanvasPoint, minBlockSize: number): BlockGeometry {
   const x = clamp(Math.min(start.x, end.x))
@@ -1192,28 +1144,6 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
         <div
           className={`canvas-viewport ${isPanning ? 'canvas-viewport-panning' : ''}`}
           ref={viewportRef}
-          onWheelCapture={(event) => {
-            if (!toolbar || event.ctrlKey || event.metaKey || Math.abs(event.deltaY) <= WHEEL_SCROLL_EPSILON) {
-              return
-            }
-
-            const viewportElement = event.currentTarget
-            const deltaY = event.deltaY
-            const scrollableAncestors = getScrollableAncestors(viewportElement)
-            const previousScrollTops = scrollableAncestors.map((element) => ({
-              element,
-              scrollTop: element.scrollTop,
-            }))
-
-            window.requestAnimationFrame(() => {
-              const didNativeScroll = previousScrollTops.some(
-                ({ element, scrollTop }) => Math.abs(element.scrollTop - scrollTop) > WHEEL_SCROLL_EPSILON,
-              )
-              if (!didNativeScroll) {
-                scrollNearestScrollableAncestor(viewportElement, deltaY)
-              }
-            })
-          }}
           onContextMenu={(event) => {
             event.preventDefault()
           }}
