@@ -165,6 +165,7 @@ export function WorkspacePage() {
                         />
                       ) : null
                     }
+                    disableBlockMovement={isConversionMode}
                     blockListPanel={undefined}
                     blockInfoPanel={undefined}
                     toast={toast}

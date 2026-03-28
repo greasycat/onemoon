@@ -1,5 +1,7 @@
 # Changelog
 
+- Disabled canvas block dragging in conversion mode so reviewers can still select blocks there without accidentally moving them.
+
 - Added a conversion-mode zoom toolbar overlay on the canvas so zoom controls stay available in conversion mode without bringing back the full review toolbar, and kept that toolbar background transparent.
 
 - Docked the workspace block list and selected-block inspector in normal review mode too, so both modes use the side stack instead of floating those panels over the canvas.

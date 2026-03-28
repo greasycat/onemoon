@@ -105,6 +105,7 @@ interface DocumentCanvasProps {
     cutCeilingPath: BlockVertex[] | null
     toolbar?: EditorToolbarProps | null
     overlayToolbar?: ReactNode
+    disableBlockMovement?: boolean
     blockListPanel?: ReactNode
     blockInfoPanel?: ReactNode
     toast?: {
@@ -736,6 +737,7 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
         cutCeilingPath,
         toolbar,
         overlayToolbar,
+        disableBlockMovement = false,
         blockListPanel,
         blockInfoPanel,
         toast,
@@ -1410,7 +1412,7 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
                                                 startPanning(event)
                                                 return
                                             }
-                                            if (isLocked || activeTool !== 'select' || !point) {
+                                            if (isLocked || disableBlockMovement || activeTool !== 'select' || !point) {
                                                 return
                                             }
                                             setInteraction({
@@ -1490,7 +1492,7 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
                                             startPanning(event)
                                             return
                                         }
-                                        if (isLocked || activeTool !== 'select' || !surfaceRef.current) {
+                                        if (isLocked || disableBlockMovement || activeTool !== 'select' || !surfaceRef.current) {
                                             return
                                         }
                                         setInteraction({
