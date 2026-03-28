@@ -1918,6 +1918,9 @@ button {
 
 .editor-workbench-canvas-layout {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
+  gap: 0.9rem;
+  align-items: start;
   min-height: 0;
   min-width: 0;
   width: 100%;
@@ -1965,6 +1968,11 @@ button {
 
 .workspace-shell .editor-workbench-canvas-column .workspace-review-panel .block-list {
   max-height: min(44vh, 28rem);
+}
+
+.workspace-shell .editor-workbench-canvas-column-list {
+  position: sticky;
+  top: 0;
 }
 
 .workspace-shell .editor-workbench-canvas-column .inspector-panel {
@@ -2666,6 +2674,7 @@ button {
   }
 
   .workspace-main-layout,
+  .editor-workbench-canvas-layout,
   .editor-workbench-canvas-layout-conversion,
   .projects-dashboard-layout,
   .artifact-grid,

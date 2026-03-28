@@ -1,5 +1,7 @@
 # Changelog
 
+- Docked the workspace block list and selected-block inspector in normal review mode too, so both modes use the side stack instead of floating those panels over the canvas.
+
 - Locked the workspace canvas viewport to the editor row height so zooming no longer makes the viewport itself grow and feed back into `fitPageZoom`.
 
 - Extended the workspace debug panel with live canvas content/page dimensions and made the panel stay open above the workspace until the Debug toggle is clicked again.

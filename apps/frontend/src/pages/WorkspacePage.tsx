@@ -139,14 +139,12 @@ export function WorkspacePage() {
                 </div>
               </div>
               <div className={`editor-workbench-canvas-layout ${isConversionMode ? 'editor-workbench-canvas-layout-conversion' : ''}`}>
-                {isConversionMode ? (
-                  <div className="editor-workbench-canvas-column editor-workbench-canvas-column-list">
-                    <div className="editor-workbench-canvas-side-stack">
-                      {blockListPanel}
-                      {blockInfoPanel}
-                    </div>
+                <div className="editor-workbench-canvas-column editor-workbench-canvas-column-list">
+                  <div className="editor-workbench-canvas-side-stack">
+                    {blockListPanel}
+                    {blockInfoPanel}
                   </div>
-                ) : null}
+                </div>
                 <div className="editor-workbench-canvas-shell">
                   <DocumentCanvas
                     ref={canvasRef}
@@ -155,8 +153,8 @@ export function WorkspacePage() {
                     cutCeilingPath={activeCutCeilingPath}
                     debugSettings={debugSettings}
                     toolbar={isConversionMode ? null : toolbar}
-                    blockListPanel={isConversionMode ? undefined : blockListPanel}
-                    blockInfoPanel={isConversionMode ? undefined : blockInfoPanel}
+                    blockListPanel={undefined}
+                    blockInfoPanel={undefined}
                     toast={toast}
                     selectedBlockIds={selectedBlockIds}
                     activeBlockId={selectedBlockKey}
