@@ -2459,7 +2459,7 @@ button {
     var(--canvas-bg);
   height: 100%;
   min-height: clamp(420px, 70vh, 920px);
-  padding: 6.25rem min(21rem, 36vw) 1.1rem 1.1rem;
+  padding: 6.25rem 1.1rem 1.1rem;
 }
 
 .workspace-shell .canvas-panel-toolbar-hidden .canvas-viewport {

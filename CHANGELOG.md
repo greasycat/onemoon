@@ -1,5 +1,7 @@
 # Changelog
 
+- Removed the asymmetric workspace canvas side padding so the page frame now centers against the visible editor viewport instead of a right-heavy inner gutter.
+
 - Explicitly centered the workspace canvas frame inside its scroll viewport so the page image stays visually centered in the segmentation editor.
 
 - Repositioned the workspace selected-block inspector as a floating canvas card anchored inside the segmentation editor instead of a docked side panel.
