@@ -6,7 +6,6 @@ import {
   PenTool,
   Play,
   Ratio,
-  RotateCcw,
   Save,
   Scan,
   Scissors,
@@ -19,12 +18,12 @@ import {
 type ActiveTool = 'select' | 'rect' | 'freeform' | 'cut'
 type ViewMode = 'fit-page' | 'fit-width' | 'manual'
 
-function reviewIcon(label: string): LucideIcon {
-  return label === 'Reopen Page' ? RotateCcw : Play
+function reviewIcon(_: string): LucideIcon {
+  return Play
 }
 
-function reviewShortLabel(label: string) {
-  return label === 'Reopen Page' ? 'Reopen' : 'Review'
+function reviewShortLabel(_: string) {
+  return 'Review'
 }
 
 interface ToolbarButtonProps {

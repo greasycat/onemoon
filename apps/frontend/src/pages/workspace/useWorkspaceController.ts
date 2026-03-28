@@ -425,8 +425,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     const hoveredBlock = pageDraft.blocks.find((block) => draftBlockKey(block) === hoveredBlockKey)
     return hoveredBlock ? `Cursor: #${hoveredBlock.order_index + 1} ${hoveredBlock.block_type}` : 'Cursor: no block'
   }, [hoveredBlockKey, pageDraft])
-  const reviewActionLabel =
-    activeReviewStatus === 'segmented' ? 'Reopen Page' : activeReviewStatus === 'unreviewed' ? 'Start Review' : null
+  const reviewActionLabel = activeReviewStatus === 'unreviewed' ? 'Start Review' : null
   const canReviewAction = Boolean(reviewActionLabel) && !pageStatusMutation.isPending && !activePageDirty
   const activePageHasNoBlocks = (pageDraft?.blocks.length ?? 0) === 0
   const allowEmptyPageActionToast = !activePageLocked && activePageHasNoBlocks
@@ -436,7 +435,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     activeReviewStatus !== 'segmented' &&
     (!activePageHasNoBlocks || allowEmptyPageActionToast)
   const editorHelperText = activePageLocked
-    ? 'This page is marked segmented. Reopen it to edit the layout.'
+    ? 'This page is marked segmented. Enter conversion mode, then exit it to edit the layout again.'
     : activeTool === 'rect'
       ? 'Rect mode is active. Drag on the page to create a rectangular block.'
       : activeTool === 'freeform'
@@ -558,17 +557,17 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
 
   async function saveActivePage() {
     if (!selectedPage || !pageDraft || !canSaveAction) {
-      return
+      return false
     }
     if (pageDraft.blocks.length === 0) {
       showToast({ tone: 'error', message: EMPTY_PAGE_ACTION_MESSAGE })
-      return
+      return false
     }
 
     const dirtyDraftQueue = collectDirtyDrafts()
     if (dirtyDraftQueue.some((entry) => entry.draft.blocks.length === 0)) {
       showEmptyDraftError(dirtyDraftQueue)
-      return
+      return false
     }
 
     showToast(
@@ -586,7 +585,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
       showSavingToast: false,
     })
     if (!savedAllDrafts) {
-      return
+      return false
     }
 
     try {
@@ -597,11 +596,13 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
         tone: 'success',
         message: dirtyDraftQueue.length > 0 ? 'All drafts saved. Page finished.' : 'Page finished.',
       })
+      return true
     } catch (error) {
       showToast({
         tone: 'error',
         message: error instanceof Error && error.message ? error.message : 'Failed to finish page.',
       })
+      return false
     }
   }
 
@@ -627,8 +628,26 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     } catch (error) {
       showToast({
         tone: 'error',
+        message: error instanceof Error && error.message ? error.message : 'Failed to start review.',
+      })
+    }
+  }
+
+  async function reopenActivePage() {
+    if (!selectedPage || pageStatusMutation.isPending) {
+      return false
+    }
+    try {
+      await pageStatusMutation.mutateAsync({ pageId: selectedPage.id, action: 'reopen' })
+      clearDraftForPage(selectedPage.id)
+      await refreshDocument()
+      return true
+    } catch (error) {
+      showToast({
+        tone: 'error',
         message: error instanceof Error && error.message ? error.message : 'Failed to reopen page.',
       })
+      return false
     }
   }
 
@@ -890,8 +909,10 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     pageDraft,
     pageEntries,
     projectName,
+    reopenActivePage,
     resetDebugSettings,
     reviewCounts,
+    saveActivePage,
     selectedBlock,
     selectedBlockIds: activeSelectedBlockKeys,
     selectedBlockCount: activeSelectedBlockKeys.length,

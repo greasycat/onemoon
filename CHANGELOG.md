@@ -1,5 +1,7 @@
 # Changelog
 
+- Wired the conversion-mode toggle to auto-save-and-finish on entry and auto-reopen on exit, and removed the standalone workspace `Reopen` action.
+
 - Merged the workspace `Save` and `FIN` actions into a single `Save` control that saves dirty drafts and marks the active page finished in one step.
 
 - Disabled canvas block dragging in conversion mode so reviewers can still select blocks there without accidentally moving them.

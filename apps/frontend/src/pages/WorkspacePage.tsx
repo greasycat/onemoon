@@ -15,6 +15,7 @@ export function WorkspacePage() {
   const { documentId = '' } = useParams()
   const location = useLocation()
   const [isConversionMode, setIsConversionMode] = useState(false)
+  const [isConversionModePending, setIsConversionModePending] = useState(false)
   const pendingUploadJobId =
     location.state && typeof location.state === 'object' && 'pendingUploadJobId' in location.state && typeof location.state.pendingUploadJobId === 'string'
       ? location.state.pendingUploadJobId
@@ -37,8 +38,10 @@ export function WorkspacePage() {
     pageDraft,
     pageEntries,
     projectName,
+    reopenActivePage,
     resetDebugSettings,
     reviewCounts,
+    saveActivePage,
     selectedBlock,
     selectedBlockCount,
     selectedBlockIds,
@@ -110,6 +113,30 @@ export function WorkspacePage() {
     />
   )
 
+  async function handleConversionModeToggle() {
+    if (isConversionModePending) {
+      return
+    }
+
+    setIsConversionModePending(true)
+    try {
+      if (isConversionMode) {
+        const reopened = activePageLocked ? await reopenActivePage() : true
+        if (reopened) {
+          setIsConversionMode(false)
+        }
+        return
+      }
+
+      const saved = activePageLocked ? true : await saveActivePage()
+      if (saved) {
+        setIsConversionMode(true)
+      }
+    } finally {
+      setIsConversionModePending(false)
+    }
+  }
+
   return (
     <main className="workspace-shell">
       <section className="workspace-grid">
@@ -133,7 +160,10 @@ export function WorkspacePage() {
                     type="button"
                     className="secondary-button workspace-toolbar-toggle"
                     aria-pressed={isConversionMode}
-                    onClick={() => setIsConversionMode((current) => !current)}
+                    disabled={isConversionModePending}
+                    onClick={() => {
+                      void handleConversionModeToggle()
+                    }}
                   >
                     {isConversionMode ? 'Exit conversion mode' : 'Enter conversion mode'}
                   </button>
