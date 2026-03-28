@@ -1,5 +1,7 @@
 # Changelog
 
+- Constrained the workspace editor canvas layout to its parent workbench width and let conversion side rails shrink instead of forcing the canvas row to overflow.
+
 - Docked the workspace LaTeX preview rail into the layout by removing its floating outer card treatment and switching its inner preview surfaces to flat inline sections.
 
 - Turned the workspace header toggle into a dedicated conversion-mode switch that hides the floating toolbar, docks the block list and selected-block panel beside the image, and stacks the LaTeX preview below the editor.
