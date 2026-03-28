@@ -144,13 +144,12 @@ button {
 }
 
 .app-shell,
-.page-shell,
-.workspace-shell,
 .login-shell {
   min-height: 100vh;
 }
 
 .app-shell {
+  height: 100vh;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
 }
@@ -186,6 +185,8 @@ button {
 
 .page-shell,
 .workspace-shell {
+  min-height: 0;
+  height: 100%;
   padding: 1.5rem;
 }
 
