@@ -1,5 +1,7 @@
 # Changelog
 
+- Stabilized workspace `fitPageZoom` against manual zoom scrollbars by measuring the canvas viewport from its border box, so the fit-page baseline stays fixed for a given browser layout while zoom buttons change only `viewport.zoom`.
+
 - Added raw `viewport.zoom` and `fitPageZoom` readouts to the workspace debug panel so canvas zoom state can be inspected without digging through the DOM.
 
 - Lowered the workspace canvas minimum zoom floor from `0.35` to `0.05` so `Zoom out` can step below the old clamp after a `100%` reset.
