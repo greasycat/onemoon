@@ -2551,7 +2551,14 @@ button {
   gap: 1rem;
   min-height: 100%;
   grid-template-rows: minmax(0, 1fr) minmax(16rem, 1fr);
-  padding: 1rem;
+  padding: 0.35rem 0 0;
+  position: relative;
+  z-index: 1;
+}
+
+.workspace-document-preview-section + .workspace-document-preview-section {
+  padding-top: 1rem;
+  border-top: 1px solid var(--workspace-line);
 }
 
 .workspace-document-preview-section {
@@ -2565,6 +2572,10 @@ button {
 .workspace-document-preview-source,
 .workspace-document-source {
   min-height: 0;
+  border-radius: 16px;
+  border: 1px solid rgba(97, 71, 46, 0.12);
+  background: rgba(255, 252, 247, 0.72);
+  box-shadow: none;
 }
 
 .workspace-document-preview-frame {

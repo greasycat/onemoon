@@ -48,7 +48,7 @@ export function WorkspaceDocumentPreview({ document }: WorkspaceDocumentPreviewP
   const latexSource = document.assembled_latex?.trim() || buildFallbackLatex(document)
 
   return (
-    <aside className="workspace-document-preview panel">
+    <aside className="workspace-document-preview">
       <div className="workspace-document-preview-section">
         {previewUrl ? (
           <div className="artifact-preview workspace-document-preview-frame">
