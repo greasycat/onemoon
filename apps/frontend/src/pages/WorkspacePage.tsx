@@ -50,7 +50,6 @@ export function WorkspacePage() {
     toast,
     toolbar,
     updateDebugSetting,
-    viewportState,
     deleteSelectedBlocks,
     duplicateSelectedBlock,
     isResolvingDocumentCreation,
@@ -148,8 +147,6 @@ export function WorkspacePage() {
             selectedBlockIds={selectedBlockIds}
             selectedBlock={selectedBlock}
             selectionCount={selectedBlockCount}
-            selectedPageLayoutVersion={selectedPage.layout_version}
-            viewportState={viewportState}
             onSelectBlock={selectBlock}
             onCycleBlockType={cycleBlockType}
           />

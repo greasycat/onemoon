@@ -1,6 +1,5 @@
 import type { MouseEvent as ReactMouseEvent } from 'react'
 
-import type { CanvasViewportState } from '../../components/DocumentCanvas'
 import { draftBlockKey, type DraftBlock, type DraftPageLayout } from '../../lib/segmentation'
 import type { BlockSelectionMode } from '../../lib/types'
 
@@ -10,8 +9,6 @@ interface WorkspaceReviewPanelProps {
   selectedBlockIds: string[]
   selectedBlock: DraftBlock | null
   selectionCount: number
-  selectedPageLayoutVersion: number
-  viewportState: CanvasViewportState
   onSelectBlock: (blockId: string, mode?: BlockSelectionMode) => void
   onCycleBlockType: (blockId: string) => void
 }
@@ -22,8 +19,6 @@ export function WorkspaceReviewPanel({
   selectedBlockIds,
   selectedBlock,
   selectionCount,
-  selectedPageLayoutVersion,
-  viewportState,
   onSelectBlock,
   onCycleBlockType,
 }: WorkspaceReviewPanelProps) {
@@ -53,18 +48,6 @@ export function WorkspaceReviewPanel({
         <div className="stat-card">
           <span>Selected</span>
           <strong>{selectionCount}</strong>
-        </div>
-        <div className="stat-card">
-          <span>Layout Version</span>
-          <strong>{selectedPageLayoutVersion}</strong>
-        </div>
-        <div className="stat-card">
-          <span>Zoom</span>
-          <strong>{Math.round(viewportState.zoom * 100)}%</strong>
-        </div>
-        <div className="stat-card">
-          <span>View</span>
-          <strong>{viewportState.mode}</strong>
         </div>
       </div>
       <div className="block-list">
