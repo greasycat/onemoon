@@ -117,3 +117,45 @@ def test_openai_adapter_strips_display_math_wrappers(tmp_path: Path) -> None:
     result = adapter.convert(payload)
 
     assert result.normalized_output == "a^2 + b^2 = c^2"
+
+
+def test_openai_adapter_builds_figure_snippet_from_caption_text(tmp_path: Path) -> None:
+    llm_module = importlib.import_module("onemoon_backend.services.llm")
+    adapter = llm_module.OpenAIResponsesLLMAdapter(
+        api_key="test-key",
+        model="gpt-5.4",
+        base_url="https://api.openai.com/v1",
+        timeout_seconds=10,
+    )
+    payload = _make_payload(llm_module, tmp_path, BlockType.figure)
+    captured_request: dict[str, object] = {}
+
+    def fake_request(request_body):
+        captured_request.update(request_body)
+        return {
+            "status": "completed",
+            "output": [
+                {
+                    "type": "message",
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": "Free-body diagram of a block on an inclined plane.",
+                        }
+                    ],
+                }
+            ],
+        }
+
+    adapter._request_response_payload = fake_request  # type: ignore[method-assign]
+
+    result = adapter.convert(payload)
+
+    assert "\\includegraphics[width=0.9\\linewidth]" in result.normalized_output
+    assert payload.image_path.as_posix() in result.normalized_output
+    assert "\\caption{Free-body diagram of a block on an inclined plane.}" in result.normalized_output
+    input_items = captured_request["input"]
+    assert isinstance(input_items, list)
+    user_content = input_items[0]["content"]
+    assert "Block type: figure." in user_content[0]["text"]
+    assert "Return plain caption text only." in user_content[0]["text"]

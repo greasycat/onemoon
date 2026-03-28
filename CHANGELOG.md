@@ -1,5 +1,7 @@
 # Changelog
 
+- Changed figure conversion so the LLM now produces a figure description while the backend composes the final `\\includegraphics` plus `\\caption{...}` snippet instead of returning a static placeholder.
+
 - Changed the workspace source rail to show the selected block’s LaTeX snippet instead of the full assembled document, including block-level placeholder snippets before conversion.
 
 - Fixed the workspace cut-image placeholder sizing so the selected block crop now fits the preview frame at full width and height before conversion.

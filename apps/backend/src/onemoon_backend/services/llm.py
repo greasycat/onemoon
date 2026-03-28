@@ -14,7 +14,7 @@ from ..models import BlockType
 
 TEXT_PLACEHOLDER = "Review the extracted note text and replace this placeholder with the final prose."
 MATH_PLACEHOLDER = r"\alpha + \beta = \gamma"
-FIGURE_PLACEHOLDER = r"\includegraphics[width=\linewidth]{figure-placeholder}"
+FIGURE_DESCRIPTION_PLACEHOLDER = "Replace this caption with a concise description of the figure."
 OPENAI_PROVIDER_NAMES = {"openai", "openai-responses", "openai_responses"}
 FENCED_BLOCK_PATTERN = re.compile(r"^```[a-zA-Z0-9_-]*\s*|\s*```$", re.DOTALL)
 MATH_ENV_PATTERN = re.compile(
@@ -72,6 +72,34 @@ def _normalize_math_output(value: str) -> str:
             cleaned = cleaned[len(prefix) : len(cleaned) - len(suffix)].strip()
             break
     return cleaned
+
+
+def _escape_latex_text(value: str) -> str:
+    escaped = value.replace("\\", r"\textbackslash{}")
+    replacements = {
+        "{": r"\{",
+        "}": r"\}",
+        "%": r"\%",
+        "&": r"\&",
+        "_": r"\_",
+        "#": r"\#",
+        "$": r"\$",
+        "^": r"\^{}",
+        "~": r"\~{}",
+    }
+    for source, target in replacements.items():
+        escaped = escaped.replace(source, target)
+    return escaped
+
+
+def _build_figure_snippet(image_path: Path, description: str) -> str:
+    caption = _escape_latex_text(_normalize_text_output(description) or FIGURE_DESCRIPTION_PLACEHOLDER)
+    return "\n".join(
+        [
+            f"\\includegraphics[width=0.9\\linewidth]{{{image_path.as_posix()}}}",
+            f"\\caption{{{caption}}}",
+        ]
+    )
 
 
 def _output_for_block_type(block_type: BlockType, value: str) -> str:
@@ -137,8 +165,8 @@ class MockLLMAdapter:
             output = MATH_PLACEHOLDER
             warnings.append("Mock conversion generated placeholder math output.")
         elif payload.block_type == BlockType.figure:
-            output = FIGURE_PLACEHOLDER
-            warnings.append("Figure blocks are preserved as placeholders in the mock adapter.")
+            output = _build_figure_snippet(payload.image_path, FIGURE_DESCRIPTION_PLACEHOLDER)
+            warnings.append("Mock conversion generated a placeholder figure caption.")
         elif payload.block_type == BlockType.text:
             output = TEXT_PLACEHOLDER
             warnings.append("Mock conversion generated placeholder text output.")
@@ -180,6 +208,15 @@ class OpenAIResponsesLLMAdapter:
                     "Block type: math.",
                     "Return only the LaTeX math body.",
                     "Do not include $...$, \\(...\\), \\[...\\], equation environments, or prose.",
+                ]
+            )
+        elif payload.block_type == BlockType.figure:
+            shared.extend(
+                [
+                    "Block type: figure.",
+                    "Describe the figure in one concise sentence suitable for a LaTeX \\caption{...}.",
+                    "Return plain caption text only.",
+                    "Do not return LaTeX commands, markdown fences, labels, or surrounding commentary.",
                 ]
             )
         else:
@@ -227,16 +264,12 @@ class OpenAIResponsesLLMAdapter:
             raise RuntimeError(f"OpenAI request failed: {exc.reason}") from exc
 
     def convert(self, payload: ConversionPayload) -> ConversionResult:
-        if payload.block_type == BlockType.figure:
-            return ConversionResult(
-                normalized_output=FIGURE_PLACEHOLDER,
-                raw_output=f"provider=openai; block={payload.block_id}; type=figure; placeholder=true",
-                warnings=["Figure blocks are preserved as placeholders during conversion."],
-            )
-
         response_payload = self._request_response_payload(self._build_request_body(payload))
         output = _extract_response_text(response_payload)
-        normalized_output = _output_for_block_type(payload.block_type, output)
+        if payload.block_type == BlockType.figure:
+            normalized_output = _build_figure_snippet(payload.image_path, output)
+        else:
+            normalized_output = _output_for_block_type(payload.block_type, output)
         if not normalized_output:
             raise RuntimeError("OpenAI response produced an empty conversion.")
 
