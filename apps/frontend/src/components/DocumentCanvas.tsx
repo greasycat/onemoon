@@ -89,7 +89,7 @@ interface DocumentCanvasProps {
   page: PageResponse
   blocks: DraftBlock[]
   cutCeilingPath: BlockVertex[] | null
-  toolbar: EditorToolbarProps
+  toolbar?: EditorToolbarProps | null
   blockListPanel?: ReactNode
   blockInfoPanel?: ReactNode
   toast?: {
@@ -1124,10 +1124,10 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
   }
 
   return (
-    <section className="canvas-panel canvas-panel-embedded">
+    <section className={`canvas-panel canvas-panel-embedded ${toolbar ? '' : 'canvas-panel-toolbar-hidden'}`}>
       <div className="canvas-stage">
-        <div className="canvas-overlay-stack">
-          <EditorToolbar {...toolbar} />
+        <div className={`canvas-overlay-stack ${toolbar ? '' : 'canvas-overlay-stack-toolbar-hidden'}`.trim()}>
+          {toolbar ? <EditorToolbar {...toolbar} /> : null}
           {blockListPanel ? <div className="canvas-block-list-overlay">{blockListPanel}</div> : null}
         </div>
         {blockInfoPanel ? <div className="canvas-side-overlay">{blockInfoPanel}</div> : null}

@@ -298,6 +298,14 @@ button {
   min-height: 0;
 }
 
+.workspace-main-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(22rem, 28vw);
+  gap: 1rem;
+  min-height: 0;
+  align-items: stretch;
+}
+
 .workspace-sidepanels {
   display: grid;
   gap: 1rem;
@@ -1880,6 +1888,17 @@ button {
   color: var(--workspace-ink);
 }
 
+.editor-workbench-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.workspace-toolbar-toggle {
+  min-width: 8.5rem;
+}
+
 .editor-workbench-copy {
   margin: 0;
   max-width: 44rem;
@@ -2125,6 +2144,10 @@ button {
   align-items: start;
   gap: 0.7rem;
   pointer-events: none;
+}
+
+.workspace-shell .canvas-overlay-stack-toolbar-hidden {
+  grid-template-columns: auto;
 }
 
 .workspace-shell .canvas-overlay-stack .editor-toolbar {
@@ -2425,6 +2448,10 @@ button {
   padding: 6.25rem min(21rem, 36vw) 1.1rem 1.1rem;
 }
 
+.workspace-shell .canvas-panel-toolbar-hidden .canvas-viewport {
+  padding-top: 1.1rem;
+}
+
 .workspace-shell .canvas-frame {
   background: var(--workspace-paper-strong);
   border: 1px solid rgba(111, 82, 48, 0.12);
@@ -2458,11 +2485,105 @@ button {
   background: rgba(237, 220, 202, 0.46);
 }
 
+.workspace-document-preview {
+  display: grid;
+  gap: 1rem;
+  min-height: 100%;
+  grid-template-rows: auto auto auto minmax(0, 1fr) minmax(16rem, 1fr);
+  padding: 1rem;
+}
+
+.workspace-document-preview-copy {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.workspace-document-preview-stats {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.workspace-document-preview-section {
+  display: grid;
+  gap: 0.75rem;
+  min-height: 0;
+}
+
+.workspace-document-preview-section-header,
+.workspace-document-source-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.workspace-document-preview-section-header h3 {
+  margin: 0;
+  color: var(--workspace-ink);
+}
+
+.workspace-document-preview-frame,
+.workspace-document-preview-empty,
+.workspace-document-preview-source,
+.workspace-document-source {
+  min-height: 0;
+}
+
+.workspace-document-preview-frame {
+  padding: 0.75rem;
+}
+
+.workspace-document-preview-frame iframe {
+  width: 100%;
+  height: min(46vh, 30rem);
+  min-height: 18rem;
+}
+
+.workspace-document-preview-empty {
+  display: grid;
+  gap: 0.45rem;
+  min-height: 12rem;
+}
+
+.workspace-document-preview-empty p {
+  margin: 0;
+}
+
+.workspace-document-preview-source,
+.workspace-document-source {
+  display: grid;
+  gap: 0.85rem;
+  overflow: hidden;
+}
+
+.workspace-document-source-header {
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(98, 74, 44, 0.78);
+}
+
+.workspace-document-preview-source {
+  max-height: min(42vh, 32rem);
+  overflow: auto;
+}
+
+.workspace-document-preview-source pre,
+.workspace-document-source pre {
+  margin: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
 @media (max-width: 1200px) {
   .workspace-grid {
     grid-template-columns: 1fr;
   }
 
+  .workspace-main-layout,
   .projects-dashboard-layout,
   .artifact-grid,
   .two-column-layout,
@@ -2581,6 +2702,10 @@ button {
     top: 0.6rem;
     right: 0.6rem;
     width: min(16.5rem, calc(100% - 8rem));
+  }
+
+  .workspace-document-preview {
+    grid-template-rows: auto auto auto auto minmax(14rem, 1fr);
   }
 
   .workspace-debug-dock {

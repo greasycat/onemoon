@@ -1,5 +1,7 @@
 # Changelog
 
+- Added a workspace conversion rail with a right-side LaTeX document preview and a header toggle to hide or restore the embedded editor toolbar.
+
 - Constrained the protected app shell to the viewport and made workspace/page containers fill the remaining row under the top bar, fixing the oversized workspace height.
 
 - Made the workspace grid and editor workbench stretch to fill the available viewport height instead of stopping at content height.

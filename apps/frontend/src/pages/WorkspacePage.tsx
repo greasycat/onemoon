@@ -1,10 +1,11 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 
 import { BlockInspector } from '../components/BlockInspector'
 import { DocumentCanvas } from '../components/DocumentCanvas'
 import { WorkspaceDebugToolbar } from '../components/WorkspaceDebugToolbar'
 import { FRONTEND_DEBUG } from '../lib/debug'
+import { WorkspaceDocumentPreview } from './workspace/WorkspaceDocumentPreview'
 import { WorkspacePageSidebar } from './workspace/WorkspacePageSidebar'
 import { WorkspaceReviewPanel } from './workspace/WorkspaceReviewPanel'
 import { useWorkspaceController } from './workspace/useWorkspaceController'
@@ -12,6 +13,7 @@ import { useWorkspaceController } from './workspace/useWorkspaceController'
 export function WorkspacePage() {
   const { documentId = '' } = useParams()
   const location = useLocation()
+  const [isToolbarVisible, setIsToolbarVisible] = useState(true)
   const pendingUploadJobId =
     location.state && typeof location.state === 'object' && 'pendingUploadJobId' in location.state && typeof location.state.pendingUploadJobId === 'string'
       ? location.state.pendingUploadJobId
@@ -117,35 +119,51 @@ export function WorkspacePage() {
         />
 
         <div className="workspace-main">
-          <section className="panel editor-workbench">
-            <div className="editor-workbench-header">
-              <div className="editor-workbench-title">
-                <p className="eyebrow">{projectName || 'Project'}</p>
-                <h1>{filenameStem}</h1>
+          <div className="workspace-main-layout">
+            <section className="panel editor-workbench">
+              <div className="editor-workbench-header">
+                <div className="editor-workbench-title">
+                  <p className="eyebrow">{projectName || 'Project'}</p>
+                  <h1>{filenameStem}</h1>
+                </div>
+                <div className="editor-workbench-actions">
+                  <button
+                    type="button"
+                    className="secondary-button workspace-toolbar-toggle"
+                    aria-pressed={isToolbarVisible}
+                    onClick={() => setIsToolbarVisible((current) => !current)}
+                  >
+                    {isToolbarVisible ? 'Hide toolbar' : 'Show toolbar'}
+                  </button>
+                </div>
               </div>
+              <DocumentCanvas
+                ref={canvasRef}
+                page={selectedPage}
+                blocks={pageDraft.blocks}
+                cutCeilingPath={activeCutCeilingPath}
+                debugSettings={debugSettings}
+                toolbar={isToolbarVisible ? toolbar : null}
+                blockListPanel={blockListPanel}
+                blockInfoPanel={blockInfoPanel}
+                toast={toast}
+                selectedBlockIds={selectedBlockIds}
+                activeBlockId={selectedBlockKey}
+                activeTool={activeTool}
+                isLocked={activePageLocked}
+                onViewportChange={setViewportState}
+                onSelectBlock={selectBlock}
+                onCycleBlockType={cycleBlockType}
+                onHoveredBlockChange={setHoveredBlock}
+                onCreateBlock={handleCreateBlock}
+                onUpdateBlock={handleUpdateBlock}
+              />
+            </section>
+
+            <div className="workspace-sidepanels">
+              <WorkspaceDocumentPreview document={document} />
             </div>
-            <DocumentCanvas
-              ref={canvasRef}
-              page={selectedPage}
-              blocks={pageDraft.blocks}
-              cutCeilingPath={activeCutCeilingPath}
-              debugSettings={debugSettings}
-              toolbar={toolbar}
-              blockListPanel={blockListPanel}
-              blockInfoPanel={blockInfoPanel}
-              toast={toast}
-              selectedBlockIds={selectedBlockIds}
-              activeBlockId={selectedBlockKey}
-              activeTool={activeTool}
-              isLocked={activePageLocked}
-              onViewportChange={setViewportState}
-              onSelectBlock={selectBlock}
-              onCycleBlockType={cycleBlockType}
-              onHoveredBlockChange={setHoveredBlock}
-              onCreateBlock={handleCreateBlock}
-              onUpdateBlock={handleUpdateBlock}
-            />
-          </section>
+          </div>
         </div>
       </section>
       {FRONTEND_DEBUG ? (
