@@ -13,7 +13,7 @@ import {
   Upload,
 } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { api } from '../lib/api'
@@ -37,16 +37,6 @@ function formatShortDate(value: string) {
 function formatDateTime(value: string) {
   const parsed = new Date(value)
   return Number.isNaN(parsed.getTime()) ? 'Recently updated' : TIMESTAMP_FORMATTER.format(parsed)
-}
-
-function formatFileSize(bytes: number) {
-  if (!Number.isFinite(bytes) || bytes <= 0) {
-    return null
-  }
-  if (bytes < 1024 * 1024) {
-    return `${Math.max(1, Math.round(bytes / 1024))} KB`
-  }
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 function getProjectLastActivity(project: ProjectSummary) {
@@ -85,10 +75,11 @@ function getLatestDocument(projects: ProjectSummary[]) {
 export function ProjectsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const filePickerRef = useRef<HTMLInputElement | null>(null)
   const { token } = useAuth()
   const [projectName, setProjectName] = useState('Spring Notebook')
   const [selectedProjectId, setSelectedProjectId] = useState<string>('')
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [uploadProjectId, setUploadProjectId] = useState<string | null>(null)
   const [createErrorMessage, setCreateErrorMessage] = useState<string | null>(null)
   const [uploadErrorMessage, setUploadErrorMessage] = useState<string | null>(null)
   const [pendingDelete, setPendingDelete] = useState<{ type: 'project' | 'document'; id: string } | null>(null)
@@ -156,17 +147,31 @@ export function ProjectsPage() {
     () => countDocumentsByStatus(projects, ['completed']),
     [projects],
   )
-  const selectedFileSize = selectedFile ? formatFileSize(selectedFile.size) : null
 
   const uploadMutation = useMutation({
-    mutationFn: () => api.uploadDocument(token!, activeProjectId, selectedFile!),
+    mutationFn: ({ projectId, file }: { projectId: string; file: File }) =>
+      api.uploadDocument(token!, projectId, file),
     onSuccess: (job) => {
+      setUploadErrorMessage(null)
       navigate(`/documents/${job.resource_id}`)
     },
     onError: (error: Error) => {
       setUploadErrorMessage(error.message)
     },
+    onSettled: () => {
+      setUploadProjectId(null)
+      if (filePickerRef.current) {
+        filePickerRef.current.value = ''
+      }
+    },
   })
+
+  function startUpload(projectId: string) {
+    setSelectedProjectId(projectId)
+    setUploadProjectId(projectId)
+    setUploadErrorMessage(null)
+    filePickerRef.current?.click()
+  }
 
   return (
     <main className="page-shell projects-dashboard">
@@ -206,6 +211,23 @@ export function ProjectsPage() {
       <section className="projects-dashboard-layout">
         <div className="projects-dashboard-main">
           <section className="panel projects-dashboard-library-panel">
+            <input
+              ref={filePickerRef}
+              className="projects-dashboard-upload-input"
+              type="file"
+              accept="application/pdf,image/*"
+              tabIndex={-1}
+              aria-hidden="true"
+              onChange={(event) => {
+                const file = event.target.files?.[0] ?? null
+                if (!file || !uploadProjectId) {
+                  setUploadProjectId(null)
+                  return
+                }
+                setUploadErrorMessage(null)
+                uploadMutation.mutate({ projectId: uploadProjectId, file })
+              }}
+            />
             <div className="panel-heading projects-dashboard-section-heading">
               <div>
                 <p className="eyebrow">Library</p>
@@ -241,6 +263,7 @@ export function ProjectsPage() {
             </form>
 
             {createErrorMessage ? <p className="error-text" role="alert">{createErrorMessage}</p> : null}
+            {uploadErrorMessage ? <p className="error-text" role="alert">{uploadErrorMessage}</p> : null}
             {projectsQuery.isError ? <p className="error-text" role="alert">Unable to load workspaces.</p> : null}
 
             {projects.length > 0 ? (
@@ -290,19 +313,31 @@ export function ProjectsPage() {
                               : <Folder className="projects-dashboard-folder-icon" aria-hidden="true" />
                             }
                             <span className="projects-dashboard-folder-name">{project.name}</span>
+                          </button>
+                          <div className="projects-dashboard-folder-actions">
+                            <button
+                              type="button"
+                              className="projects-dashboard-upload-trigger"
+                              aria-label={`Upload into ${project.name}`}
+                              disabled={uploadMutation.isPending}
+                              onClick={() => startUpload(project.id)}
+                            >
+                              <Upload aria-hidden="true" />
+                              <span>{uploadMutation.isPending && uploadProjectId === project.id ? 'Uploading…' : 'Upload'}</span>
+                            </button>
                             <span className="projects-dashboard-folder-meta">
                               <span className="projects-dashboard-project-date">{formatDateTime(getProjectLastActivity(project))}</span>
                               <span className="projects-dashboard-doc-count">{project.document_count} docs</span>
                             </span>
-                          </button>
-                          <button
-                            type="button"
-                            className="projects-dashboard-delete-btn"
-                            aria-label={`Delete ${project.name}`}
-                            onClick={() => setPendingDelete({ type: 'project', id: project.id })}
-                          >
-                            <Trash2 aria-hidden="true" />
-                          </button>
+                            <button
+                              type="button"
+                              className="projects-dashboard-delete-btn"
+                              aria-label={`Delete ${project.name}`}
+                              onClick={() => setPendingDelete({ type: 'project', id: project.id })}
+                            >
+                              <Trash2 aria-hidden="true" />
+                            </button>
+                          </div>
                         </div>
                       )}
 
@@ -367,7 +402,7 @@ export function ProjectsPage() {
                 <FolderOpen aria-hidden="true" />
                 <div>
                   <strong>No workspaces yet</strong>
-                  <p className="muted-text">Create one above, then upload a source file to open the review workspace.</p>
+                  <p className="muted-text">Create one above, then use its row upload button to open the review workspace.</p>
                 </div>
               </div>
             )}
@@ -375,76 +410,6 @@ export function ProjectsPage() {
         </div>
 
         <aside className="projects-dashboard-rail">
-          <section className="panel projects-dashboard-upload-panel">
-            <div className="panel-heading projects-dashboard-section-heading">
-              <div>
-                <p className="eyebrow">Upload</p>
-                <h2>Send a file into review</h2>
-              </div>
-              <div className="projects-dashboard-inline-meta">
-                <Upload aria-hidden="true" />
-                <span>PDF or image</span>
-              </div>
-            </div>
-
-            <form
-              className="stacked-form"
-              onSubmit={(event) => {
-                event.preventDefault()
-                if (!selectedFile || !activeProjectId) {
-                  return
-                }
-                setUploadErrorMessage(null)
-                uploadMutation.mutate()
-              }}
-            >
-              <label className="field">
-                <span>Target workspace</span>
-                <select
-                  name="projectId"
-                  value={activeProjectId}
-                  onChange={(event) => {
-                    setSelectedProjectId(event.target.value)
-                    setUploadErrorMessage(null)
-                  }}
-                >
-                  <option value="">Select a project</option>
-                  {projects.map((project) => (
-                    <option key={project.id} value={project.id}>
-                      {project.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="field projects-dashboard-file-field">
-                <span>Source file</span>
-                <input
-                  name="sourceFile"
-                  type="file"
-                  accept="application/pdf,image/*"
-                  onChange={(event) => {
-                    setSelectedFile(event.target.files?.[0] ?? null)
-                    setUploadErrorMessage(null)
-                  }}
-                />
-              </label>
-
-              {selectedFile ? (
-                <div className="projects-dashboard-file-summary">
-                  <strong>{selectedFile.name}</strong>
-                  <span>{selectedFileSize ?? 'Ready to upload'}</span>
-                </div>
-              ) : null}
-
-              {uploadErrorMessage ? <p className="error-text" role="alert">{uploadErrorMessage}</p> : null}
-
-              <button type="submit" className="primary-button projects-dashboard-upload-button" disabled={!activeProjectId || !selectedFile || uploadMutation.isPending}>
-                {uploadMutation.isPending ? 'Uploading…' : 'Start ingestion'}
-              </button>
-            </form>
-          </section>
-
           <section className="panel projects-dashboard-focus-panel">
             <div className="panel-heading projects-dashboard-section-heading">
               <div>
@@ -488,7 +453,7 @@ export function ProjectsPage() {
                     ))}
                   </ul>
                 ) : (
-                  <p className="muted-text">This workspace is empty. Upload a file above to create the first review session.</p>
+                  <p className="muted-text">This workspace is empty. Use the Upload button in its row to create the first review session.</p>
                 )}
               </>
             ) : (

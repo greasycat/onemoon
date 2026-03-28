@@ -1,5 +1,7 @@
 # Changelog
 
+- Removed the dashboard upload side panel and moved upload actions into each workspace row so files can be sent to review directly beside the folder name.
+
 - Moved the workspace top-bar `Back to projects` link below the app name so the brand stack reads title-first.
 
 - Fixed frontend delete mutations by treating empty `204/205` API responses as successful, so document and project removals update the dashboard without a manual refresh.
