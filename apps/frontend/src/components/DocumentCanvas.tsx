@@ -738,6 +738,13 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
   },
   ref,
 ) {
+  const initialViewport: CanvasViewportState = {
+    zoom: 1,
+    fitPageZoom: 1,
+    mode: 'fit-page',
+    panX: 0,
+    panY: 0,
+  }
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const surfaceRef = useRef<HTMLDivElement | null>(null)
   const overlayStackRef = useRef<HTMLDivElement | null>(null)
@@ -745,13 +752,8 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
   const toastTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
   const [interaction, setInteraction] = useState<InteractionState | null>(null)
   const [localToast, setLocalToast] = useState<DocumentCanvasProps['toast']>(null)
-  const [viewport, setViewport] = useState<CanvasViewportState>({
-    zoom: 1,
-    fitPageZoom: 1,
-    mode: 'fit-page',
-    panX: 0,
-    panY: 0,
-  })
+  const [viewport, setViewport] = useState<CanvasViewportState>(initialViewport)
+  const viewportStateRef = useRef<CanvasViewportState>(initialViewport)
   const [spacePressed, setSpacePressed] = useState(false)
   const [isPanning, setIsPanning] = useState(false)
   const panStateRef = useRef<{ pointerId: number; startX: number; startY: number; scrollLeft: number; scrollTop: number } | null>(
@@ -781,10 +783,15 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
     setIsPanning(true)
   }
 
+  function commitViewport(nextViewport: CanvasViewportState) {
+    viewportStateRef.current = nextViewport
+    setViewport(nextViewport)
+  }
+
   function syncViewport(nextViewport: CanvasViewportState, resetPan = false) {
     const viewportElement = viewportRef.current
     if (!viewportElement) {
-      setViewport(nextViewport)
+      commitViewport(nextViewport)
       return
     }
 
@@ -792,7 +799,7 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
     const panY = resetPan ? 0 : Math.max(0, Math.min(nextViewport.panY, viewportElement.scrollHeight))
     viewportElement.scrollLeft = panX
     viewportElement.scrollTop = panY
-    setViewport({ ...nextViewport, panX, panY })
+    commitViewport({ ...nextViewport, panX, panY })
   }
 
   function computeFitPageZoom() {
@@ -876,24 +883,53 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
   }
 
   function applyManualZoom(zoom: number) {
+    const currentViewport = viewportStateRef.current
     syncViewport({
       zoom: clamp(zoom, MIN_ZOOM, MAX_ZOOM),
-      fitPageZoom: computeFitPageZoom(),
+      fitPageZoom: currentViewport.fitPageZoom,
       mode: 'manual',
-      panX: viewport.panX,
-      panY: viewport.panY,
+      panX: currentViewport.panX,
+      panY: currentViewport.panY,
     })
   }
 
+  function handleFitPage() {
+    applyViewMode('fit-page')
+  }
+
+  function handleFitWidth() {
+    applyViewMode('fit-width')
+  }
+
+  function handleResetZoom() {
+    const nextFitPageZoom = computeFitPageZoom()
+    syncViewport({ zoom: nextFitPageZoom, fitPageZoom: nextFitPageZoom, mode: 'manual', panX: 0, panY: 0 }, true)
+  }
+
+  function handleZoomIn() {
+    applyManualZoom(viewportStateRef.current.zoom + ZOOM_STEP)
+  }
+
+  function handleZoomOut() {
+    applyManualZoom(viewportStateRef.current.zoom - ZOOM_STEP)
+  }
+
+  const resolvedToolbar = toolbar
+    ? {
+        ...toolbar,
+        onZoomOut: handleZoomOut,
+        onZoomIn: handleZoomIn,
+        onFitPage: handleFitPage,
+        onResetZoom: handleResetZoom,
+      }
+    : null
+
   useImperativeHandle(ref, () => ({
-    fitPage: () => applyViewMode('fit-page'),
-    fitWidth: () => applyViewMode('fit-width'),
-    resetZoom: () => {
-      const nextFitPageZoom = computeFitPageZoom()
-      syncViewport({ zoom: nextFitPageZoom, fitPageZoom: nextFitPageZoom, mode: 'manual', panX: 0, panY: 0 }, true)
-    },
-    zoomIn: () => applyManualZoom(viewport.zoom + ZOOM_STEP),
-    zoomOut: () => applyManualZoom(viewport.zoom - ZOOM_STEP),
+    fitPage: handleFitPage,
+    fitWidth: handleFitWidth,
+    resetZoom: handleResetZoom,
+    zoomIn: handleZoomIn,
+    zoomOut: handleZoomOut,
   }))
 
   useEffect(() => {
@@ -912,26 +948,26 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
     }
 
     const observer = new ResizeObserver(() => {
-      setViewport((current) => {
-        const nextFitPageZoom = computeFitPageZoom()
-        if (current.mode === 'manual') {
-          if (Math.abs(current.fitPageZoom - nextFitPageZoom) <= Number.EPSILON) {
-            return current
-          }
-          return { ...current, fitPageZoom: nextFitPageZoom }
+      const current = viewportStateRef.current
+      const nextFitPageZoom = computeFitPageZoom()
+      if (current.mode === 'manual') {
+        if (Math.abs(current.fitPageZoom - nextFitPageZoom) <= Number.EPSILON) {
+          return
         }
-        const nextZoom = computeFitZoom(current.mode)
-        const nextViewport: CanvasViewportState = {
-          zoom: nextZoom,
-          fitPageZoom: nextFitPageZoom,
-          mode: current.mode,
-          panX: 0,
-          panY: 0,
-        }
-        viewportElement.scrollLeft = 0
-        viewportElement.scrollTop = 0
-        return nextViewport
-      })
+        commitViewport({ ...current, fitPageZoom: nextFitPageZoom })
+        return
+      }
+      const nextZoom = computeFitZoom(current.mode)
+      const nextViewport: CanvasViewportState = {
+        zoom: nextZoom,
+        fitPageZoom: nextFitPageZoom,
+        mode: current.mode,
+        panX: 0,
+        panY: 0,
+      }
+      viewportElement.scrollLeft = 0
+      viewportElement.scrollTop = 0
+      commitViewport(nextViewport)
     })
 
     observer.observe(viewportElement)
@@ -1156,8 +1192,8 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
 
       viewportElement.scrollLeft = panState.scrollLeft - (event.clientX - panState.startX)
       viewportElement.scrollTop = panState.scrollTop - (event.clientY - panState.startY)
-      setViewport({
-        ...viewport,
+      commitViewport({
+        ...viewportStateRef.current,
         panX: viewportElement.scrollLeft,
         panY: viewportElement.scrollTop,
       })
@@ -1220,7 +1256,7 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
     <section className={`canvas-panel canvas-panel-embedded ${toolbar ? '' : 'canvas-panel-toolbar-hidden'}`}>
       <div className="canvas-stage">
         <div className={`canvas-overlay-stack ${toolbar ? '' : 'canvas-overlay-stack-toolbar-hidden'}`.trim()} ref={overlayStackRef}>
-          {toolbar ? <EditorToolbar {...toolbar} /> : null}
+          {resolvedToolbar ? <EditorToolbar {...resolvedToolbar} /> : null}
           {blockListPanel ? <div className="canvas-block-list-overlay">{blockListPanel}</div> : null}
         </div>
         {blockInfoPanel ? (
@@ -1245,8 +1281,8 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
             event.preventDefault()
           }}
           onScroll={(event) => {
-            setViewport({
-              ...viewport,
+            commitViewport({
+              ...viewportStateRef.current,
               panX: event.currentTarget.scrollLeft,
               panY: event.currentTarget.scrollTop,
             })

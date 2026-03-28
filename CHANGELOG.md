@@ -1,5 +1,7 @@
 # Changelog
 
+- Fixed workspace zoom-state updates so manual zoom changes no longer get lost behind stale canvas viewport state, and the toolbar percent now tracks real zoom again instead of flattening back to `100%`.
+
 - Fixed workspace `100%` / fit-page zoom so it measures the unobscured canvas area between the floating overlay rails instead of the raw viewport box, keeping the full page visible again after the layout changes.
 
 - Switched the workspace conversion grid to a `1 / 2 / 2` column ratio and removed the extra canvas-shell shrink so sizing now comes from the layout columns instead of a fixed shell cap.
