@@ -23,14 +23,12 @@ export function WorkspacePage() {
   const {
     activePageLocked,
     activeTool,
-    applySelectedBlock,
     blockInspectorBusy,
     canvasRef,
     conversionInstruction,
     cycleBlockType,
     convertSelectedBlock,
     debugSettings,
-    deleteSelectedBlock,
     document,
     documentQuery,
     activeCutCeilingPath,
@@ -44,7 +42,6 @@ export function WorkspacePage() {
     resetDebugSettings,
     reviewCounts,
     saveActivePage,
-    saveSelectedBlockReview,
     selectedBlock,
     selectedBlockCount,
     selectedBlockIds,
@@ -59,8 +56,6 @@ export function WorkspacePage() {
     updateDebugSetting,
     updateSelectedBlockInstruction,
     viewportState,
-    deleteSelectedBlocks,
-    duplicateSelectedBlock,
     isResolvingDocumentCreation,
     isWorkspaceInitializing,
   } = useWorkspaceController(documentId, pendingUploadJobId)
@@ -92,34 +87,24 @@ export function WorkspacePage() {
     )
   }
 
-  const blockInfoPanel = (
+  const blockInfoPanel = isConversionMode ? (
     <BlockInspector
       key={selectedBlockCount > 1 ? `bulk-${selectedBlockCount}` : selectedBlockKey ?? 'empty'}
       block={selectedBlock}
       selectedCount={selectedBlockCount}
-      pageLocked={activePageLocked}
       isBusy={blockInspectorBusy}
-      isConversionMode={isConversionMode}
       conversionInstruction={conversionInstruction}
-      onApply={applySelectedBlock}
-      onDelete={deleteSelectedBlock}
-      onDeleteSelection={deleteSelectedBlocks}
-      onDuplicate={duplicateSelectedBlock}
       onChangeConversionInstruction={updateSelectedBlockInstruction}
       onConvert={() => {
         void convertSelectedBlock()
       }}
-      onSaveReview={(payload) => {
-        void saveSelectedBlockReview(payload)
-      }}
     />
-  )
+  ) : null
   const blockListPanel = (
     <WorkspaceReviewPanel
       activeBlockId={selectedBlockKey}
       pageDraft={pageDraft}
       selectedBlockIds={selectedBlockIds}
-      selectedBlock={selectedBlock}
       selectionCount={selectedBlockCount}
       onSelectBlock={selectBlock}
       onCycleBlockType={cycleBlockType}

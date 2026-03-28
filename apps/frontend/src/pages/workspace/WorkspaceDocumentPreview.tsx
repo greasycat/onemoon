@@ -33,7 +33,7 @@ function buildFallbackLatex(document: DocumentDetailResponse) {
     `% Pages loaded: ${document.pages.length}`,
     document.latest_compile_status ? `% Latest compile: ${document.latest_compile_status}` : '% Latest compile: not started',
     '',
-    '% Review the current page layout, then assemble or compile the document to replace this shell.',
+    '% Adjust the current page layout, then assemble or compile the document to replace this shell.',
     '',
     '\\end{document}',
   ].join('\n')

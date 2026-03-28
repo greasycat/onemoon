@@ -4,26 +4,32 @@ interface PageProgressSummaryProps {
   counts: Record<PageReviewStatus, number>
 }
 
+const pageStatusLabels: Record<PageReviewStatus, string> = {
+  unreviewed: 'Open',
+  in_review: 'Draft',
+  segmented: 'Ready',
+}
+
 export function PageProgressSummary({ counts }: PageProgressSummaryProps) {
   return (
     <section className="progress-summary">
       <div className="panel-heading">
         <div>
-          <p className="eyebrow">Review Progress</p>
+          <p className="eyebrow">Page Status</p>
         </div>
       </div>
 
       <div className="progress-grid">
         <div className="stat-card">
-          <span>Unreviewed</span>
+          <span>{pageStatusLabels.unreviewed}</span>
           <strong>{counts.unreviewed}</strong>
         </div>
         <div className="stat-card">
-          <span>In Review</span>
+          <span>{pageStatusLabels.in_review}</span>
           <strong>{counts.in_review}</strong>
         </div>
         <div className="stat-card">
-          <span>Segmented</span>
+          <span>{pageStatusLabels.segmented}</span>
           <strong>{counts.segmented}</strong>
         </div>
       </div>

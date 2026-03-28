@@ -4,7 +4,6 @@ import {
   ArrowRight,
   MousePointer2,
   PenTool,
-  Play,
   Ratio,
   Save,
   Scan,
@@ -17,14 +16,6 @@ import {
 
 type ActiveTool = 'select' | 'rect' | 'freeform' | 'cut'
 type ViewMode = 'fit-page' | 'fit-width' | 'manual'
-
-function reviewIcon(_: string): LucideIcon {
-  return Play
-}
-
-function reviewShortLabel(_: string) {
-  return 'Review'
-}
 
 interface ToolbarButtonProps {
   className: string
@@ -75,8 +66,6 @@ export interface EditorToolbarProps {
   canGoNext: boolean
   canSave: boolean
   canDiscard: boolean
-  canReview: boolean
-  reviewLabel: string | null
   zoomPercent: number
   viewMode: ViewMode
   onPreviousPage: () => void
@@ -88,7 +77,6 @@ export interface EditorToolbarProps {
   onResetZoom: () => void
   onSave: () => void
   onDiscard: () => void
-  onReviewAction: () => void
 }
 
 export function EditorToolbar({
@@ -101,8 +89,6 @@ export function EditorToolbar({
   canGoNext,
   canSave,
   canDiscard,
-  canReview,
-  reviewLabel,
   zoomPercent,
   viewMode,
   onPreviousPage,
@@ -114,7 +100,6 @@ export function EditorToolbar({
   onResetZoom,
   onSave,
   onDiscard,
-  onReviewAction,
 }: EditorToolbarProps) {
   return (
     <section className="editor-toolbar" aria-label="Editor controls">
@@ -248,26 +233,14 @@ export function EditorToolbar({
             className="primary-button toolbar-icon-button"
             label="Save"
             icon={Save}
-            ariaLabel="Save page and finish review"
-            title="Save page and finish review (S or Ctrl/Cmd+S)"
+            ariaLabel="Save page and finish"
+            title="Save page and finish (S or Ctrl/Cmd+S)"
             shortcut="S"
             disabled={!canSave}
             onClick={onSave}
           />
-          {reviewLabel ? (
-            <ToolbarButton
-              className="secondary-button toolbar-icon-button"
-              label={reviewShortLabel(reviewLabel)}
-              icon={reviewIcon(reviewLabel)}
-              ariaLabel={reviewLabel}
-              title={reviewLabel}
-              disabled={!canReview}
-              onClick={onReviewAction}
-            />
-          ) : null}
         </div>
       </div>
-
     </section>
   )
 }

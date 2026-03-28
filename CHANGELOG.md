@@ -1,5 +1,7 @@
 # Changelog
 
+- Removed the workspace’s block-review controls and the selected-block block-type selector so the conversion rail now shows only block conversion plus the document source preview.
+
 - Moved converted LaTeX display out of the selected-block inspector and made the right-side document source panel the only visible conversion output target in workspace conversion mode.
 
 - Made repo-root `ONEMOON_*` LLM settings override backend-local defaults so the live app can use `.env` for real OpenAI-backed conversion while still falling back to mock output when no provider is configured.

@@ -8,6 +8,12 @@ interface WorkspacePageEntry extends PageResponse {
   dirty: boolean
 }
 
+const pageStatusLabels: Record<PageReviewStatus, string> = {
+  unreviewed: 'open',
+  in_review: 'draft',
+  segmented: 'ready',
+}
+
 interface WorkspacePageSidebarProps {
   pageEntries: WorkspacePageEntry[]
   reviewCounts: Record<PageReviewStatus, number>
@@ -43,7 +49,7 @@ export function WorkspacePageSidebar({
                 {page.dirty ? <span className="status-dot" /> : null}
               </div>
               <p>{page.effectiveBlockCount} blocks</p>
-              <span className={`status-chip status-${page.effectiveReviewStatus}`}>{page.effectiveReviewStatus}</span>
+              <span className={`status-chip status-${page.effectiveReviewStatus}`}>{pageStatusLabels[page.effectiveReviewStatus]}</span>
             </div>
           </button>
         ))}

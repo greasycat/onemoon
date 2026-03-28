@@ -25,7 +25,6 @@ import {
   type DraftPageLayout,
 } from '../../lib/segmentation'
 import type {
-  BlockApproval,
   BlockGeometry,
   BlockSelectionMode,
   BlockShapeType,
@@ -423,13 +422,6 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
       throw new Error('Timed out while converting block.')
     },
   })
-  const saveBlockReviewMutation = useMutation({
-    mutationFn: ({ blockId, approval, manualOutput }: { blockId: string; approval: BlockApproval; manualOutput: string | null }) =>
-      api.updateBlock(token!, blockId, {
-        approval,
-        manual_output: manualOutput,
-      }),
-  })
 
   const activePageDirty = selectedPage ? Boolean(pageDrafts[selectedPage.id]) : false
   const activePageLocked = selectedPage?.review_status === 'segmented'
@@ -459,8 +451,6 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     const hoveredBlock = pageDraft.blocks.find((block) => draftBlockKey(block) === hoveredBlockKey)
     return hoveredBlock ? `Cursor: #${hoveredBlock.order_index + 1} ${hoveredBlock.block_type}` : 'Cursor: no block'
   }, [hoveredBlockKey, pageDraft])
-  const reviewActionLabel = activeReviewStatus === 'unreviewed' ? 'Start Review' : null
-  const canReviewAction = Boolean(reviewActionLabel) && !pageStatusMutation.isPending && !activePageDirty
   const activePageHasNoBlocks = (pageDraft?.blocks.length ?? 0) === 0
   const allowEmptyPageActionToast = !activePageLocked && activePageHasNoBlocks
   const canSaveAction =
@@ -662,22 +652,6 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     clearDraftForPage(selectedPage.id)
   }
 
-  async function handleReviewAction() {
-    if (!selectedPage || !reviewActionLabel) {
-      return
-    }
-    try {
-      await pageStatusMutation.mutateAsync({ pageId: selectedPage.id, action: 'reopen' })
-      clearDraftForPage(selectedPage.id)
-      await refreshDocument()
-    } catch (error) {
-      showToast({
-        tone: 'error',
-        message: error instanceof Error && error.message ? error.message : 'Failed to start review.',
-      })
-    }
-  }
-
   async function reopenActivePage() {
     if (!selectedPage || pageStatusMutation.isPending) {
       return false
@@ -719,32 +693,6 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
       showToast({
         tone: 'error',
         message: error instanceof Error && error.message ? error.message : 'Failed to generate block output.',
-      })
-      return false
-    }
-  }
-
-  async function saveSelectedBlockReview(payload: { approval: BlockApproval; manualOutput: string | null }) {
-    if (!selectedBlock?.id) {
-      showToast({ tone: 'error', message: 'Select a saved block before updating its review output.' })
-      return false
-    }
-
-    showToast({ tone: 'saving', message: `Saving review for block #${selectedBlock.order_index + 1}…` }, false)
-
-    try {
-      await saveBlockReviewMutation.mutateAsync({
-        blockId: selectedBlock.id,
-        approval: payload.approval,
-        manualOutput: payload.manualOutput,
-      })
-      await refreshDocument()
-      showToast({ tone: 'success', message: `Review for block #${selectedBlock.order_index + 1} saved.` })
-      return true
-    } catch (error) {
-      showToast({
-        tone: 'error',
-        message: error instanceof Error && error.message ? error.message : 'Failed to save block review.',
       })
       return false
     }
@@ -981,8 +929,6 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     canGoPrevious: currentPageIndex > 0,
     canGoNext: currentPageIndex < (document?.pages.length ?? 0) - 1,
     canDiscard: activePageDirty || allowEmptyPageActionToast,
-    canReview: canReviewAction,
-    reviewLabel: reviewActionLabel,
     canSave: canSaveAction,
     zoomPercent: Math.round((viewportState.zoom / Math.max(viewportState.fitPageZoom, Number.EPSILON)) * 100),
     viewMode: viewportState.mode,
@@ -995,7 +941,6 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     onResetZoom: () => canvasRef.current?.resetZoom(),
     onSave: saveActivePage,
     onDiscard: discardActiveDraft,
-    onReviewAction: handleReviewAction,
   }
 
   return {
@@ -1007,8 +952,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     blockInspectorBusy:
       saveLayoutMutation.isPending ||
       pageStatusMutation.isPending ||
-      regenerateBlockMutation.isPending ||
-      saveBlockReviewMutation.isPending,
+      regenerateBlockMutation.isPending,
     canvasRef,
     conversionInstruction: selectedBlockInstruction,
     debugSettings,
@@ -1038,7 +982,6 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     selectBlock,
     cycleBlockType,
     convertSelectedBlock,
-    saveSelectedBlockReview,
     setHoveredBlock,
     setActiveTool,
     setViewportState,

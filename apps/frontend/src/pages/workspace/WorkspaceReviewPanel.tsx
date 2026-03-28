@@ -1,14 +1,13 @@
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useState, type MouseEvent as ReactMouseEvent } from 'react'
 
-import { draftBlockKey, type DraftBlock, type DraftPageLayout } from '../../lib/segmentation'
+import { draftBlockKey, type DraftPageLayout } from '../../lib/segmentation'
 import type { BlockSelectionMode } from '../../lib/types'
 
 interface WorkspaceReviewPanelProps {
   activeBlockId: string | null
   pageDraft: DraftPageLayout
   selectedBlockIds: string[]
-  selectedBlock: DraftBlock | null
   selectionCount: number
   onSelectBlock: (blockId: string, mode?: BlockSelectionMode) => void
   onCycleBlockType: (blockId: string) => void
@@ -18,7 +17,6 @@ export function WorkspaceReviewPanel({
   activeBlockId,
   pageDraft,
   selectedBlockIds,
-  selectedBlock,
   selectionCount,
   onSelectBlock,
   onCycleBlockType,
@@ -74,11 +72,7 @@ export function WorkspaceReviewPanel({
             const blockKey = draftBlockKey(block)
             const isSelected = selectedBlockIds.includes(blockKey)
             const isPrimarySelected = blockKey === activeBlockId
-            const outputLabel = block.manual_output?.trim()
-              ? 'manual review saved'
-              : block.generated_output?.trim()
-                ? 'generated output ready'
-                : 'awaiting output'
+            const hasOutput = Boolean(block.manual_output?.trim() || block.generated_output?.trim())
             return (
               <button
                 key={blockKey}
@@ -92,11 +86,11 @@ export function WorkspaceReviewPanel({
                   <strong>
                     #{block.order_index + 1} {block.block_type}
                   </strong>
-                  <p>{`${block.approval} • ${outputLabel}`}</p>
+                  <p>{hasOutput ? 'converted source ready' : 'awaiting conversion'}</p>
                 </div>
                 <div className="block-list-status">
-                  {isPrimarySelected && selectedBlock ? <span className="selection-chip">focus</span> : null}
-                  <span className={`status-chip status-${block.approval}`}>{block.approval}</span>
+                  {isPrimarySelected ? <span className="selection-chip">focus</span> : null}
+                  <span className={`status-chip status-${hasOutput ? 'segmented' : 'pending'}`}>{hasOutput ? 'converted' : 'pending'}</span>
                 </div>
               </button>
             )
