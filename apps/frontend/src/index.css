@@ -2408,6 +2408,12 @@ button {
   word-break: break-word;
 }
 
+.workspace-debug-indicator-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .workspace-debug-field {
   display: grid;
   gap: 0.45rem;

@@ -50,6 +50,7 @@ export function WorkspacePage() {
     toast,
     toolbar,
     updateDebugSetting,
+    viewportState,
     deleteSelectedBlocks,
     duplicateSelectedBlock,
     isResolvingDocumentCreation,
@@ -183,6 +184,7 @@ export function WorkspacePage() {
         <WorkspaceDebugToolbar
           settings={debugSettings}
           hoveredBlockLabel={hoveredBlockLabel}
+          viewportState={viewportState}
           onChange={updateDebugSetting}
           onReset={resetDebugSettings}
         />

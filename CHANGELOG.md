@@ -1,5 +1,7 @@
 # Changelog
 
+- Added raw `viewport.zoom` and `fitPageZoom` readouts to the workspace debug panel so canvas zoom state can be inspected without digging through the DOM.
+
 - Lowered the workspace canvas minimum zoom floor from `0.35` to `0.05` so `Zoom out` can step below the old clamp after a `100%` reset.
 
 - Fixed workspace zoom-state updates so manual zoom changes no longer get lost behind stale canvas viewport state, and the toolbar percent now tracks real zoom again instead of flattening back to `100%`.

@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { Bug, X } from 'lucide-react'
 
+import type { CanvasViewportState } from './DocumentCanvas'
 import {
   WORKSPACE_DEBUG_SETTING_CONFIGS,
   type WorkspaceDebugSettings,
@@ -9,6 +10,7 @@ import {
 interface WorkspaceDebugToolbarProps {
   settings: WorkspaceDebugSettings
   hoveredBlockLabel: string
+  viewportState: CanvasViewportState
   onChange: (key: keyof WorkspaceDebugSettings, value: number) => void
   onReset: () => void
 }
@@ -17,7 +19,7 @@ function formatSettingValue(value: number) {
   return value.toFixed(4).replace(/0+$/, '').replace(/\.$/, '')
 }
 
-export function WorkspaceDebugToolbar({ settings, hoveredBlockLabel, onChange, onReset }: WorkspaceDebugToolbarProps) {
+export function WorkspaceDebugToolbar({ settings, hoveredBlockLabel, viewportState, onChange, onReset }: WorkspaceDebugToolbarProps) {
   const [isOpen, setIsOpen] = useState(false)
   const dockRef = useRef<HTMLDivElement | null>(null)
   const panelId = useId()
@@ -71,6 +73,19 @@ export function WorkspaceDebugToolbar({ settings, hoveredBlockLabel, onChange, o
             <div className="workspace-debug-indicator-card">
               <span className="workspace-debug-indicator-label">Hovered block</span>
               <code>{hoveredBlockLabel}</code>
+            </div>
+          </section>
+
+          <section className="workspace-debug-section" aria-label="Viewport debug">
+            <div className="workspace-debug-indicator-grid">
+              <div className="workspace-debug-indicator-card">
+                <span className="workspace-debug-indicator-label">Viewport zoom</span>
+                <code>{formatSettingValue(viewportState.zoom)}</code>
+              </div>
+              <div className="workspace-debug-indicator-card">
+                <span className="workspace-debug-indicator-label">Fit-page zoom</span>
+                <code>{formatSettingValue(viewportState.fitPageZoom)}</code>
+              </div>
             </div>
           </section>
 
