@@ -36,7 +36,7 @@ export function WorkspaceReviewPanel({
     <section className="panel">
       <div className="panel-heading">
         <div>
-          <p className="eyebrow">Page Review</p>
+          <p className="eyebrow">Block List</p>
           <p className="selection-hint">Shift-click for a range. Cmd/Ctrl-click to toggle blocks. Delete removes the selection.</p>
         </div>
       </div>
