@@ -1,5 +1,7 @@
 # Changelog
 
+- Rebuilt the projects dashboard into a tighter command-center layout with a modern hero, compact stats, clearer workspace selection, and an upload rail that still routes directly into the review workspace.
+
 - Fixed the projects dashboard foreground/background contrast by scoping workspace-style warm surfaces, controls, and status colors to the dashboard without changing the workspace view.
 
 - Documented the repo rule that each completed round of work should land in its own conventional commit.
