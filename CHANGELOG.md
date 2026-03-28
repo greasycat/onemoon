@@ -1,5 +1,7 @@
 # Changelog
 
+- Fixed backend startup by making project/document delete routes explicit empty `204 No Content` responses that FastAPI accepts at import time.
+
 - Rebuilt the projects dashboard into a tighter command-center layout with a modern hero, compact stats, clearer workspace selection, and an upload rail that still routes directly into the review workspace.
 
 - Fixed the projects dashboard foreground/background contrast by scoping workspace-style warm surfaces, controls, and status colors to the dashboard without changing the workspace view.
