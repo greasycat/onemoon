@@ -104,6 +104,7 @@ interface DocumentCanvasProps {
     blocks: DraftBlock[]
     cutCeilingPath: BlockVertex[] | null
     toolbar?: EditorToolbarProps | null
+    overlayToolbar?: ReactNode
     blockListPanel?: ReactNode
     blockInfoPanel?: ReactNode
     toast?: {
@@ -734,6 +735,7 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
         blocks,
         cutCeilingPath,
         toolbar,
+        overlayToolbar,
         blockListPanel,
         blockInfoPanel,
         toast,
@@ -929,6 +931,8 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
             onResetZoom: handleResetZoom,
         }
         : null
+    const hasOverlayToolbar = resolvedToolbar !== null || overlayToolbar != null
+    const canvasToolbarClassName = resolvedToolbar ? '' : overlayToolbar ? 'canvas-panel-minimal-toolbar' : 'canvas-panel-toolbar-hidden'
 
     useImperativeHandle(ref, () => ({
         fitPage: handleFitPage,
@@ -1259,10 +1263,11 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
     }
 
     return (
-        <section className={`canvas-panel canvas-panel-embedded ${toolbar ? '' : 'canvas-panel-toolbar-hidden'}`}>
+        <section className={`canvas-panel canvas-panel-embedded ${canvasToolbarClassName}`.trim()}>
             <div className="canvas-stage">
-                <div className={`canvas-overlay-stack ${toolbar ? '' : 'canvas-overlay-stack-toolbar-hidden'}`.trim()} ref={overlayStackRef}>
+                <div className={`canvas-overlay-stack ${hasOverlayToolbar ? '' : 'canvas-overlay-stack-toolbar-hidden'}`.trim()} ref={overlayStackRef}>
                     {resolvedToolbar ? <EditorToolbar {...resolvedToolbar} /> : null}
+                    {overlayToolbar ? <div className="canvas-custom-toolbar">{overlayToolbar}</div> : null}
                     {blockListPanel ? <div className="canvas-block-list-overlay">{blockListPanel}</div> : null}
                 </div>
                 {blockInfoPanel ? (

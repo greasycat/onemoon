@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 
 import { BlockInspector } from '../components/BlockInspector'
+import { ConversionModeToolbar } from '../components/ConversionModeToolbar'
 import { DocumentCanvas } from '../components/DocumentCanvas'
 import { WorkspaceDebugToolbar } from '../components/WorkspaceDebugToolbar'
 import { FRONTEND_DEBUG } from '../lib/debug'
@@ -153,6 +154,17 @@ export function WorkspacePage() {
                     cutCeilingPath={activeCutCeilingPath}
                     debugSettings={debugSettings}
                     toolbar={isConversionMode ? null : toolbar}
+                    overlayToolbar={
+                      isConversionMode ? (
+                        <ConversionModeToolbar
+                          zoomPercent={toolbar.zoomPercent}
+                          onZoomOut={toolbar.onZoomOut}
+                          onZoomIn={toolbar.onZoomIn}
+                          onFitPage={toolbar.onFitPage}
+                          onResetZoom={toolbar.onResetZoom}
+                        />
+                      ) : null
+                    }
                     blockListPanel={undefined}
                     blockInfoPanel={undefined}
                     toast={toast}
