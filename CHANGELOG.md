@@ -1,5 +1,7 @@
 # Changelog
 
+- Centered the workspace loading state and added an animated spinner so large uploads show clear progress feedback while the review workspace initializes.
+
 - Kept newly-uploaded workspace routes in a loading state while the backend creates the document and renders its first pages, instead of falling through to `Document not found.` during large uploads.
 
 - Removed the dashboard upload side panel and moved upload actions into each workspace row so files can be sent to review directly beside the folder name.

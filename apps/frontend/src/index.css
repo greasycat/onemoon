@@ -117,6 +117,12 @@ body {
   overscroll-behavior-y: none;
 }
 
+@keyframes workspace-loading-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
 a {
   color: inherit;
   text-decoration: none;
@@ -243,6 +249,41 @@ button {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr) 360px;
   gap: 1rem;
+}
+
+.workspace-loading-shell {
+  min-height: calc(100vh - 8rem);
+  display: grid;
+  place-items: center;
+}
+
+.workspace-loading-panel {
+  width: min(26rem, 100%);
+  min-height: 14rem;
+  display: grid;
+  place-items: center;
+  gap: 1rem;
+  text-align: center;
+}
+
+.workspace-loading-spinner {
+  width: 3.2rem;
+  height: 3.2rem;
+  border-radius: 999px;
+  border: 0.24rem solid color-mix(in srgb, var(--accent) 18%, transparent);
+  border-top-color: var(--accent);
+  border-right-color: var(--accent-alt);
+  box-shadow:
+    0 0 0 0.3rem color-mix(in srgb, var(--accent) 8%, transparent),
+    inset 0 0 0 0.08rem color-mix(in srgb, white 24%, transparent);
+  animation: workspace-loading-spin 900ms linear infinite;
+}
+
+.workspace-loading-label {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .workspace-main {

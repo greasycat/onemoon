@@ -64,8 +64,11 @@ export function WorkspacePage() {
 
   if (documentQuery.isLoading || isResolvingDocumentCreation || isWorkspaceInitializing) {
     return (
-      <main className="page-shell">
-        <div className="panel">Loading workspace…</div>
+      <main className="page-shell workspace-loading-shell">
+        <div className="panel workspace-loading-panel" role="status" aria-live="polite">
+          <div className="workspace-loading-spinner" aria-hidden="true" />
+          <p className="workspace-loading-label">Loading workspace…</p>
+        </div>
       </main>
     )
   }
