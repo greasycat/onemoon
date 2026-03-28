@@ -140,7 +140,10 @@ export function WorkspacePage() {
               <div className={`editor-workbench-canvas-layout ${isConversionMode ? 'editor-workbench-canvas-layout-conversion' : ''}`}>
                 {isConversionMode ? (
                   <div className="editor-workbench-canvas-column editor-workbench-canvas-column-list">
-                    {blockListPanel}
+                    <div className="editor-workbench-canvas-side-stack">
+                      {blockListPanel}
+                      {blockInfoPanel}
+                    </div>
                   </div>
                 ) : null}
                 <div className="editor-workbench-canvas-shell">
@@ -167,18 +170,12 @@ export function WorkspacePage() {
                   />
                 </div>
                 {isConversionMode ? (
-                  <div className="editor-workbench-canvas-column editor-workbench-canvas-column-inspector">
-                    {blockInfoPanel}
+                  <div className="editor-workbench-canvas-column editor-workbench-canvas-column-preview">
+                    <WorkspaceDocumentPreview document={document} />
                   </div>
                 ) : null}
               </div>
             </section>
-
-            {isConversionMode ? (
-              <div className="workspace-sidepanels">
-                <WorkspaceDocumentPreview document={document} />
-              </div>
-            ) : null}
           </div>
         </div>
       </section>
