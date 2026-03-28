@@ -120,6 +120,46 @@ const ZOOM_STEP = 0.2
 const WHEEL_SCROLL_EPSILON = 1
 const resizeHandles: ResizeHandle[] = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']
 
+function isScrollableOnY(element: HTMLElement) {
+  const style = window.getComputedStyle(element)
+  if (!['auto', 'scroll', 'overlay'].includes(style.overflowY)) {
+    return false
+  }
+  return element.scrollHeight - element.clientHeight > WHEEL_SCROLL_EPSILON
+}
+
+function scrollElementByDeltaY(element: HTMLElement, deltaY: number) {
+  const maxScrollTop = element.scrollHeight - element.clientHeight
+  if (maxScrollTop <= WHEEL_SCROLL_EPSILON) {
+    return false
+  }
+
+  const nextScrollTop = clamp(element.scrollTop + deltaY, 0, maxScrollTop)
+  if (Math.abs(nextScrollTop - element.scrollTop) <= WHEEL_SCROLL_EPSILON) {
+    return false
+  }
+
+  element.scrollTop = nextScrollTop
+  return true
+}
+
+function scrollNearestScrollableAncestor(start: HTMLElement | null, deltaY: number) {
+  let current = start
+  while (current) {
+    if (isScrollableOnY(current) && scrollElementByDeltaY(current, deltaY)) {
+      return true
+    }
+    current = current.parentElement
+  }
+
+  const scrollingElement = document.scrollingElement
+  if (scrollingElement instanceof HTMLElement) {
+    return scrollElementByDeltaY(scrollingElement, deltaY)
+  }
+
+  return false
+}
+
 function normalizeGeometry(start: CanvasPoint, end: CanvasPoint, minBlockSize: number): BlockGeometry {
   const x = clamp(Math.min(start.x, end.x))
   const y = clamp(Math.min(start.y, end.y))
@@ -778,25 +818,6 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
     setIsPanning(true)
   }
 
-  function scrollPageBy(deltaY: number) {
-    const scrollingElement = document.scrollingElement
-    if (!(scrollingElement instanceof HTMLElement)) {
-      return
-    }
-
-    const maxScrollTop = scrollingElement.scrollHeight - window.innerHeight
-    if (maxScrollTop <= WHEEL_SCROLL_EPSILON) {
-      return
-    }
-
-    const nextScrollTop = clamp(scrollingElement.scrollTop + deltaY, 0, maxScrollTop)
-    if (Math.abs(nextScrollTop - scrollingElement.scrollTop) <= WHEEL_SCROLL_EPSILON) {
-      return
-    }
-
-    scrollingElement.scrollTop = nextScrollTop
-  }
-
   function syncViewport(nextViewport: CanvasViewportState, resetPan = false) {
     const viewportElement = viewportRef.current
     if (!viewportElement) {
@@ -1169,8 +1190,9 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
               return
             }
 
-            scrollPageBy(event.deltaY)
-            event.preventDefault()
+            if (scrollNearestScrollableAncestor(event.currentTarget, event.deltaY)) {
+              event.preventDefault()
+            }
           }}
           onContextMenu={(event) => {
             event.preventDefault()

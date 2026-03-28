@@ -1,5 +1,7 @@
 # Changelog
 
+- Fixed non-conversion workspace canvas wheel scrolling by routing mouse-wheel input to the nearest scrollable workspace container instead of the document root, so zoomed canvases scroll again under the cursor.
+
 - Routed wheel scrolling on the non-conversion canvas surface back to the page scroll so the review workspace scrolls even when the cursor is over the image instead of only over floating overlays.
 
 - Restored non-conversion workspace scrolling by removing the vertical overflow clamp from the editor workbench while keeping horizontal clipping for the canvas layout.
