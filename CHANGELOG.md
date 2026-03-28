@@ -1,5 +1,7 @@
 # Changelog
 
+- Restored non-conversion workspace scrolling by removing the vertical overflow clamp from the editor workbench while keeping horizontal clipping for the canvas layout.
+
 - Hid the workspace LaTeX preview outside conversion mode so the normal review editor stays canvas-only and the preview rail only appears during conversion.
 
 - Constrained the workspace editor canvas layout to its parent workbench width and let conversion side rails shrink instead of forcing the canvas row to overflow.

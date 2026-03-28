@@ -1880,7 +1880,8 @@ button {
   padding: 1rem;
   align-content: stretch;
   grid-template-rows: auto minmax(0, 1fr);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: visible;
 }
 
 .editor-workbench-header {
@@ -1920,7 +1921,8 @@ button {
   min-width: 0;
   width: 100%;
   max-width: 100%;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: visible;
 }
 
 .editor-workbench-canvas-layout-conversion {
