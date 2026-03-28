@@ -1,5 +1,9 @@
 # Changelog
 
+- Made the workspace grid and editor workbench stretch to fill the available viewport height instead of stopping at content height.
+
+- Changed the workspace block-list collapse to shrink the panel vertically while keeping its full width, instead of collapsing it into a narrow side bar.
+
 - Fixed the workspace block-list collapse so the overlay column itself now narrows to a slim rounded panel instead of only hiding the inner text.
 
 - Removed the workspace canvas helper tooltip section so the embedded block list sits directly beside the toolbar.
