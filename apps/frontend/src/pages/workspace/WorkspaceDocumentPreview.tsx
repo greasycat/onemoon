@@ -16,29 +16,40 @@ function compareArtifacts(left: CompileArtifactResponse, right: CompileArtifactR
   return right.created_at.localeCompare(left.created_at)
 }
 
-function buildFallbackLatex(document: DocumentDetailResponse) {
-  const safeTitle = document.title.replace(/[{}]/g, '')
-  return [
-    '\\documentclass[11pt]{article}',
-    '\\usepackage[margin=1in]{geometry}',
-    '\\usepackage{amsmath}',
-    '\\usepackage{amssymb}',
-    '\\usepackage{graphicx}',
-    '\\usepackage{microtype}',
-    `\\title{${safeTitle || 'Untitled document'}}`,
-    '\\date{}',
-    '\\begin{document}',
-    '\\maketitle',
-    '',
-    '% Conversion preview is waiting for assembled LaTeX.',
-    `% Document status: ${document.status}`,
-    `% Pages loaded: ${document.pages.length}`,
-    document.latest_compile_status ? `% Latest compile: ${document.latest_compile_status}` : '% Latest compile: not started',
-    '',
-    '% Adjust the current page layout, then assemble or compile the document to replace this shell.',
-    '',
-    '\\end{document}',
-  ].join('\n')
+function normalizeSnippet(source: string) {
+  return source.trim().replace(/\r\n/g, '\n')
+}
+
+function buildBlockSource(selectedBlock: DraftBlock | null) {
+  if (!selectedBlock) {
+    return '% Select a block to inspect its LaTeX snippet.'
+  }
+
+  const convertedSource = selectedBlock.manual_output?.trim() || selectedBlock.generated_output?.trim()
+  if (convertedSource) {
+    const normalizedSource = normalizeSnippet(convertedSource)
+    if (selectedBlock.block_type === 'math') {
+      if (normalizedSource.startsWith('\\[') || normalizedSource.startsWith('$$')) {
+        return normalizedSource
+      }
+      return `\\[\n${normalizedSource}\n\\]`
+    }
+    if (selectedBlock.block_type === 'figure') {
+      return ['% Figure block', '\\begin{figure}[h]', '\\centering', normalizedSource, '\\end{figure}'].join('\n')
+    }
+    return normalizedSource
+  }
+
+  if (selectedBlock.crop_url) {
+    return [
+      `% Pending conversion placeholder for block ${selectedBlock.id ?? selectedBlock.client_id}`,
+      '\\begin{center}',
+      `\\fbox{\\includegraphics[width=0.9\\linewidth]{${selectedBlock.crop_url}}}`,
+      '\\end{center}',
+    ].join('\n')
+  }
+
+  return '% Convert this block to generate its LaTeX snippet.'
 }
 
 export function WorkspaceDocumentPreview({ document, selectedBlock = null }: WorkspaceDocumentPreviewProps) {
@@ -47,7 +58,7 @@ export function WorkspaceDocumentPreview({ document, selectedBlock = null }: Wor
     [document.compile_artifacts],
   )
   const previewUrl = latestArtifact?.pdf_url ? withApiRoot(latestArtifact.pdf_url) : null
-  const latexSource = document.assembled_latex?.trim() || buildFallbackLatex(document)
+  const blockSource = useMemo(() => buildBlockSource(selectedBlock), [selectedBlock])
   const selectedBlockCropUrl = selectedBlock?.crop_url ? withApiRoot(selectedBlock.crop_url) : null
   const selectedBlockHasOutput = Boolean(selectedBlock?.manual_output?.trim() || selectedBlock?.generated_output?.trim())
   const placeholderBlock = !previewUrl && selectedBlock && selectedBlockCropUrl && !selectedBlockHasOutput ? selectedBlock : null
@@ -77,9 +88,9 @@ export function WorkspaceDocumentPreview({ document, selectedBlock = null }: Wor
       </div>
 
       <section className="workspace-document-preview-section workspace-document-source">
-        <p className="eyebrow">Document source</p>
+        <p className="eyebrow">Block source</p>
         <div className="generated-output workspace-document-preview-source">
-          <pre>{latexSource}</pre>
+          <pre>{blockSource}</pre>
         </div>
       </section>
     </aside>

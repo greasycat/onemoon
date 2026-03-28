@@ -84,11 +84,11 @@ export function BlockInspector({
       </div>
 
       <div className="inspector-section">
-        <h3>Document source</h3>
+        <h3>Block source</h3>
         <p className="selection-hint review-panel-hint">
           {hasOutput
-            ? 'Converted LaTeX is shown in the document source panel on the right.'
-            : 'Convert this block to populate the document source panel on the right.'}
+            ? 'Converted LaTeX is shown in the block source panel on the right.'
+            : 'Convert this block to populate the block source panel on the right.'}
         </p>
       </div>
     </aside>

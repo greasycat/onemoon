@@ -1,5 +1,7 @@
 # Changelog
 
+- Changed the workspace source rail to show the selected block’s LaTeX snippet instead of the full assembled document, including block-level placeholder snippets before conversion.
+
 - Fixed the workspace cut-image placeholder sizing so the selected block crop now fits the preview frame at full width and height before conversion.
 
 - Added pre-conversion block-crop placeholders to the workspace preview rail and assembled LaTeX so a selected block shows its cut image before conversion runs.
