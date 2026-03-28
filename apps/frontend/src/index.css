@@ -300,7 +300,7 @@ button {
 
 .workspace-main-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(22rem, 28vw);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
   min-height: 0;
   align-items: stretch;
@@ -309,7 +309,8 @@ button {
 .workspace-sidepanels {
   display: grid;
   gap: 1rem;
-  align-content: start;
+  min-height: 0;
+  align-content: stretch;
 }
 
 .panel-heading {
@@ -1793,6 +1794,10 @@ button {
 .editor-workbench,
 .workspace-sidepanels > .panel {
   min-width: 0;
+}
+
+.workspace-sidepanels > .panel {
+  min-height: 100%;
 }
 
 .workspace-shell .muted-text,

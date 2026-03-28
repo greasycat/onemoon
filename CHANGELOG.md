@@ -1,5 +1,7 @@
 # Changelog
 
+- Changed the workspace split so the LaTeX preview panel now uses the same main-column footprint and stretched panel height as the segmentation editor.
+
 - Trimmed the workspace conversion rail so it only shows the rendered preview block and LaTeX code block, removing the extra description, stats, and section headings.
 
 - Added a workspace conversion rail with a right-side LaTeX document preview and a header toggle to hide or restore the embedded editor toolbar.
