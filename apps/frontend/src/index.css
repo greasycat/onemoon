@@ -1927,7 +1927,7 @@ button {
 
 .editor-workbench-canvas-layout-conversion {
   display: grid;
-  grid-template-columns: minmax(15rem, 17rem) minmax(0, 1fr) minmax(20rem, 24rem);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 2fr);
   gap: 0.9rem;
   min-height: 0;
   align-items: start;
@@ -1950,11 +1950,6 @@ button {
   display: grid;
   gap: 0.9rem;
   align-content: start;
-}
-
-.editor-workbench-canvas-layout-conversion .editor-workbench-canvas-shell {
-  width: min(100%, 10rem);
-  justify-self: center;
 }
 
 .workspace-shell .editor-workbench-canvas-column .workspace-review-panel {
