@@ -1,5 +1,7 @@
 # Changelog
 
+- Locked the workspace canvas viewport to the editor row height so zooming no longer makes the viewport itself grow and feed back into `fitPageZoom`.
+
 - Extended the workspace debug panel with live canvas content/page dimensions and made the panel stay open above the workspace until the Debug toggle is clicked again.
 
 - Removed workspace fit-page zoom's dependence on the left/right overlay rail widths so the baseline now comes only from the canvas viewport box and page dimensions.
