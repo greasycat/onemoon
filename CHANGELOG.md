@@ -1,5 +1,7 @@
 # Changelog
 
+- Added a workspace debug toggle that saves the exact white-filled masked crop sent to the LLM into `/tmp/onemoon-masked-crops` during conversion for inspection.
+
 - Flattened transparent polygon crop surrounds onto white before sending block images to the LLM, while keeping the saved crop itself polygon-masked.
 
 - Kept the selected block cut image visible in the preview rail after conversion whenever no compiled render is available, so the crop stays alongside the block source snippet.

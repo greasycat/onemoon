@@ -4,6 +4,7 @@ import { Bug, X } from 'lucide-react'
 import type { CanvasViewportState } from './DocumentCanvas'
 import {
   WORKSPACE_DEBUG_SETTING_CONFIGS,
+  type WorkspaceDebugNumericSettingKey,
   type WorkspaceDebugSettings,
 } from '../lib/workspaceDebug'
 
@@ -11,7 +12,8 @@ interface WorkspaceDebugToolbarProps {
   settings: WorkspaceDebugSettings
   hoveredBlockLabel: string
   viewportState: CanvasViewportState
-  onChange: (key: keyof WorkspaceDebugSettings, value: number) => void
+  onChange: (key: WorkspaceDebugNumericSettingKey, value: number) => void
+  onToggleSaveMaskedCropToTmp: (enabled: boolean) => void
   onReset: () => void
 }
 
@@ -23,9 +25,17 @@ function formatDimensionValue(value: number) {
   return value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')
 }
 
-export function WorkspaceDebugToolbar({ settings, hoveredBlockLabel, viewportState, onChange, onReset }: WorkspaceDebugToolbarProps) {
+export function WorkspaceDebugToolbar({
+  settings,
+  hoveredBlockLabel,
+  viewportState,
+  onChange,
+  onToggleSaveMaskedCropToTmp,
+  onReset,
+}: WorkspaceDebugToolbarProps) {
   const [isOpen, setIsOpen] = useState(false)
   const panelId = useId()
+  const saveMaskedCropId = `${panelId}-save-masked-crop`
 
   return (
     <div className="workspace-debug-dock">
@@ -118,35 +128,26 @@ export function WorkspaceDebugToolbar({ settings, hoveredBlockLabel, viewportSta
             })}
           </section>
 
-          <details className="workspace-debug-section workspace-debug-placeholder">
-            <summary>LLM Controls (coming soon)</summary>
-            <p className="muted-text">
-              These fields are placeholders only in this change. They do not send request overrides and the mock provider
-              flow stays unchanged.
-            </p>
-            <div className="workspace-debug-placeholder-grid" aria-hidden="true">
-              <label className="field">
-                <span>Provider</span>
-                <input disabled value="mock" readOnly />
-              </label>
-              <label className="field">
-                <span>Model</span>
-                <input disabled value="mock-notes-v1" readOnly />
-              </label>
-              <label className="field">
-                <span>Temperature</span>
-                <input disabled value="0.2" readOnly />
-              </label>
-              <label className="field">
-                <span>Top-p</span>
-                <input disabled value="0.95" readOnly />
-              </label>
-              <label className="field">
-                <span>Instruction preset</span>
-                <input disabled value="review-default" readOnly />
+          <section className="workspace-debug-section" aria-label="LLM debug controls">
+            <div className="workspace-debug-field">
+              <div className="workspace-debug-field-header">
+                <span>LLM crop inspection</span>
+                <code>{settings.saveMaskedCropToTmp ? 'Enabled' : 'Disabled'}</code>
+              </div>
+              <p className="muted-text">
+                Save the exact white-filled rectangle image sent to the LLM into the system temp directory for inspection.
+              </p>
+              <label className="workspace-debug-toggle" htmlFor={saveMaskedCropId}>
+                <input
+                  id={saveMaskedCropId}
+                  type="checkbox"
+                  checked={settings.saveMaskedCropToTmp}
+                  onChange={(event) => onToggleSaveMaskedCropToTmp(event.target.checked)}
+                />
+                <span>Save masked crop to tmp during conversion</span>
               </label>
             </div>
-          </details>
+          </section>
         </aside>
       ) : null}
 

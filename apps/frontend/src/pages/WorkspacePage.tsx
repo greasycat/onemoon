@@ -50,6 +50,7 @@ export function WorkspacePage() {
     selectBlock,
     selectPage,
     setHoveredBlock,
+    setSaveMaskedCropToTmp,
     setViewportState,
     toast,
     toolbar,
@@ -225,6 +226,7 @@ export function WorkspacePage() {
           hoveredBlockLabel={hoveredBlockLabel}
           viewportState={viewportState}
           onChange={updateDebugSetting}
+          onToggleSaveMaskedCropToTmp={setSaveMaskedCropToTmp}
           onReset={resetDebugSettings}
         />
       ) : null}

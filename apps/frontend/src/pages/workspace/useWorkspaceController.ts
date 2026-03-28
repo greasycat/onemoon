@@ -39,6 +39,7 @@ import {
   WORKSPACE_DEBUG_STORAGE_KEY,
   loadWorkspaceDebugSettings,
   normalizeWorkspaceDebugSettings,
+  type WorkspaceDebugNumericSettingKey,
   type WorkspaceDebugSettings,
 } from '../../lib/workspaceDebug'
 
@@ -407,8 +408,19 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
       action === 'reopen' ? api.reopenPage(token!, pageId) : api.markPageSegmented(token!, pageId),
   })
   const regenerateBlockMutation = useMutation({
-    mutationFn: async ({ blockId, instruction }: { blockId: string; instruction: string }) => {
-      const job = await api.regenerateBlock(token!, blockId, instruction)
+    mutationFn: async ({
+      blockId,
+      instruction,
+      saveMaskedCropToTmp,
+    }: {
+      blockId: string
+      instruction: string
+      saveMaskedCropToTmp: boolean
+    }) => {
+      const job = await api.regenerateBlock(token!, blockId, {
+        instruction,
+        saveMaskedCropDebug: saveMaskedCropToTmp,
+      })
       for (let attempt = 0; attempt < 30; attempt += 1) {
         const nextJob = await api.getJob(token!, job.id)
         if (nextJob.status === 'completed') {
@@ -483,8 +495,12 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     }
   }
 
-  function updateDebugSetting(key: keyof WorkspaceDebugSettings, value: number) {
+  function updateDebugSetting(key: WorkspaceDebugNumericSettingKey, value: number) {
     setDebugSettings((current) => normalizeWorkspaceDebugSettings({ ...current, [key]: value }))
+  }
+
+  function setSaveMaskedCropToTmp(enabled: boolean) {
+    setDebugSettings((current) => normalizeWorkspaceDebugSettings({ ...current, saveMaskedCropToTmp: enabled }))
   }
 
   function resetDebugSettings() {
@@ -682,12 +698,22 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     showToast({ tone: 'saving', message: `Generating block #${selectedBlock.order_index + 1}…` }, false)
 
     try {
-      await regenerateBlockMutation.mutateAsync({
+      const completedJob = await regenerateBlockMutation.mutateAsync({
         blockId: selectedBlock.id,
         instruction: selectedBlockInstruction,
+        saveMaskedCropToTmp: debugSettings.saveMaskedCropToTmp,
       })
       await refreshDocument()
-      showToast({ tone: 'success', message: `Block #${selectedBlock.order_index + 1} generated.` })
+      const debugMaskedCropPath =
+        typeof completedJob.payload.debug_masked_crop_path === 'string'
+          ? completedJob.payload.debug_masked_crop_path
+          : null
+      showToast({
+        tone: 'success',
+        message: debugMaskedCropPath
+          ? `Block #${selectedBlock.order_index + 1} generated. Masked crop saved to ${debugMaskedCropPath}.`
+          : `Block #${selectedBlock.order_index + 1} generated.`,
+      })
       return true
     } catch (error) {
       showToast({
@@ -984,6 +1010,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     convertSelectedBlock,
     setHoveredBlock,
     setActiveTool,
+    setSaveMaskedCropToTmp,
     setViewportState,
     toast,
     toolbar,

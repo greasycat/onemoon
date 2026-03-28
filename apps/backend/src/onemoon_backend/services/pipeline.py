@@ -27,7 +27,7 @@ from ..models import (
 )
 from ..storage import absolute_path, artifact_dir, crop_path, ensure_storage_layout, log_dir, relative_path, render_path
 from ..services.latex import build_document_latex, compile_latex
-from ..services.llm import ConversionPayload, get_llm_adapter
+from ..services.llm import ConversionPayload, ConversionResult, get_llm_adapter
 from ..services.segmentation import ProposedBlock, segment_page
 
 settings = get_settings()
@@ -95,7 +95,7 @@ def save_crop(page: Page, block: Block) -> None:
     block.crop_path = relative_path(target)
 
 
-def convert_block(block: Block, page: Page) -> None:
+def convert_block(block: Block, page: Page, *, save_debug_image: bool = False) -> ConversionResult:
     adapter = get_llm_adapter()
     result = adapter.convert(
         ConversionPayload(
@@ -104,11 +104,13 @@ def convert_block(block: Block, page: Page) -> None:
             image_path=absolute_path(block.crop_path) if block.crop_path else absolute_path(page.image_path),
             instruction=block.user_instruction,
             context_summary=f"page={page.page_index + 1}",
+            save_debug_image=save_debug_image,
         )
     )
     block.generated_output = result.normalized_output
     block.raw_response = result.raw_output
     block.warnings = result.warnings
+    return result
 
 
 def assemble_document(db: Session, document_id: str) -> str:
@@ -226,7 +228,7 @@ def resegment_page_job(job_id: str, page_id: str) -> None:
             raise
 
 
-def regenerate_block_job(job_id: str, block_id: str) -> None:
+def regenerate_block_job(job_id: str, block_id: str, save_masked_crop_debug: bool = False) -> None:
     with SessionLocal() as db:
         job = db.get(Job, job_id)
         block = db.scalar(select(Block).where(Block.id == block_id).options(selectinload(Block.page)))
@@ -237,9 +239,15 @@ def regenerate_block_job(job_id: str, block_id: str) -> None:
             update_job(job, status=JobStatus.running, progress=0.2, message="Generating block output")
             db.commit()
             save_crop(block.page, block)
-            convert_block(block, block.page)
+            result = convert_block(block, block.page, save_debug_image=save_masked_crop_debug)
             assemble_document(db, block.page.document_id)
-            update_job(job, status=JobStatus.completed, progress=1.0, message="Block output updated")
+            update_job(
+                job,
+                status=JobStatus.completed,
+                progress=1.0,
+                message="Block output updated",
+                payload={"debug_masked_crop_path": result.debug_image_path} if result.debug_image_path else None,
+            )
             db.commit()
         except Exception as exc:
             update_job(job, status=JobStatus.failed, progress=1.0, message=str(exc))

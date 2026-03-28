@@ -223,11 +223,21 @@ export const api = {
       token,
       body: payload,
     }),
-  regenerateBlock: (token: string, blockId: string, instruction: string) =>
+  regenerateBlock: (
+    token: string,
+    blockId: string,
+    payload: {
+      instruction: string
+      saveMaskedCropDebug: boolean
+    },
+  ) =>
     request<JobResponse>(`/blocks/${blockId}/regenerate`, {
       method: 'POST',
       token,
-      body: { instruction },
+      body: {
+        instruction: payload.instruction,
+        save_masked_crop_debug: payload.saveMaskedCropDebug,
+      },
     }),
   getJob: (token: string, jobId: string) =>
     request<JobResponse>(`/jobs/${jobId}`, {

@@ -96,6 +96,7 @@ class BlockPatch(BlockShapeMixin):
 
 class RegenerateBlockRequest(BaseModel):
     instruction: str | None = None
+    save_masked_crop_debug: bool = False
 
 
 class DocumentPatch(BaseModel):

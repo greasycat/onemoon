@@ -3,12 +3,14 @@ from __future__ import annotations
 import base64
 import json
 import re
+import tempfile
 from dataclasses import dataclass
 from io import BytesIO
 from mimetypes import guess_type
 from pathlib import Path
 from typing import Any, Protocol
 from urllib import error, request
+from uuid import uuid4
 
 from PIL import Image
 
@@ -33,6 +35,7 @@ class ConversionPayload:
     image_path: Path
     instruction: str | None
     context_summary: str
+    save_debug_image: bool = False
 
 
 @dataclass(slots=True)
@@ -40,6 +43,13 @@ class ConversionResult:
     normalized_output: str
     raw_output: str
     warnings: list[str]
+    debug_image_path: str | None = None
+
+
+@dataclass(slots=True)
+class PreparedLLMImage:
+    mime_type: str
+    image_bytes: bytes
 
 
 class LLMAdapter(Protocol):
@@ -111,7 +121,7 @@ def _output_for_block_type(block_type: BlockType, value: str) -> str:
     return _normalize_text_output(value)
 
 
-def _read_image_data_url(image_path: Path) -> str:
+def _prepare_llm_image(image_path: Path) -> PreparedLLMImage:
     mime_type = guess_type(image_path.name)[0] or "image/png"
     image_bytes = image_path.read_bytes()
     try:
@@ -128,8 +138,30 @@ def _read_image_data_url(image_path: Path) -> str:
     except OSError:
         pass
 
-    encoded = base64.b64encode(image_bytes).decode("ascii")
-    return f"data:{mime_type};base64,{encoded}"
+    return PreparedLLMImage(mime_type=mime_type, image_bytes=image_bytes)
+
+
+def _prepared_image_data_url(prepared_image: PreparedLLMImage) -> str:
+    encoded = base64.b64encode(prepared_image.image_bytes).decode("ascii")
+    return f"data:{prepared_image.mime_type};base64,{encoded}"
+
+
+def _read_image_data_url(image_path: Path) -> str:
+    return _prepared_image_data_url(_prepare_llm_image(image_path))
+
+
+def _write_debug_image(prepared_image: PreparedLLMImage, *, block_id: str) -> str:
+    suffix = {
+        "image/png": ".png",
+        "image/jpeg": ".jpg",
+        "image/webp": ".webp",
+    }.get(prepared_image.mime_type, ".bin")
+    safe_block_id = re.sub(r"[^A-Za-z0-9_-]+", "-", block_id).strip("-") or "block"
+    target_dir = Path(tempfile.gettempdir()) / "onemoon-masked-crops"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target_path = target_dir / f"{safe_block_id}-{uuid4().hex[:8]}{suffix}"
+    target_path.write_bytes(prepared_image.image_bytes)
+    return target_path.as_posix()
 
 
 def _collect_output_text(node: Any) -> list[str]:
@@ -178,6 +210,9 @@ class MockLLMAdapter:
         warnings: list[str] = []
         if self.fallback_reason:
             warnings.append(self.fallback_reason)
+        debug_image_path = None
+        if payload.save_debug_image:
+            debug_image_path = _write_debug_image(_prepare_llm_image(payload.image_path), block_id=payload.block_id)
 
         if payload.block_type == BlockType.math:
             output = MATH_PLACEHOLDER
@@ -196,7 +231,12 @@ class MockLLMAdapter:
             f"provider={get_settings().llm_provider}; block={payload.block_id};"
             f" type={payload.block_type.value};{instruction} {payload.context_summary}"
         )
-        return ConversionResult(normalized_output=output, raw_output=raw_output.strip(), warnings=warnings)
+        return ConversionResult(
+            normalized_output=output,
+            raw_output=raw_output.strip(),
+            warnings=warnings,
+            debug_image_path=debug_image_path,
+        )
 
 
 class OpenAIResponsesLLMAdapter:
@@ -247,7 +287,7 @@ class OpenAIResponsesLLMAdapter:
             )
         return "\n".join(shared)
 
-    def _build_request_body(self, payload: ConversionPayload) -> dict[str, Any]:
+    def _build_request_body(self, payload: ConversionPayload, prepared_image: PreparedLLMImage) -> dict[str, Any]:
         return {
             "model": self.model,
             "input": [
@@ -255,7 +295,7 @@ class OpenAIResponsesLLMAdapter:
                     "role": "user",
                     "content": [
                         {"type": "input_text", "text": self._build_prompt(payload)},
-                        {"type": "input_image", "image_url": _read_image_data_url(payload.image_path)},
+                        {"type": "input_image", "image_url": _prepared_image_data_url(prepared_image)},
                     ],
                 }
             ],
@@ -282,7 +322,9 @@ class OpenAIResponsesLLMAdapter:
             raise RuntimeError(f"OpenAI request failed: {exc.reason}") from exc
 
     def convert(self, payload: ConversionPayload) -> ConversionResult:
-        response_payload = self._request_response_payload(self._build_request_body(payload))
+        prepared_image = _prepare_llm_image(payload.image_path)
+        debug_image_path = _write_debug_image(prepared_image, block_id=payload.block_id) if payload.save_debug_image else None
+        response_payload = self._request_response_payload(self._build_request_body(payload, prepared_image))
         output = _extract_response_text(response_payload)
         if payload.block_type == BlockType.figure:
             normalized_output = _build_figure_snippet(payload.image_path, output)
@@ -295,6 +337,7 @@ class OpenAIResponsesLLMAdapter:
             normalized_output=normalized_output,
             raw_output=json.dumps(response_payload, ensure_ascii=True),
             warnings=[],
+            debug_image_path=debug_image_path,
         )
 
 

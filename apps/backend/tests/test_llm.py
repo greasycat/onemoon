@@ -179,3 +179,34 @@ def test_read_image_data_url_flattens_transparent_surround_to_white(tmp_path: Pa
 
     assert flattened.getpixel((1, 1)) == (255, 255, 255)
     assert flattened.getpixel((12, 10)) == (0, 0, 0)
+
+
+def test_mock_adapter_saves_prepared_debug_crop_when_requested(tmp_path: Path) -> None:
+    llm_module = importlib.import_module("onemoon_backend.services.llm")
+    image_path = tmp_path / "masked-block.png"
+
+    image = Image.new("RGBA", (24, 24), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.polygon([(4, 4), (20, 6), (12, 20)], fill=(0, 0, 0, 255))
+    image.save(image_path)
+
+    payload = llm_module.ConversionPayload(
+        block_id="block:debug",
+        block_type=BlockType.text,
+        image_path=image_path,
+        instruction=None,
+        context_summary="page=1",
+        save_debug_image=True,
+    )
+
+    result = llm_module.MockLLMAdapter().convert(payload)
+
+    assert result.debug_image_path is not None
+    debug_image = Path(result.debug_image_path)
+    assert debug_image.exists()
+    assert debug_image.parent.name == "onemoon-masked-crops"
+
+    flattened = Image.open(debug_image).convert("RGB")
+    assert flattened.getpixel((1, 1)) == (255, 255, 255)
+    assert flattened.getpixel((12, 10)) == (0, 0, 0)
+    debug_image.unlink()

@@ -3,10 +3,17 @@ export interface WorkspaceDebugSettings {
   freeformDrawStep: number
   pointEpsilon: number
   freeformSimplifyEpsilon: number
+  saveMaskedCropToTmp: boolean
 }
 
+export type WorkspaceDebugNumericSettingKey =
+  | 'minBlockSize'
+  | 'freeformDrawStep'
+  | 'pointEpsilon'
+  | 'freeformSimplifyEpsilon'
+
 export interface WorkspaceDebugSettingConfig {
-  key: keyof WorkspaceDebugSettings
+  key: WorkspaceDebugNumericSettingKey
   label: string
   description: string
   min: number
@@ -21,6 +28,7 @@ export const DEFAULT_WORKSPACE_DEBUG_SETTINGS: WorkspaceDebugSettings = {
   freeformDrawStep: 0.0015,
   pointEpsilon: 0.002,
   freeformSimplifyEpsilon: 0.002,
+  saveMaskedCropToTmp: false,
 }
 
 export const WORKSPACE_DEBUG_SETTING_CONFIGS: WorkspaceDebugSettingConfig[] = [
@@ -69,7 +77,7 @@ export function normalizeWorkspaceDebugSettings(
   value: Partial<WorkspaceDebugSettings> | null | undefined,
 ): WorkspaceDebugSettings {
   const next = { ...DEFAULT_WORKSPACE_DEBUG_SETTINGS, ...value }
-  return WORKSPACE_DEBUG_SETTING_CONFIGS.reduce<WorkspaceDebugSettings>((settings, config) => {
+  const normalized = WORKSPACE_DEBUG_SETTING_CONFIGS.reduce<WorkspaceDebugSettings>((settings, config) => {
     const candidate = next[config.key]
     settings[config.key] = clampDebugSetting(
       typeof candidate === 'number' && Number.isFinite(candidate)
@@ -79,6 +87,11 @@ export function normalizeWorkspaceDebugSettings(
     )
     return settings
   }, { ...DEFAULT_WORKSPACE_DEBUG_SETTINGS })
+  normalized.saveMaskedCropToTmp =
+    typeof next.saveMaskedCropToTmp === 'boolean'
+      ? next.saveMaskedCropToTmp
+      : DEFAULT_WORKSPACE_DEBUG_SETTINGS.saveMaskedCropToTmp
+  return normalized
 }
 
 export function loadWorkspaceDebugSettings() {

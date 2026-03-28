@@ -559,7 +559,7 @@ def regenerate_block(
         block.user_instruction = payload.instruction
         db.commit()
     job = create_job(db, "regenerate_block", "block", block_id, message="Queued block regeneration")
-    background_tasks.add_task(regenerate_block_job, job.id, block_id)
+    background_tasks.add_task(regenerate_block_job, job.id, block_id, payload.save_masked_crop_debug)
     return JobResponse.model_validate(job, from_attributes=True)
 
 
