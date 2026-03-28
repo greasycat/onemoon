@@ -158,7 +158,7 @@ class Block(Base):
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=generate_id)
     page_id: Mapped[str] = mapped_column(ForeignKey("pages.id"), index=True)
     order_index: Mapped[int] = mapped_column(Integer, default=0)
-    block_type: Mapped[BlockType] = mapped_column(SqlEnum(BlockType, native_enum=False), default=BlockType.unknown)
+    block_type: Mapped[BlockType] = mapped_column(SqlEnum(BlockType, native_enum=False), default=BlockType.text)
     approval: Mapped[BlockApproval] = mapped_column(
         SqlEnum(BlockApproval, native_enum=False),
         default=BlockApproval.pending,

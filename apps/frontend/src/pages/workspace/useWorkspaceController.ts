@@ -15,11 +15,9 @@ import {
   getLatestDraftCutPath,
   geometryFromVertices,
   isPolygonBlock,
-  mergeDraftBlock,
   nudgeGeometry,
   pageToDraft,
   reorderDraftBlock,
-  splitDraftBlock,
   toPageLayoutPayload,
   translateVertices,
   updateDraftBlock,
@@ -27,7 +25,6 @@ import {
   type DraftPageLayout,
 } from '../../lib/segmentation'
 import type {
-  BlockApproval,
   BlockGeometry,
   BlockSelectionMode,
   BlockShapeType,
@@ -506,7 +503,6 @@ export function useWorkspaceController(documentId: string) {
 
   function applySelectedBlock(payload: {
     block_type: BlockType
-    approval: BlockApproval
     geometry: BlockGeometry
   }) {
     if (!selectedBlock) {
@@ -517,7 +513,6 @@ export function useWorkspaceController(documentId: string) {
       updateDraftBlock(draft, draftBlockKey(selectedBlock), (block) => ({
         ...block,
         block_type: payload.block_type,
-        approval: payload.approval,
         crop_url: hasMatchingGeometry(block.geometry, nextGeometry) ? block.crop_url : null,
         warnings: hasMatchingGeometry(block.geometry, nextGeometry) ? block.warnings : [],
         geometry: nextGeometry,
@@ -548,24 +543,6 @@ export function useWorkspaceController(documentId: string) {
     const duplicated = duplicateDraftBlock(pageDraft, draftBlockKey(selectedBlock))
     setDraftForPage(selectedPage.id, duplicated.draft)
     selectSingleBlock(duplicated.selectedBlockKey)
-  }
-
-  function mergeSelectedBlock(direction: 'previous' | 'next') {
-    if (!selectedPage || !pageDraft || !selectedBlock) {
-      return
-    }
-    const merged = mergeDraftBlock(pageDraft, draftBlockKey(selectedBlock), direction)
-    setDraftForPage(selectedPage.id, merged.draft)
-    selectSingleBlock(merged.selectedBlockKey)
-  }
-
-  function splitSelectedBlock(direction: 'horizontal' | 'vertical') {
-    if (!selectedPage || !pageDraft || !selectedBlock) {
-      return
-    }
-    const split = splitDraftBlock(pageDraft, draftBlockKey(selectedBlock), direction)
-    setDraftForPage(selectedPage.id, split.draft)
-    selectSingleBlock(split.selectedBlockKey)
   }
 
   useEffect(() => {
@@ -753,7 +730,6 @@ export function useWorkspaceController(documentId: string) {
     activeCutCeilingPath,
     handleCreateBlock,
     handleUpdateBlock,
-    mergeSelectedBlock,
     pageDraft,
     pageEntries,
     projectName,
@@ -769,7 +745,6 @@ export function useWorkspaceController(documentId: string) {
     selectBlock,
     setActiveTool,
     setViewportState,
-    splitSelectedBlock,
     toast,
     toolbar,
     updateDebugSetting,

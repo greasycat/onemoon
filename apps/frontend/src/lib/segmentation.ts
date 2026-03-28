@@ -232,7 +232,7 @@ export function createManualBlock(
   return {
     client_id: makeClientId(),
     order_index: 0,
-    block_type: 'unknown',
+    block_type: 'text',
     approval: 'pending',
     source: 'manual',
     shape_type: shapeType,
@@ -360,119 +360,6 @@ export function reorderDraftBlock(
       blocks: normalizeOrder(blocks),
     },
     selectedBlockKey: blockKey,
-  }
-}
-
-export function mergeDraftBlock(
-  draft: DraftPageLayout,
-  blockKey: string,
-  direction: 'previous' | 'next',
-): { draft: DraftPageLayout; selectedBlockKey: string | null } {
-  const blocks = [...draft.blocks]
-  const index = blocks.findIndex((block) => draftBlockKey(block) === blockKey)
-  const neighborIndex = direction === 'previous' ? index - 1 : index + 1
-  if (index < 0 || neighborIndex < 0 || neighborIndex >= blocks.length) {
-    return { draft, selectedBlockKey: blockKey }
-  }
-
-  const primaryIndex = direction === 'previous' ? neighborIndex : index
-  const secondaryIndex = direction === 'previous' ? index : neighborIndex
-  const primary = blocks[primaryIndex]
-  const secondary = blocks[secondaryIndex]
-  if (isPolygonBlock(primary) || isPolygonBlock(secondary)) {
-    return { draft, selectedBlockKey: blockKey }
-  }
-  const left = Math.min(primary.geometry.x, secondary.geometry.x)
-  const top = Math.min(primary.geometry.y, secondary.geometry.y)
-  const right = Math.max(primary.geometry.x + primary.geometry.width, secondary.geometry.x + secondary.geometry.width)
-  const bottom = Math.max(primary.geometry.y + primary.geometry.height, secondary.geometry.y + secondary.geometry.height)
-
-  const merged: DraftBlock = {
-    ...primary,
-    source: 'manual',
-    is_user_corrected: true,
-    crop_url: null,
-    warnings: [],
-    geometry: clampGeometry({
-      x: left,
-      y: top,
-      width: right - left,
-      height: bottom - top,
-    }),
-  }
-
-  const nextBlocks = blocks.filter((_, idx) => idx !== secondaryIndex)
-  nextBlocks[primaryIndex] = merged
-  return {
-    draft: {
-      ...draft,
-      review_status: draft.review_status === 'unreviewed' ? 'in_review' : draft.review_status,
-      blocks: normalizeOrder(nextBlocks),
-    },
-    selectedBlockKey: draftBlockKey(merged),
-  }
-}
-
-export function splitDraftBlock(
-  draft: DraftPageLayout,
-  blockKey: string,
-  orientation: 'horizontal' | 'vertical',
-): { draft: DraftPageLayout; selectedBlockKey: string | null } {
-  const blocks = [...draft.blocks]
-  const index = blocks.findIndex((block) => draftBlockKey(block) === blockKey)
-  if (index < 0) {
-    return { draft, selectedBlockKey: blockKey }
-  }
-
-  const block = blocks[index]
-  if (isPolygonBlock(block)) {
-    return { draft, selectedBlockKey: blockKey }
-  }
-  const first = createManualBlock(block.geometry)
-  const second = createManualBlock(block.geometry)
-  first.block_type = block.block_type
-  second.block_type = block.block_type
-  first.approval = block.approval
-  second.approval = block.approval
-  first.parent_block_id = block.id ?? null
-  second.parent_block_id = block.id ?? null
-
-  if (orientation === 'horizontal') {
-    first.geometry = clampGeometry({
-      x: block.geometry.x,
-      y: block.geometry.y,
-      width: block.geometry.width,
-      height: block.geometry.height / 2,
-    })
-    second.geometry = clampGeometry({
-      x: block.geometry.x,
-      y: block.geometry.y + block.geometry.height / 2,
-      width: block.geometry.width,
-      height: block.geometry.height / 2,
-    })
-  } else {
-    first.geometry = clampGeometry({
-      x: block.geometry.x,
-      y: block.geometry.y,
-      width: block.geometry.width / 2,
-      height: block.geometry.height,
-    })
-    second.geometry = clampGeometry({
-      x: block.geometry.x + block.geometry.width / 2,
-      y: block.geometry.y,
-      width: block.geometry.width / 2,
-      height: block.geometry.height,
-    })
-  }
-
-  blocks.splice(index, 1, first, second)
-  return {
-    draft: {
-      ...draft,
-      review_status: draft.review_status === 'unreviewed' ? 'in_review' : draft.review_status,
-      blocks: normalizeOrder(blocks),
-    },
-    selectedBlockKey: draftBlockKey(first),
   }
 }
 

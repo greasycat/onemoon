@@ -73,7 +73,7 @@ def test_save_page_layout_round_trips_polygon_block(tmp_path: Path, monkeypatch)
             "blocks": [
                 {
                     "order_index": 0,
-                    "block_type": "unknown",
+                    "block_type": "text",
                     "approval": "pending",
                     "source": "manual",
                     "shape_type": "polygon",

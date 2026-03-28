@@ -12,9 +12,7 @@ import { useWorkspaceController } from './workspace/useWorkspaceController'
 export function WorkspacePage() {
   const { documentId = '' } = useParams()
   const {
-    activePageDirty,
     activePageLocked,
-    activeReviewStatus,
     activeTool,
     applySelectedBlock,
     blockInspectorBusy,
@@ -27,7 +25,6 @@ export function WorkspacePage() {
     activeCutCeilingPath,
     handleCreateBlock,
     handleUpdateBlock,
-    mergeSelectedBlock,
     pageDraft,
     pageEntries,
     projectName,
@@ -42,7 +39,6 @@ export function WorkspacePage() {
     selectBlock,
     selectPage,
     setViewportState,
-    splitSelectedBlock,
     toast,
     toolbar,
     updateDebugSetting,
@@ -86,10 +82,6 @@ export function WorkspacePage() {
       onDelete={deleteSelectedBlock}
       onDeleteSelection={deleteSelectedBlocks}
       onDuplicate={duplicateSelectedBlock}
-      onMergePrevious={() => mergeSelectedBlock('previous')}
-      onMergeNext={() => mergeSelectedBlock('next')}
-      onSplitHorizontal={() => splitSelectedBlock('horizontal')}
-      onSplitVertical={() => splitSelectedBlock('vertical')}
     />
   )
 

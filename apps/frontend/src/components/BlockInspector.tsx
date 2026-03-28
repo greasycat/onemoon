@@ -1,8 +1,7 @@
 import { useState } from 'react'
 
-import { isPolygonBlock } from '../lib/segmentation'
 import type { DraftBlock } from '../lib/segmentation'
-import type { BlockApproval, BlockGeometry, BlockType } from '../lib/types'
+import type { BlockGeometry, BlockType } from '../lib/types'
 
 interface BlockInspectorProps {
   block: DraftBlock | null
@@ -11,25 +10,18 @@ interface BlockInspectorProps {
   isBusy: boolean
   onApply: (payload: {
     block_type: BlockType
-    approval: BlockApproval
     geometry: BlockGeometry
   }) => void
   onDelete: () => void
   onDeleteSelection: () => void
   onDuplicate: () => void
-  onMergePrevious: () => void
-  onMergeNext: () => void
-  onSplitHorizontal: () => void
-  onSplitVertical: () => void
 }
 
-const blockTypes: BlockType[] = ['text', 'math', 'figure', 'unknown']
-const approvals: BlockApproval[] = ['pending', 'approved', 'rejected']
+const blockTypes: BlockType[] = ['text', 'math', 'figure']
 
 function initialFormState(block: DraftBlock | null) {
   return {
-    blockType: block?.block_type ?? 'unknown',
-    approval: block?.approval ?? 'pending',
+    blockType: block?.block_type ?? 'text',
     geometry: block?.geometry ?? { x: 0, y: 0, width: 0, height: 0 },
   }
 }
@@ -43,14 +35,8 @@ export function BlockInspector({
   onDelete,
   onDeleteSelection,
   onDuplicate,
-  onMergePrevious,
-  onMergeNext,
-  onSplitHorizontal,
-  onSplitVertical,
 }: BlockInspectorProps) {
   const [blockType, setBlockType] = useState<BlockType>(initialFormState(block).blockType)
-  const [approval, setApproval] = useState<BlockApproval>(initialFormState(block).approval)
-  const polygonBlock = isPolygonBlock(block)
 
   if (selectedCount > 1) {
     return (
@@ -137,20 +123,6 @@ export function BlockInspector({
         </select>
       </label>
 
-      <div className="approval-row">
-        {approvals.map((option) => (
-          <button
-            key={option}
-            type="button"
-            disabled={pageLocked}
-            className={`pill-button ${approval === option ? 'pill-button-active' : ''}`}
-            onClick={() => setApproval(option)}
-          >
-            {option}
-          </button>
-        ))}
-      </div>
-
       <div className="inspector-section">
         <h3>Structure</h3>
         <div className="button-grid">
@@ -159,18 +131,6 @@ export function BlockInspector({
           </button>
           <button type="button" className="secondary-button" disabled={pageLocked || isBusy} onClick={onDelete}>
             Delete
-          </button>
-          <button type="button" className="secondary-button" disabled={pageLocked || isBusy || polygonBlock} onClick={onMergePrevious}>
-            Merge Prev
-          </button>
-          <button type="button" className="secondary-button" disabled={pageLocked || isBusy || polygonBlock} onClick={onMergeNext}>
-            Merge Next
-          </button>
-          <button type="button" className="secondary-button" disabled={pageLocked || isBusy || polygonBlock} onClick={onSplitHorizontal}>
-            Split H
-          </button>
-          <button type="button" className="secondary-button" disabled={pageLocked || isBusy || polygonBlock} onClick={onSplitVertical}>
-            Split V
           </button>
         </div>
       </div>
@@ -183,7 +143,6 @@ export function BlockInspector({
           onClick={() =>
             onApply({
               block_type: blockType,
-              approval,
               geometry,
             })
           }

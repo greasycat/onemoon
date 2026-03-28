@@ -59,7 +59,7 @@ class BlockShapeMixin(BaseModel):
 
 class BlockCreate(BlockShapeMixin):
     geometry: BlockGeometry
-    block_type: BlockType = BlockType.unknown
+    block_type: BlockType = BlockType.text
 
 
 class PageLayoutBlockPayload(BlockShapeMixin):

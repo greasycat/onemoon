@@ -7,7 +7,7 @@ export type DocumentStatus =
   | 'completed'
   | 'failed'
 
-export type BlockType = 'text' | 'math' | 'figure' | 'unknown'
+export type BlockType = 'text' | 'math' | 'figure'
 export type BlockApproval = 'pending' | 'approved' | 'rejected'
 export type CompileStatus = 'pending' | 'completed' | 'failed' | 'skipped'
 export type JobStatus = 'pending' | 'running' | 'completed' | 'failed'
