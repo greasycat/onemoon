@@ -1,5 +1,7 @@
 # Changelog
 
+- Turned the workspace header toggle into a dedicated conversion-mode switch that hides the floating toolbar, docks the block list and selected-block panel beside the image, and stacks the LaTeX preview below the editor.
+
 - Removed the asymmetric workspace canvas side padding so the page frame now centers against the visible editor viewport instead of a right-heavy inner gutter.
 
 - Explicitly centered the workspace canvas frame inside its scroll viewport so the page image stays visually centered in the segmentation editor.

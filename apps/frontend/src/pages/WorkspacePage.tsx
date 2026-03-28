@@ -13,7 +13,7 @@ import { useWorkspaceController } from './workspace/useWorkspaceController'
 export function WorkspacePage() {
   const { documentId = '' } = useParams()
   const location = useLocation()
-  const [isToolbarVisible, setIsToolbarVisible] = useState(true)
+  const [isConversionMode, setIsConversionMode] = useState(false)
   const pendingUploadJobId =
     location.state && typeof location.state === 'object' && 'pendingUploadJobId' in location.state && typeof location.state.pendingUploadJobId === 'string'
       ? location.state.pendingUploadJobId
@@ -119,7 +119,7 @@ export function WorkspacePage() {
         />
 
         <div className="workspace-main">
-          <div className="workspace-main-layout">
+          <div className={`workspace-main-layout ${isConversionMode ? 'workspace-main-layout-conversion' : ''}`}>
             <section className="panel editor-workbench">
               <div className="editor-workbench-header">
                 <div className="editor-workbench-title">
@@ -130,34 +130,48 @@ export function WorkspacePage() {
                   <button
                     type="button"
                     className="secondary-button workspace-toolbar-toggle"
-                    aria-pressed={isToolbarVisible}
-                    onClick={() => setIsToolbarVisible((current) => !current)}
+                    aria-pressed={isConversionMode}
+                    onClick={() => setIsConversionMode((current) => !current)}
                   >
-                    {isToolbarVisible ? 'Hide toolbar' : 'Show toolbar'}
+                    {isConversionMode ? 'Exit conversion mode' : 'Enter conversion mode'}
                   </button>
                 </div>
               </div>
-              <DocumentCanvas
-                ref={canvasRef}
-                page={selectedPage}
-                blocks={pageDraft.blocks}
-                cutCeilingPath={activeCutCeilingPath}
-                debugSettings={debugSettings}
-                toolbar={isToolbarVisible ? toolbar : null}
-                blockListPanel={blockListPanel}
-                blockInfoPanel={blockInfoPanel}
-                toast={toast}
-                selectedBlockIds={selectedBlockIds}
-                activeBlockId={selectedBlockKey}
-                activeTool={activeTool}
-                isLocked={activePageLocked}
-                onViewportChange={setViewportState}
-                onSelectBlock={selectBlock}
-                onCycleBlockType={cycleBlockType}
-                onHoveredBlockChange={setHoveredBlock}
-                onCreateBlock={handleCreateBlock}
-                onUpdateBlock={handleUpdateBlock}
-              />
+              <div className={`editor-workbench-canvas-layout ${isConversionMode ? 'editor-workbench-canvas-layout-conversion' : ''}`}>
+                {isConversionMode ? (
+                  <div className="editor-workbench-canvas-column editor-workbench-canvas-column-list">
+                    {blockListPanel}
+                  </div>
+                ) : null}
+                <div className="editor-workbench-canvas-shell">
+                  <DocumentCanvas
+                    ref={canvasRef}
+                    page={selectedPage}
+                    blocks={pageDraft.blocks}
+                    cutCeilingPath={activeCutCeilingPath}
+                    debugSettings={debugSettings}
+                    toolbar={isConversionMode ? null : toolbar}
+                    blockListPanel={isConversionMode ? undefined : blockListPanel}
+                    blockInfoPanel={isConversionMode ? undefined : blockInfoPanel}
+                    toast={toast}
+                    selectedBlockIds={selectedBlockIds}
+                    activeBlockId={selectedBlockKey}
+                    activeTool={activeTool}
+                    isLocked={activePageLocked}
+                    onViewportChange={setViewportState}
+                    onSelectBlock={selectBlock}
+                    onCycleBlockType={cycleBlockType}
+                    onHoveredBlockChange={setHoveredBlock}
+                    onCreateBlock={handleCreateBlock}
+                    onUpdateBlock={handleUpdateBlock}
+                  />
+                </div>
+                {isConversionMode ? (
+                  <div className="editor-workbench-canvas-column editor-workbench-canvas-column-inspector">
+                    {blockInfoPanel}
+                  </div>
+                ) : null}
+              </div>
             </section>
 
             <div className="workspace-sidepanels">
