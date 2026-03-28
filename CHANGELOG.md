@@ -1,6 +1,6 @@
 # Changelog
 
-- Kept newly-uploaded workspace routes in a loading state while the backend finishes creating large documents, instead of flashing `Document not found.` during the initial handoff.
+- Kept newly-uploaded workspace routes in a loading state while the backend creates the document and renders its first pages, instead of falling through to `Document not found.` during large uploads.
 
 - Removed the dashboard upload side panel and moved upload actions into each workspace row so files can be sent to review directly beside the folder name.
 

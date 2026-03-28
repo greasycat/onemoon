@@ -153,7 +153,9 @@ export function ProjectsPage() {
       api.uploadDocument(token!, projectId, file),
     onSuccess: (job) => {
       setUploadErrorMessage(null)
-      navigate(`/documents/${job.resource_id}`)
+      navigate(`/documents/${job.resource_id}`, {
+        state: { pendingUploadJobId: job.id },
+      })
     },
     onError: (error: Error) => {
       setUploadErrorMessage(error.message)

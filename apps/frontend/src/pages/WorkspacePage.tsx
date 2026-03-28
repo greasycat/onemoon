@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useParams } from 'react-router-dom'
+import { useLocation, useParams } from 'react-router-dom'
 
 import { BlockInspector } from '../components/BlockInspector'
 import { DocumentCanvas } from '../components/DocumentCanvas'
@@ -11,6 +11,11 @@ import { useWorkspaceController } from './workspace/useWorkspaceController'
 
 export function WorkspacePage() {
   const { documentId = '' } = useParams()
+  const location = useLocation()
+  const pendingUploadJobId =
+    location.state && typeof location.state === 'object' && 'pendingUploadJobId' in location.state && typeof location.state.pendingUploadJobId === 'string'
+      ? location.state.pendingUploadJobId
+      : null
   const {
     activePageLocked,
     activeTool,
@@ -46,7 +51,8 @@ export function WorkspacePage() {
     deleteSelectedBlocks,
     duplicateSelectedBlock,
     isResolvingDocumentCreation,
-  } = useWorkspaceController(documentId)
+    isWorkspaceInitializing,
+  } = useWorkspaceController(documentId, pendingUploadJobId)
 
   const filenameStem = useMemo(() => {
     if (!document?.filename) {
@@ -56,7 +62,7 @@ export function WorkspacePage() {
     return extensionIndex > 0 ? document.filename.slice(0, extensionIndex) : document.filename
   }, [document?.filename])
 
-  if (documentQuery.isLoading || isResolvingDocumentCreation) {
+  if (documentQuery.isLoading || isResolvingDocumentCreation || isWorkspaceInitializing) {
     return (
       <main className="page-shell">
         <div className="panel">Loading workspace…</div>
