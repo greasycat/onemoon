@@ -24,6 +24,7 @@ export type CanvasViewMode = 'fit-page' | 'fit-width' | 'manual'
 
 export interface CanvasViewportState {
   zoom: number
+  fitPageZoom: number
   mode: CanvasViewMode
   panX: number
   panY: number
@@ -744,6 +745,7 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
   const [localToast, setLocalToast] = useState<DocumentCanvasProps['toast']>(null)
   const [viewport, setViewport] = useState<CanvasViewportState>({
     zoom: 1,
+    fitPageZoom: 1,
     mode: 'fit-page',
     panX: 0,
     panY: 0,
@@ -791,6 +793,10 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
     setViewport({ ...nextViewport, panX, panY })
   }
 
+  function computeFitPageZoom() {
+    return computeFitZoom('fit-page')
+  }
+
   function computeFitZoom(mode: Exclude<CanvasViewMode, 'manual'>) {
     const viewportElement = viewportRef.current
     if (!viewportElement) {
@@ -804,17 +810,26 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
 
   function applyViewMode(mode: Exclude<CanvasViewMode, 'manual'>) {
     const nextZoom = computeFitZoom(mode)
-    syncViewport({ zoom: nextZoom, mode, panX: 0, panY: 0 }, true)
+    syncViewport({ zoom: nextZoom, fitPageZoom: computeFitPageZoom(), mode, panX: 0, panY: 0 }, true)
   }
 
   function applyManualZoom(zoom: number) {
-    syncViewport({ zoom: clamp(zoom, MIN_ZOOM, MAX_ZOOM), mode: 'manual', panX: viewport.panX, panY: viewport.panY })
+    syncViewport({
+      zoom: clamp(zoom, MIN_ZOOM, MAX_ZOOM),
+      fitPageZoom: computeFitPageZoom(),
+      mode: 'manual',
+      panX: viewport.panX,
+      panY: viewport.panY,
+    })
   }
 
   useImperativeHandle(ref, () => ({
     fitPage: () => applyViewMode('fit-page'),
     fitWidth: () => applyViewMode('fit-width'),
-    resetZoom: () => syncViewport({ zoom: 1, mode: 'manual', panX: 0, panY: 0 }, true),
+    resetZoom: () => {
+      const nextFitPageZoom = computeFitPageZoom()
+      syncViewport({ zoom: nextFitPageZoom, fitPageZoom: nextFitPageZoom, mode: 'manual', panX: 0, panY: 0 }, true)
+    },
     zoomIn: () => applyManualZoom(viewport.zoom + ZOOM_STEP),
     zoomOut: () => applyManualZoom(viewport.zoom - ZOOM_STEP),
   }))
@@ -836,11 +851,21 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
 
     const observer = new ResizeObserver(() => {
       setViewport((current) => {
+        const nextFitPageZoom = computeFitPageZoom()
         if (current.mode === 'manual') {
-          return current
+          if (Math.abs(current.fitPageZoom - nextFitPageZoom) <= Number.EPSILON) {
+            return current
+          }
+          return { ...current, fitPageZoom: nextFitPageZoom }
         }
         const nextZoom = computeFitZoom(current.mode)
-        const nextViewport: CanvasViewportState = { zoom: nextZoom, mode: current.mode, panX: 0, panY: 0 }
+        const nextViewport: CanvasViewportState = {
+          zoom: nextZoom,
+          fitPageZoom: nextFitPageZoom,
+          mode: current.mode,
+          panX: 0,
+          panY: 0,
+        }
         viewportElement.scrollLeft = 0
         viewportElement.scrollTop = 0
         return nextViewport

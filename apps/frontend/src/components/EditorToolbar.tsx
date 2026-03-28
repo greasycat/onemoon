@@ -232,8 +232,8 @@ export function EditorToolbar({
             className="secondary-button toolbar-icon-button toolbar-icon-button-wide"
             label="100%"
             icon={Ratio}
-            ariaLabel="Reset zoom to 100%"
-            title="Reset zoom to 100%"
+            ariaLabel="Show the full page at 100%"
+            title="Show the full page at 100%"
             onClick={onResetZoom}
           />
         </div>

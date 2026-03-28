@@ -1,5 +1,7 @@
 # Changelog
 
+- Rebased workspace zoom percentages on the fit-page view so `100%` now means the whole page is visible, and the `100%` action resets to that full-page baseline instead of literal image scale `1`.
+
 - Removed the non-conversion canvas wheel fallback so workspace scrolling is native-browser-only again instead of rerouting unmoved wheel input through JavaScript.
 
 - Restored more natural non-conversion canvas wheel feel by letting the browser handle vertical scrolling first and only falling back to manual workspace scroll routing when native scrolling does not move anything.

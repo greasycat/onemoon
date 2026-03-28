@@ -122,6 +122,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
   const [pageDrafts, setPageDrafts] = useState<Record<string, DraftPageLayout>>({})
   const [viewportState, setViewportState] = useState<CanvasViewportState>({
     zoom: 1,
+    fitPageZoom: 1,
     mode: 'fit-page',
     panX: 0,
     panY: 0,
@@ -876,7 +877,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     canReview: canReviewAction,
     reviewLabel: reviewActionLabel,
     canMarkSegmented,
-    zoomPercent: Math.round(viewportState.zoom * 100),
+    zoomPercent: Math.round((viewportState.zoom / Math.max(viewportState.fitPageZoom, Number.EPSILON)) * 100),
     viewMode: viewportState.mode,
     onPreviousPage: () => selectRelativePage(-1),
     onNextPage: () => selectRelativePage(1),
