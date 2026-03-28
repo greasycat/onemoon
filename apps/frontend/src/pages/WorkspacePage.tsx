@@ -27,7 +27,6 @@ export function WorkspacePage() {
     deleteSelectedBlock,
     document,
     documentQuery,
-    editorHelperText,
     activeCutCeilingPath,
     hoveredBlockLabel,
     handleCreateBlock,
@@ -41,7 +40,6 @@ export function WorkspacePage() {
     selectedBlockCount,
     selectedBlockIds,
     selectedBlockKey,
-    selectedBlockLabel,
     selectedPage,
     selectBlock,
     selectPage,
@@ -136,8 +134,6 @@ export function WorkspacePage() {
               blockListPanel={blockListPanel}
               blockInfoPanel={blockInfoPanel}
               toast={toast}
-              tooltipLabel={selectedBlockLabel}
-              tooltipText={editorHelperText}
               selectedBlockIds={selectedBlockIds}
               activeBlockId={selectedBlockKey}
               activeTool={activeTool}

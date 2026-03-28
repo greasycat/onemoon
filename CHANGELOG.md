@@ -1,5 +1,9 @@
 # Changelog
 
+- Fixed the workspace block-list collapse so the overlay column itself now narrows to a slim rounded panel instead of only hiding the inner text.
+
+- Removed the workspace canvas helper tooltip section so the embedded block list sits directly beside the toolbar.
+
 - Added a collapse toggle ahead of the workspace block-list title and made collapsing preserve the panel's rounded-rectangle height instead of reflowing the canvas.
 
 - Moved the workspace block list into the review canvas as an embedded overlay and removed the dedicated right-side panel so the canvas has more room.

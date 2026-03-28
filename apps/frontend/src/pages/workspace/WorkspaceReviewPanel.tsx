@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight } from 'lucide-react'
-import { useState, type MouseEvent as ReactMouseEvent } from 'react'
+import { useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
 
 import { draftBlockKey, type DraftBlock, type DraftPageLayout } from '../../lib/segmentation'
 import type { BlockSelectionMode } from '../../lib/types'
@@ -23,7 +23,9 @@ export function WorkspaceReviewPanel({
   onSelectBlock,
   onCycleBlockType,
 }: WorkspaceReviewPanelProps) {
+  const panelRef = useRef<HTMLElement | null>(null)
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const [collapsedHeight, setCollapsedHeight] = useState<number | null>(null)
 
   function selectionModeForEvent(event: Pick<ReactMouseEvent<HTMLButtonElement>, 'metaKey' | 'ctrlKey' | 'shiftKey'>): BlockSelectionMode {
     if (event.shiftKey) {
@@ -37,8 +39,23 @@ export function WorkspaceReviewPanel({
 
   const ToggleIcon = isCollapsed ? ChevronRight : ChevronDown
 
+  function handleToggleCollapse() {
+    if (!isCollapsed && panelRef.current) {
+      setCollapsedHeight(panelRef.current.getBoundingClientRect().height)
+    }
+    if (isCollapsed) {
+      setCollapsedHeight(null)
+    }
+    setIsCollapsed((current) => !current)
+  }
+
   return (
-    <aside className={`workspace-review-panel ${isCollapsed ? 'workspace-review-panel-collapsed' : ''}`} aria-label="Block list">
+    <aside
+      ref={panelRef}
+      className={`workspace-review-panel ${isCollapsed ? 'workspace-review-panel-collapsed' : ''}`}
+      aria-label="Block list"
+      style={isCollapsed && collapsedHeight ? { height: `${collapsedHeight}px` } : undefined}
+    >
       <div className="panel-heading">
         <div className="workspace-review-panel-heading">
           <div className="workspace-review-panel-title-row">
@@ -47,7 +64,7 @@ export function WorkspaceReviewPanel({
               className="workspace-review-toggle"
               aria-expanded={!isCollapsed}
               aria-label={isCollapsed ? 'Expand block list' : 'Collapse block list'}
-              onClick={() => setIsCollapsed((current) => !current)}
+              onClick={handleToggleCollapse}
             >
               <ToggleIcon aria-hidden="true" />
             </button>

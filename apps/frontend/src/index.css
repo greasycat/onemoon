@@ -1902,7 +1902,6 @@ button {
 .workspace-shell .block-list-item strong,
 .workspace-shell .stat-card strong,
 .workspace-shell .toolbar-label strong,
-.workspace-shell .canvas-tooltip-primary,
 .workspace-sidepanels h3,
 .workspace-sidepanels .field span {
   color: var(--workspace-ink);
@@ -2105,7 +2104,7 @@ button {
   left: 0.75rem;
   z-index: 7;
   display: grid;
-  grid-template-columns: auto minmax(0, 19rem);
+  grid-template-columns: auto auto;
   align-items: start;
   gap: 0.7rem;
   pointer-events: none;
@@ -2115,20 +2114,16 @@ button {
   pointer-events: auto;
 }
 
-.workspace-shell .canvas-overlay-column {
-  display: grid;
-  gap: 0.7rem;
-  min-width: 0;
-}
-
 .workspace-shell .canvas-block-list-overlay {
   min-width: 0;
   pointer-events: auto;
+  justify-self: start;
 }
 
 .workspace-review-panel {
   display: grid;
   gap: 1rem;
+  width: min(19rem, calc(100vw - 9.75rem));
   padding: 1rem;
   border-radius: 22px;
   border: 1px solid rgba(98, 74, 44, 0.14);
@@ -2138,6 +2133,11 @@ button {
     inset 0 1px 0 rgba(255, 255, 255, 0.72),
     0 16px 26px rgba(98, 74, 44, 0.1);
   overflow: hidden;
+}
+
+.workspace-review-panel-collapsed {
+  width: 3.4rem;
+  justify-items: center;
 }
 
 .workspace-review-panel .panel-heading {
@@ -2156,8 +2156,17 @@ button {
   gap: 0.55rem;
 }
 
+.workspace-review-panel-collapsed .workspace-review-panel-title-row {
+  grid-template-columns: 1fr;
+  justify-items: center;
+}
+
 .workspace-review-panel-title-row .eyebrow {
   margin: 0;
+}
+
+.workspace-review-panel-collapsed .workspace-review-panel-title-row .eyebrow {
+  display: none;
 }
 
 .workspace-review-toggle {
@@ -2400,36 +2409,6 @@ button {
   stroke-width: 2.1;
 }
 
-.canvas-tooltip {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  flex-wrap: wrap;
-  pointer-events: none;
-  min-height: 3rem;
-  max-width: min(26rem, calc(100vw - 7.5rem));
-  margin-top: 0.15rem;
-  padding: 0.65rem 0.8rem;
-  border: 1px solid rgba(98, 74, 44, 0.14);
-  border-radius: 18px;
-  background:
-    linear-gradient(180deg, rgba(255, 251, 245, 0.96), rgba(249, 241, 229, 0.93));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.76),
-    0 14px 24px rgba(98, 74, 44, 0.08);
-}
-
-.canvas-tooltip-primary {
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-}
-
-.canvas-tooltip-secondary {
-  font-size: 0.72rem;
-  line-height: 1.45;
-}
-
 .workspace-shell .canvas-viewport {
   border: 1px solid rgba(107, 81, 53, 0.12);
   background:
@@ -2582,13 +2561,12 @@ button {
     max-width: 6.45rem;
   }
 
-  .workspace-shell .canvas-overlay-column {
-    min-width: min(15rem, calc(100vw - 10rem));
-  }
-
-  .workspace-shell .canvas-overlay-stack .canvas-tooltip,
   .workspace-shell .canvas-block-list-overlay {
     min-width: 0;
+  }
+
+  .workspace-review-panel {
+    width: min(15rem, calc(100vw - 10rem));
   }
 
   .workspace-shell .canvas-side-overlay {
@@ -2624,17 +2602,6 @@ button {
     align-self: flex-end;
   }
 
-  .canvas-tooltip {
-    width: min(15rem, 100%);
-    max-width: 100%;
-    padding: 0.6rem 0.7rem;
-    gap: 0.45rem;
-  }
-
-  .canvas-tooltip-primary,
-  .canvas-tooltip-secondary {
-    width: 100%;
-  }
 }
 
 @media (max-width: 560px) {
@@ -2657,10 +2624,6 @@ button {
     max-width: none;
   }
 
-  .workspace-shell .canvas-overlay-column {
-    min-width: 0;
-  }
-
   .workspace-shell .canvas-side-overlay {
     position: static;
     width: 100%;
@@ -2673,12 +2636,6 @@ button {
   }
 
   .workspace-shell .canvas-side-overlay .inspector-panel {
-    margin-top: 0;
-  }
-
-  .canvas-tooltip {
-    width: 100%;
-    max-width: none;
     margin-top: 0;
   }
 

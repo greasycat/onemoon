@@ -1,7 +1,6 @@
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 
-import { CanvasTooltip } from './CanvasTooltip'
 import { EditorToolbar, type EditorToolbarProps } from './EditorToolbar'
 import { withApiRoot } from '../lib/api'
 import {
@@ -97,8 +96,6 @@ interface DocumentCanvasProps {
     tone: 'saving' | 'success' | 'error'
     message: string
   } | null
-  tooltipLabel: string
-  tooltipText: string
   selectedBlockIds: string[]
   activeBlockId: string | null
   activeTool: ActiveTool
@@ -726,8 +723,6 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
     blockListPanel,
     blockInfoPanel,
     toast,
-    tooltipLabel,
-    tooltipText,
     selectedBlockIds,
     activeBlockId,
     activeTool,
@@ -1133,10 +1128,7 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
       <div className="canvas-stage">
         <div className="canvas-overlay-stack">
           <EditorToolbar {...toolbar} />
-          <div className="canvas-overlay-column">
-            <CanvasTooltip label={tooltipLabel} message={tooltipText} />
-            {blockListPanel ? <div className="canvas-block-list-overlay">{blockListPanel}</div> : null}
-          </div>
+          {blockListPanel ? <div className="canvas-block-list-overlay">{blockListPanel}</div> : null}
         </div>
         {blockInfoPanel ? <div className="canvas-side-overlay">{blockInfoPanel}</div> : null}
         {activeToast ? (
