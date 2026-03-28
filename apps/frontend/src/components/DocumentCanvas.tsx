@@ -115,7 +115,7 @@ interface DocumentCanvasProps {
   onUpdateBlock: (blockId: string, payload: { geometry: BlockGeometry; vertices: BlockVertex[] | null }) => void
 }
 
-const MIN_ZOOM = 0.35
+const MIN_ZOOM = 0.05
 const MAX_ZOOM = 4
 const ZOOM_STEP = 0.2
 const resizeHandles: ResizeHandle[] = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']
