@@ -117,6 +117,7 @@ interface DocumentCanvasProps {
 const MIN_ZOOM = 0.35
 const MAX_ZOOM = 4
 const ZOOM_STEP = 0.2
+const WHEEL_SCROLL_EPSILON = 1
 const resizeHandles: ResizeHandle[] = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']
 
 function normalizeGeometry(start: CanvasPoint, end: CanvasPoint, minBlockSize: number): BlockGeometry {
@@ -777,6 +778,25 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
     setIsPanning(true)
   }
 
+  function scrollPageBy(deltaY: number) {
+    const scrollingElement = document.scrollingElement
+    if (!(scrollingElement instanceof HTMLElement)) {
+      return
+    }
+
+    const maxScrollTop = scrollingElement.scrollHeight - window.innerHeight
+    if (maxScrollTop <= WHEEL_SCROLL_EPSILON) {
+      return
+    }
+
+    const nextScrollTop = clamp(scrollingElement.scrollTop + deltaY, 0, maxScrollTop)
+    if (Math.abs(nextScrollTop - scrollingElement.scrollTop) <= WHEEL_SCROLL_EPSILON) {
+      return
+    }
+
+    scrollingElement.scrollTop = nextScrollTop
+  }
+
   function syncViewport(nextViewport: CanvasViewportState, resetPan = false) {
     const viewportElement = viewportRef.current
     if (!viewportElement) {
@@ -1144,6 +1164,14 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
         <div
           className={`canvas-viewport ${isPanning ? 'canvas-viewport-panning' : ''}`}
           ref={viewportRef}
+          onWheelCapture={(event) => {
+            if (!toolbar || event.ctrlKey || event.metaKey || Math.abs(event.deltaY) <= WHEEL_SCROLL_EPSILON) {
+              return
+            }
+
+            scrollPageBy(event.deltaY)
+            event.preventDefault()
+          }}
           onContextMenu={(event) => {
             event.preventDefault()
           }}

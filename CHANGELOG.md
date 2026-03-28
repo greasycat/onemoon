@@ -1,5 +1,7 @@
 # Changelog
 
+- Routed wheel scrolling on the non-conversion canvas surface back to the page scroll so the review workspace scrolls even when the cursor is over the image instead of only over floating overlays.
+
 - Restored non-conversion workspace scrolling by removing the vertical overflow clamp from the editor workbench while keeping horizontal clipping for the canvas layout.
 
 - Hid the workspace LaTeX preview outside conversion mode so the normal review editor stays canvas-only and the preview rail only appears during conversion.
