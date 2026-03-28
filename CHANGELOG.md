@@ -1,5 +1,7 @@
 # Changelog
 
+- Flattened transparent polygon crop surrounds onto white before sending block images to the LLM, while keeping the saved crop itself polygon-masked.
+
 - Kept the selected block cut image visible in the preview rail after conversion whenever no compiled render is available, so the crop stays alongside the block source snippet.
 
 - Changed figure conversion so the LLM now produces a figure description while the backend composes the final `\\includegraphics` plus `\\caption{...}` snippet instead of returning a static placeholder.

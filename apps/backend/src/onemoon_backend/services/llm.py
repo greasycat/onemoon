@@ -4,10 +4,13 @@ import base64
 import json
 import re
 from dataclasses import dataclass
+from io import BytesIO
 from mimetypes import guess_type
 from pathlib import Path
 from typing import Any, Protocol
 from urllib import error, request
+
+from PIL import Image
 
 from ..config import get_settings
 from ..models import BlockType
@@ -110,7 +113,22 @@ def _output_for_block_type(block_type: BlockType, value: str) -> str:
 
 def _read_image_data_url(image_path: Path) -> str:
     mime_type = guess_type(image_path.name)[0] or "image/png"
-    encoded = base64.b64encode(image_path.read_bytes()).decode("ascii")
+    image_bytes = image_path.read_bytes()
+    try:
+        with Image.open(BytesIO(image_bytes)) as image:
+            rgba_image = image.convert("RGBA")
+            alpha_channel = rgba_image.getchannel("A")
+            if alpha_channel.getbbox() and alpha_channel.getbbox() != (0, 0, rgba_image.width, rgba_image.height):
+                flattened = Image.new("RGB", rgba_image.size, "white")
+                flattened.paste(rgba_image, mask=alpha_channel)
+                buffer = BytesIO()
+                flattened.save(buffer, format="PNG")
+                image_bytes = buffer.getvalue()
+                mime_type = "image/png"
+    except OSError:
+        pass
+
+    encoded = base64.b64encode(image_bytes).decode("ascii")
     return f"data:{mime_type};base64,{encoded}"
 
 

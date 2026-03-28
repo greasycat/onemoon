@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import importlib
 import sys
+from base64 import b64decode
+from io import BytesIO
 from pathlib import Path
 
 from onemoon_backend.models import BlockType
+from PIL import Image, ImageDraw
 
 
 def _reload_llm_module(monkeypatch):
@@ -159,3 +162,20 @@ def test_openai_adapter_builds_figure_snippet_from_caption_text(tmp_path: Path) 
     user_content = input_items[0]["content"]
     assert "Block type: figure." in user_content[0]["text"]
     assert "Return plain caption text only." in user_content[0]["text"]
+
+
+def test_read_image_data_url_flattens_transparent_surround_to_white(tmp_path: Path) -> None:
+    llm_module = importlib.import_module("onemoon_backend.services.llm")
+    image_path = tmp_path / "masked-block.png"
+
+    image = Image.new("RGBA", (24, 24), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.polygon([(4, 4), (20, 6), (12, 20)], fill=(0, 0, 0, 255))
+    image.save(image_path)
+
+    data_url = llm_module._read_image_data_url(image_path)
+    encoded = data_url.split(",", 1)[1]
+    flattened = Image.open(BytesIO(b64decode(encoded))).convert("RGB")
+
+    assert flattened.getpixel((1, 1)) == (255, 255, 255)
+    assert flattened.getpixel((12, 10)) == (0, 0, 0)
