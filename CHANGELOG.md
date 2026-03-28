@@ -1,6 +1,6 @@
 # Changelog
 
-- Prevented page overscroll chaining at the document boundary so hitting the end of a page no longer keeps scrolling into browser bounce/pull-to-refresh behavior.
+- Prevented page overscroll chaining with contained workspace scrollers plus a document-level wheel/touch fallback, so hitting the end of a page no longer leaks into extra browser or parent-page scrolling.
 
 - Merged the document editor header into a single top bar that only shows the project name and the source filename without its extension.
 

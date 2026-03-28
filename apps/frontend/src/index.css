@@ -596,6 +596,7 @@ button {
 
 .canvas-viewport {
   overflow: auto;
+  overscroll-behavior: contain;
   border-radius: 20px;
   border: 1px solid var(--canvas-border);
   background: var(--canvas-bg);
@@ -1514,6 +1515,7 @@ button {
   width: min(28rem, calc(100vw - 2rem));
   max-height: min(72vh, 46rem);
   overflow: auto;
+  overscroll-behavior: contain;
   padding: 1rem;
   border: 1px solid rgba(98, 74, 44, 0.14);
   border-radius: 24px;
