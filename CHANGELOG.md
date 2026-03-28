@@ -1,5 +1,7 @@
 # Changelog
 
+- Made the workspace `FIN` action save every dirty page draft before marking the active page finished, so review completion no longer depends on a separate manual save step.
+
 - Centered the workspace loading state and added an animated spinner so large uploads show clear progress feedback while the review workspace initializes.
 
 - Kept newly-uploaded workspace routes in a loading state while the backend creates the document and renders its first pages, instead of falling through to `Document not found.` during large uploads.

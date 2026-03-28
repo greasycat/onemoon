@@ -275,9 +275,9 @@ export function EditorToolbar({
             className="secondary-button toolbar-icon-button"
             label="FIN"
             icon={BadgeCheck}
-            ariaLabel="Mark segmented"
-            title="Mark segmented (Enter or Ctrl/Cmd+Enter)"
-            shortcut="Enter"
+            ariaLabel="Save all drafts and mark finish"
+            title="Save all drafts and mark finish (Ctrl/Cmd+Enter)"
+            shortcut="Ctrl+Enter"
             disabled={!canMarkSegmented}
             onClick={onMarkSegmented}
           />

@@ -375,27 +375,11 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
   const saveLayoutMutation = useMutation({
     mutationFn: ({ pageId, draft }: SaveLayoutVariables) =>
       api.savePageLayout(token!, pageId, toPageLayoutPayload(draft)),
-    onMutate: (variables) => {
-      persistLocalLayoutBackup(variables)
-      showToast({ tone: 'saving', message: 'Saving page layout and local copy…' }, false)
-    },
-    onSuccess: async (_, variables) => {
-      clearDraftForPage(variables.pageId)
-      await refreshDocument()
-      showToast({ tone: 'success', message: 'Layout saved. Local copy updated.' })
-    },
-    onError: (error: Error) => {
-      showToast({ tone: 'error', message: error.message || 'Backend save failed. Local copy kept in browser.' })
-    },
   })
 
   const pageStatusMutation = useMutation({
     mutationFn: ({ pageId, action }: { pageId: string; action: 'reopen' | 'mark-segmented' }) =>
       action === 'reopen' ? api.reopenPage(token!, pageId) : api.markPageSegmented(token!, pageId),
-    onSuccess: async (_, variables) => {
-      clearDraftForPage(variables.pageId)
-      await refreshDocument()
-    },
   })
 
   const activePageDirty = selectedPage ? Boolean(pageDrafts[selectedPage.id]) : false
@@ -426,7 +410,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
   const allowEmptyPageActionToast = !activePageLocked && activePageHasNoBlocks
   const canMarkSegmented =
     !pageStatusMutation.isPending &&
-    !activePageDirty &&
+    !saveLayoutMutation.isPending &&
     activeReviewStatus !== 'segmented' &&
     (!activePageHasNoBlocks || allowEmptyPageActionToast)
   const editorHelperText = activePageLocked
@@ -461,7 +445,92 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     setDebugSettings({ ...DEFAULT_WORKSPACE_DEBUG_SETTINGS })
   }
 
-  function saveActivePage() {
+  function collectDirtyDrafts(pageIds?: string[]) {
+    const allowedPageIds = pageIds ? new Set(pageIds) : null
+    return (
+      document?.pages
+        .filter((page) => pageDrafts[page.id] && (!allowedPageIds || allowedPageIds.has(page.id)))
+        .map((page) => ({
+          pageId: page.id,
+          pageIndex: page.page_index,
+          draft: pageDrafts[page.id]!,
+        })) ?? []
+    )
+  }
+
+  function showEmptyDraftError(queue: SaveLayoutVariables[], context: 'save' | 'finish') {
+    if (queue.length <= 1 || context === 'save') {
+      showToast({ tone: 'error', message: EMPTY_PAGE_ACTION_MESSAGE })
+      return
+    }
+    const firstEmptyDraft = queue.find((entry) => entry.draft.blocks.length === 0)
+    showToast({
+      tone: 'error',
+      message: firstEmptyDraft ? `Page ${firstEmptyDraft.pageIndex + 1} has no blocks. Finish aborted.` : EMPTY_PAGE_ACTION_MESSAGE,
+    })
+  }
+
+  async function saveDraftQueue(
+    queue: SaveLayoutVariables[],
+    options: {
+      context: 'save' | 'finish'
+      showSavingToast?: boolean
+      successMessage?: string | null
+    },
+  ) {
+    if (queue.length === 0) {
+      return true
+    }
+
+    if (queue.some((entry) => entry.draft.blocks.length === 0)) {
+      showEmptyDraftError(queue, options.context)
+      return false
+    }
+
+    if (options.showSavingToast !== false) {
+      showToast(
+        {
+          tone: 'saving',
+          message:
+            queue.length === 1
+              ? 'Saving page layout and local copy…'
+              : `Saving ${queue.length} page layouts and local copies…`,
+        },
+        false,
+      )
+    }
+
+    let savedCount = 0
+    try {
+      for (const variables of queue) {
+        persistLocalLayoutBackup(variables)
+        await saveLayoutMutation.mutateAsync(variables)
+        clearDraftForPage(variables.pageId)
+        savedCount += 1
+      }
+      await refreshDocument()
+      if (options.successMessage) {
+        showToast({ tone: 'success', message: options.successMessage })
+      }
+      return true
+    } catch (error) {
+      if (savedCount > 0) {
+        await refreshDocument()
+      }
+      const fallbackMessage = 'Backend save failed. Local copy kept in browser.'
+      const baseMessage = error instanceof Error && error.message ? error.message : fallbackMessage
+      showToast({
+        tone: 'error',
+        message:
+          savedCount > 0
+            ? `${savedCount} page layout${savedCount === 1 ? '' : 's'} saved before save failed. ${baseMessage}`
+            : baseMessage,
+      })
+      return false
+    }
+  }
+
+  async function saveActivePage() {
     if (!selectedPage || !pageDraft || activePageLocked || saveLayoutMutation.isPending) {
       return
     }
@@ -469,10 +538,9 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
       showToast({ tone: 'error', message: EMPTY_PAGE_ACTION_MESSAGE })
       return
     }
-    saveLayoutMutation.mutate({
-      pageId: selectedPage.id,
-      pageIndex: selectedPage.page_index,
-      draft: pageDraft,
+    await saveDraftQueue(collectDirtyDrafts([selectedPage.id]), {
+      context: 'save',
+      successMessage: 'Layout saved. Local copy updated.',
     })
   }
 
@@ -487,14 +555,23 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     clearDraftForPage(selectedPage.id)
   }
 
-  function handleReviewAction() {
+  async function handleReviewAction() {
     if (!selectedPage || !reviewActionLabel) {
       return
     }
-    pageStatusMutation.mutate({ pageId: selectedPage.id, action: 'reopen' })
+    try {
+      await pageStatusMutation.mutateAsync({ pageId: selectedPage.id, action: 'reopen' })
+      clearDraftForPage(selectedPage.id)
+      await refreshDocument()
+    } catch (error) {
+      showToast({
+        tone: 'error',
+        message: error instanceof Error && error.message ? error.message : 'Failed to reopen page.',
+      })
+    }
   }
 
-  function markActivePageSegmented() {
+  async function markActivePageSegmented() {
     if (!selectedPage || !pageDraft || !canMarkSegmented) {
       return
     }
@@ -502,7 +579,46 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
       showToast({ tone: 'error', message: EMPTY_PAGE_ACTION_MESSAGE })
       return
     }
-    pageStatusMutation.mutate({ pageId: selectedPage.id, action: 'mark-segmented' })
+
+    const dirtyDraftQueue = collectDirtyDrafts()
+    if (dirtyDraftQueue.some((entry) => entry.draft.blocks.length === 0)) {
+      showEmptyDraftError(dirtyDraftQueue, 'finish')
+      return
+    }
+
+    showToast(
+      {
+        tone: 'saving',
+        message:
+          dirtyDraftQueue.length > 0
+            ? `Saving ${dirtyDraftQueue.length} page layout${dirtyDraftQueue.length === 1 ? '' : 's'} before finishing…`
+            : 'Marking page finished…',
+      },
+      false,
+    )
+
+    const savedAllDrafts = await saveDraftQueue(dirtyDraftQueue, {
+      context: 'finish',
+      showSavingToast: false,
+    })
+    if (!savedAllDrafts) {
+      return
+    }
+
+    try {
+      await pageStatusMutation.mutateAsync({ pageId: selectedPage.id, action: 'mark-segmented' })
+      clearDraftForPage(selectedPage.id)
+      await refreshDocument()
+      showToast({
+        tone: 'success',
+        message: dirtyDraftQueue.length > 0 ? 'All drafts saved. Page marked finished.' : 'Page marked finished.',
+      })
+    } catch (error) {
+      showToast({
+        tone: 'error',
+        message: error instanceof Error && error.message ? error.message : 'Failed to mark page finished.',
+      })
+    }
   }
 
   function handleCreateBlock(payload: {
@@ -596,15 +712,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
       if (hasModifier && key === 's') {
         event.preventDefault()
         if (!pageLocked && !saveLayoutMutation.isPending) {
-          if (pageDraft.blocks.length === 0) {
-            showToast({ tone: 'error', message: EMPTY_PAGE_ACTION_MESSAGE })
-          } else {
-            saveLayoutMutation.mutate({
-              pageId: selectedPage.id,
-              pageIndex: selectedPage.page_index,
-              draft: pageDraft,
-            })
-          }
+          void saveActivePage()
         }
         return
       }
@@ -612,7 +720,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
       if (hasModifier && event.key === 'Enter') {
         event.preventDefault()
         if (canMarkSegmented) {
-          pageStatusMutation.mutate({ pageId: selectedPage.id, action: 'mark-segmented' })
+          void markActivePageSegmented()
         }
         return
       }
@@ -620,15 +728,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
       if (!hasModifier && !event.altKey && key === 's') {
         event.preventDefault()
         if (!pageLocked && !saveLayoutMutation.isPending) {
-          if (pageDraft.blocks.length === 0) {
-            showToast({ tone: 'error', message: EMPTY_PAGE_ACTION_MESSAGE })
-          } else {
-            saveLayoutMutation.mutate({
-              pageId: selectedPage.id,
-              pageIndex: selectedPage.page_index,
-              draft: pageDraft,
-            })
-          }
+          void saveActivePage()
         }
         return
       }
