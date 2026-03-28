@@ -1,5 +1,7 @@
 # Changelog
 
+- Fixed polygon block double-click type changes to respect the real polygon hit area instead of the bounding box, so empty bbox space now targets the actual block under the cursor.
+
 - Added a workspace debug hover indicator that shows which block the cursor is currently over inside the edit canvas.
 
 - Added workspace block-type cycling on block double-click and surfaced a picker tip so reviewers can change types faster from the page or review list.

@@ -1,4 +1,4 @@
-import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
+import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 
 import { CanvasTooltip } from './CanvasTooltip'
@@ -130,7 +130,7 @@ function normalizeGeometry(start: CanvasPoint, end: CanvasPoint, minBlockSize: n
 }
 
 function pointerToRelative(
-  event: PointerEvent | ReactPointerEvent<HTMLElement>,
+  event: PointerEvent | ReactPointerEvent<HTMLElement> | ReactMouseEvent<HTMLElement>,
   target: HTMLElement,
 ): CanvasPoint {
   const rect = target.getBoundingClientRect()
@@ -1282,7 +1282,19 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
                       })
                     }}
                     onDoubleClick={(event) => {
+                      const point = surfaceRef.current ? pointerToRelative(event, surfaceRef.current) : null
                       event.stopPropagation()
+                      if (!point) {
+                        return
+                      }
+                      if (!pointInPolygon(point, polygonVertices)) {
+                        const hitBlock = findTopmostBlockAtPoint(blocks, point)
+                        if (!hitBlock) {
+                          return
+                        }
+                        onCycleBlockType(draftBlockKey(hitBlock))
+                        return
+                      }
                       onCycleBlockType(blockId)
                     }}
                   >
