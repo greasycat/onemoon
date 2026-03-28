@@ -6,18 +6,43 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..models import Block, BlockApproval, BlockType
+from ..storage import absolute_path
 
 
 def _normalize_text(output: str) -> str:
     return output.strip().replace("\r\n", "\n")
 
 
-def block_to_latex(block: Block) -> str:
-    content = block.manual_output or block.generated_output or "% Pending block review."
-    content = _normalize_text(content)
+def _resolved_block_content(block: Block) -> str | None:
+    for candidate in (block.manual_output, block.generated_output):
+        if not candidate:
+            continue
+        normalized = _normalize_text(candidate)
+        if normalized:
+            return normalized
+    return None
 
+
+def _pending_block_placeholder(block: Block) -> str:
+    if not block.crop_path:
+        return "% Pending block conversion."
+
+    crop_source = absolute_path(block.crop_path).as_posix()
+    return (
+        f"% Pending conversion placeholder for block {block.id}\n"
+        "\\begin{center}\n"
+        f"\\fbox{{\\includegraphics[width=0.9\\linewidth]{{{crop_source}}}}}\n"
+        "\\end{center}"
+    )
+
+
+def block_to_latex(block: Block) -> str:
     if block.approval == BlockApproval.rejected:
         return f"% Rejected block {block.id}"
+
+    content = _resolved_block_content(block)
+    if content is None:
+        return _pending_block_placeholder(block)
 
     if block.block_type == BlockType.math:
         if content.startswith("\\[") or content.startswith("$$"):

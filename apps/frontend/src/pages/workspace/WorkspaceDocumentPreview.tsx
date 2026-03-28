@@ -1,10 +1,12 @@
 import { useMemo } from 'react'
 
 import { withApiRoot } from '../../lib/api'
+import type { DraftBlock } from '../../lib/segmentation'
 import type { CompileArtifactResponse, DocumentDetailResponse } from '../../lib/types'
 
 interface WorkspaceDocumentPreviewProps {
   document: DocumentDetailResponse
+  selectedBlock?: DraftBlock | null
 }
 
 function compareArtifacts(left: CompileArtifactResponse, right: CompileArtifactResponse) {
@@ -39,13 +41,16 @@ function buildFallbackLatex(document: DocumentDetailResponse) {
   ].join('\n')
 }
 
-export function WorkspaceDocumentPreview({ document }: WorkspaceDocumentPreviewProps) {
+export function WorkspaceDocumentPreview({ document, selectedBlock = null }: WorkspaceDocumentPreviewProps) {
   const latestArtifact = useMemo(
     () => [...document.compile_artifacts].sort(compareArtifacts)[0] ?? null,
     [document.compile_artifacts],
   )
   const previewUrl = latestArtifact?.pdf_url ? withApiRoot(latestArtifact.pdf_url) : null
   const latexSource = document.assembled_latex?.trim() || buildFallbackLatex(document)
+  const selectedBlockCropUrl = selectedBlock?.crop_url ? withApiRoot(selectedBlock.crop_url) : null
+  const selectedBlockHasOutput = Boolean(selectedBlock?.manual_output?.trim() || selectedBlock?.generated_output?.trim())
+  const placeholderBlock = !previewUrl && selectedBlock && selectedBlockCropUrl && !selectedBlockHasOutput ? selectedBlock : null
 
   return (
     <aside className="workspace-document-preview">
@@ -56,8 +61,17 @@ export function WorkspaceDocumentPreview({ document }: WorkspaceDocumentPreviewP
           </div>
         ) : (
           <div className="workspace-document-preview-empty preview-empty-state">
+            {placeholderBlock ? (
+              <div className="crop-preview workspace-document-preview-placeholder">
+                <img src={selectedBlockCropUrl ?? undefined} alt={`Placeholder crop for block ${placeholderBlock.order_index + 1}`} />
+              </div>
+            ) : null}
             <strong>No compiled preview yet</strong>
-            <span>Compile the document to render a PDF preview. The assembled LaTeX source remains visible below.</span>
+            <span>
+              {placeholderBlock
+                ? 'Using the selected block crop as a placeholder until conversion or compilation runs.'
+                : 'Compile the document to render a PDF preview. The assembled LaTeX source remains visible below.'}
+            </span>
           </div>
         )}
       </div>

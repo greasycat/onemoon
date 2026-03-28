@@ -211,7 +211,7 @@ export function WorkspacePage() {
                 </div>
                 {isConversionMode ? (
                   <div className="editor-workbench-canvas-column editor-workbench-canvas-column-preview">
-                    <WorkspaceDocumentPreview document={document} />
+                    <WorkspaceDocumentPreview document={document} selectedBlock={selectedBlock} />
                   </div>
                 ) : null}
               </div>

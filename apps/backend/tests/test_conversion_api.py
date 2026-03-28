@@ -141,7 +141,10 @@ def test_saving_page_layout_clears_stale_conversion_fields(tmp_path: Path, monke
         assert block["manual_output"] is None
         assert block["user_instruction"] is None
         assert block["warnings"] == []
+        assert block["crop_url"]
 
         document_response = client.get(f"/api/documents/{seeded['document_id']}", headers=headers)
         assert document_response.status_code == 200
-        assert "% Pending block review." in document_response.json()["assembled_latex"]
+        assembled_latex = document_response.json()["assembled_latex"]
+        assert "\\includegraphics" in assembled_latex
+        assert seeded["block_id"] in assembled_latex

@@ -2,7 +2,12 @@ from onemoon_backend.models import Block, BlockApproval, BlockType
 from onemoon_backend.services.latex import block_to_latex, build_document_latex
 
 
-def make_block(block_type: BlockType, output: str, approval: BlockApproval = BlockApproval.approved) -> Block:
+def make_block(
+    block_type: BlockType,
+    output: str | None,
+    approval: BlockApproval = BlockApproval.approved,
+    crop_path: str | None = None,
+) -> Block:
     return Block(
         id="block",
         page_id="page",
@@ -14,6 +19,7 @@ def make_block(block_type: BlockType, output: str, approval: BlockApproval = Blo
         width=0.4,
         height=0.2,
         confidence=1.0,
+        crop_path=crop_path,
         generated_output=output,
         warnings=[],
     )
@@ -36,3 +42,16 @@ def test_document_builder_includes_text_and_math_blocks() -> None:
     assert "\\documentclass" in source
     assert "This is a note." in source
     assert "\\[" in source
+
+
+def test_unconverted_block_uses_crop_placeholder_image() -> None:
+    latex = block_to_latex(
+        make_block(
+            BlockType.text,
+            None,
+            approval=BlockApproval.pending,
+            crop_path="crops/doc/page-001/block.png",
+        )
+    )
+    assert "\\includegraphics" in latex
+    assert "crops/doc/page-001/block.png" in latex
