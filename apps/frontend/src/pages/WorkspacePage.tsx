@@ -119,7 +119,7 @@ export function WorkspacePage() {
         />
 
         <div className="workspace-main">
-          <div className={`workspace-main-layout ${isConversionMode ? 'workspace-main-layout-conversion' : ''}`}>
+          <div className="workspace-main-layout">
             <section className="panel editor-workbench">
               <div className="editor-workbench-header">
                 <div className="editor-workbench-title">
@@ -174,9 +174,11 @@ export function WorkspacePage() {
               </div>
             </section>
 
-            <div className="workspace-sidepanels">
-              <WorkspaceDocumentPreview document={document} />
-            </div>
+            {isConversionMode ? (
+              <div className="workspace-sidepanels">
+                <WorkspaceDocumentPreview document={document} />
+              </div>
+            ) : null}
           </div>
         </div>
       </section>

@@ -1,5 +1,7 @@
 # Changelog
 
+- Hid the workspace LaTeX preview outside conversion mode so the normal review editor stays canvas-only and the preview rail only appears during conversion.
+
 - Constrained the workspace editor canvas layout to its parent workbench width and let conversion side rails shrink instead of forcing the canvas row to overflow.
 
 - Docked the workspace LaTeX preview rail into the layout by removing its floating outer card treatment and switching its inner preview surfaces to flat inline sections.
