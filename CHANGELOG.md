@@ -1,5 +1,7 @@
 # Changelog
 
+- Added a collapse toggle ahead of the workspace block-list title and made collapsing preserve the panel's rounded-rectangle height instead of reflowing the canvas.
+
 - Moved the workspace block list into the review canvas as an embedded overlay and removed the dedicated right-side panel so the canvas has more room.
 
 - Renamed the workspace page-review side panel heading to `Block List`.
