@@ -1,5 +1,7 @@
 # Changelog
 
+- Made workspace block-type changes apply immediately from the inspector select, so review no longer depends on a separate `Apply To Draft` click.
+
 - Made the workspace `FIN` action save every dirty page draft before marking the active page finished, so review completion no longer depends on a separate manual save step.
 
 - Centered the workspace loading state and added an animated spinner so large uploads show clear progress feedback while the review workspace initializes.

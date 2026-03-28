@@ -1,5 +1,3 @@
-import { useState } from 'react'
-
 import type { DraftBlock } from '../lib/segmentation'
 import type { BlockGeometry, BlockType } from '../lib/types'
 
@@ -19,13 +17,6 @@ interface BlockInspectorProps {
 
 const blockTypes: BlockType[] = ['text', 'math', 'figure']
 
-function initialFormState(block: DraftBlock | null) {
-  return {
-    blockType: block?.block_type ?? 'text',
-    geometry: block?.geometry ?? { x: 0, y: 0, width: 0, height: 0 },
-  }
-}
-
 export function BlockInspector({
   block,
   selectedCount,
@@ -36,8 +27,6 @@ export function BlockInspector({
   onDeleteSelection,
   onDuplicate,
 }: BlockInspectorProps) {
-  const [blockType, setBlockType] = useState<BlockType>(initialFormState(block).blockType)
-
   if (selectedCount > 1) {
     return (
       <aside className="inspector-panel">
@@ -114,7 +103,20 @@ export function BlockInspector({
 
       <label className="field">
         <span>Block type</span>
-        <select disabled={pageLocked} value={blockType} onChange={(event) => setBlockType(event.target.value as BlockType)}>
+        <select
+          disabled={pageLocked || isBusy}
+          value={block.block_type}
+          onChange={(event) => {
+            const nextBlockType = event.target.value as BlockType
+            if (nextBlockType === block.block_type) {
+              return
+            }
+            onApply({
+              block_type: nextBlockType,
+              geometry,
+            })
+          }}
+        >
           {blockTypes.map((type) => (
             <option key={type} value={type}>
               {type}
@@ -133,22 +135,6 @@ export function BlockInspector({
             Delete
           </button>
         </div>
-      </div>
-
-      <div className="button-row">
-        <button
-          type="button"
-          className="primary-button"
-          disabled={pageLocked || isBusy}
-          onClick={() =>
-            onApply({
-              block_type: blockType,
-              geometry,
-            })
-          }
-        >
-          Apply To Draft
-        </button>
       </div>
     </aside>
   )
