@@ -2715,12 +2715,14 @@ button {
 }
 
 .workspace-document-preview-placeholder {
+  width: 100%;
+  height: min(28vh, 15rem);
   min-height: 0;
-  max-height: min(28vh, 15rem);
 }
 
 .workspace-document-preview-placeholder img {
   object-fit: contain;
+  object-position: center;
   background:
     linear-gradient(135deg, rgba(249, 244, 235, 0.96), rgba(241, 229, 210, 0.82)),
     linear-gradient(rgba(132, 102, 67, 0.08), rgba(132, 102, 67, 0.08));

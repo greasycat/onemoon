@@ -1,5 +1,7 @@
 # Changelog
 
+- Fixed the workspace cut-image placeholder sizing so the selected block crop now fits the preview frame at full width and height before conversion.
+
 - Added pre-conversion block-crop placeholders to the workspace preview rail and assembled LaTeX so a selected block shows its cut image before conversion runs.
 
 - Removed the workspace’s block-review controls and the selected-block block-type selector so the conversion rail now shows only block conversion plus the document source preview.
