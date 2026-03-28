@@ -2390,6 +2390,15 @@ button {
   min-height: 0;
 }
 
+.workspace-review-panel-actions {
+  display: grid;
+}
+
+.workspace-review-panel-actions .secondary-button {
+  width: 100%;
+  justify-content: center;
+}
+
 .workspace-review-panel-collapsed .workspace-review-panel-body {
   display: none;
 }

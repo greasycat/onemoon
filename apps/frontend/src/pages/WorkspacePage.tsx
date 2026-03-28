@@ -27,6 +27,7 @@ export function WorkspacePage() {
     canvasRef,
     conversionInstruction,
     cycleBlockType,
+    convertAllBlocks,
     convertSelectedBlock,
     debugSettings,
     document,
@@ -35,6 +36,7 @@ export function WorkspacePage() {
     hoveredBlockLabel,
     handleCreateBlock,
     handleUpdateBlock,
+    isBulkConverting,
     pageDraft,
     pageEntries,
     projectName,
@@ -104,9 +106,14 @@ export function WorkspacePage() {
   const blockListPanel = (
     <WorkspaceReviewPanel
       activeBlockId={selectedBlockKey}
+      canConvertAll={pageDraft.blocks.length > 0 && !blockInspectorBusy}
+      isConvertingAll={isBulkConverting}
+      isConversionMode={isConversionMode}
       pageDraft={pageDraft}
       selectedBlockIds={selectedBlockIds}
-      selectionCount={selectedBlockCount}
+      onConvertAll={() => {
+        void convertAllBlocks()
+      }}
       onSelectBlock={selectBlock}
       onCycleBlockType={cycleBlockType}
     />

@@ -1,5 +1,7 @@
 # Changelog
 
+- Added a conversion-mode `Convert all` action above the block list and removed the block-count / selection-count summary cards from that panel.
+
 - Fixed polygon conversion crops so any transparent pixels inside a full-size masked bounding box are still flattened onto white for the LLM request image, and synced the converted block payload back into the workspace so the block-source panel refreshes immediately after `Convert`.
 
 - Saved conversion response payloads as JSON alongside the masked crop debug artifacts in `/tmp/onemoon-masked-crops` when the workspace debug flag is enabled.

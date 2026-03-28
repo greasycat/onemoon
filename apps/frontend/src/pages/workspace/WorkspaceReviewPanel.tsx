@@ -6,18 +6,24 @@ import type { BlockSelectionMode } from '../../lib/types'
 
 interface WorkspaceReviewPanelProps {
   activeBlockId: string | null
+  canConvertAll?: boolean
+  isConvertingAll?: boolean
+  isConversionMode?: boolean
   pageDraft: DraftPageLayout
   selectedBlockIds: string[]
-  selectionCount: number
+  onConvertAll?: () => void
   onSelectBlock: (blockId: string, mode?: BlockSelectionMode) => void
   onCycleBlockType: (blockId: string) => void
 }
 
 export function WorkspaceReviewPanel({
   activeBlockId,
+  canConvertAll = false,
+  isConvertingAll = false,
+  isConversionMode = false,
   pageDraft,
   selectedBlockIds,
-  selectionCount,
+  onConvertAll,
   onSelectBlock,
   onCycleBlockType,
 }: WorkspaceReviewPanelProps) {
@@ -57,16 +63,13 @@ export function WorkspaceReviewPanel({
         <div>
           <p className="selection-hint">Shift-click for a range. Cmd/Ctrl-click to toggle blocks. Delete removes the selection.</p>
         </div>
-        <div className="stats-grid">
-          <div className="stat-card">
-            <span>Blocks</span>
-            <strong>{pageDraft.blocks.length}</strong>
+        {isConversionMode ? (
+          <div className="workspace-review-panel-actions">
+            <button type="button" className="secondary-button" disabled={!canConvertAll || isConvertingAll} onClick={onConvertAll}>
+              {isConvertingAll ? 'Converting all...' : 'Convert all'}
+            </button>
           </div>
-          <div className="stat-card">
-            <span>Selected</span>
-            <strong>{selectionCount}</strong>
-          </div>
-        </div>
+        ) : null}
         <div className="block-list">
           {pageDraft.blocks.map((block) => {
             const blockKey = draftBlockKey(block)

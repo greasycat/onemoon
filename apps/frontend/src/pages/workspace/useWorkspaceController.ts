@@ -139,6 +139,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
   const [debugSettings, setDebugSettings] = useState<WorkspaceDebugSettings>(() => loadWorkspaceDebugSettings())
   const [hoveredBlockKey, setHoveredBlockKey] = useState<string | null>(null)
   const [conversionInstructions, setConversionInstructions] = useState<Record<string, string>>({})
+  const [isBulkConverting, setIsBulkConverting] = useState(false)
   const canvasRef = useRef<DocumentCanvasHandle | null>(null)
   const toastTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
 
@@ -345,6 +346,45 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
         },
       }
     })
+  }
+
+  function instructionForBlock(block: DraftBlock) {
+    return conversionInstructions[draftBlockKey(block)] ?? block.user_instruction ?? ''
+  }
+
+  function debugMessagesForJob(completedJob: JobResponse) {
+    const debugMaskedCropPath =
+      typeof completedJob.payload.debug_masked_crop_path === 'string'
+        ? completedJob.payload.debug_masked_crop_path
+        : null
+    const debugResponsePath =
+      typeof completedJob.payload.debug_response_path === 'string'
+        ? completedJob.payload.debug_response_path
+        : null
+    return [
+      debugMaskedCropPath ? `Masked crop saved to ${debugMaskedCropPath}.` : null,
+      debugResponsePath ? `Response JSON saved to ${debugResponsePath}.` : null,
+    ].filter((message): message is string => Boolean(message))
+  }
+
+  async function convertBlock(block: DraftBlock, instruction: string, pageId: string | null) {
+    if (!block.id) {
+      throw new Error('Save the page before converting a block.')
+    }
+
+    const completedJob = await regenerateBlockMutation.mutateAsync({
+      blockId: block.id,
+      instruction,
+      saveMaskedCropToTmp: debugSettings.saveMaskedCropToTmp,
+    })
+    const nextDocument = await refreshDocument()
+    if (pageId) {
+      syncConvertedBlock(nextDocument, pageId, block.id)
+    }
+    return {
+      completedJob,
+      debugMessages: debugMessagesForJob(completedJob),
+    }
   }
 
   function showToast(nextToast: WorkspaceToast, autoHide = true) {
@@ -733,29 +773,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     showToast({ tone: 'saving', message: `Generating block #${selectedBlock.order_index + 1}…` }, false)
 
     try {
-      const selectedBlockId = selectedBlock.id
-      const selectedPageId = selectedPage?.id ?? null
-      const completedJob = await regenerateBlockMutation.mutateAsync({
-        blockId: selectedBlockId,
-        instruction: selectedBlockInstruction,
-        saveMaskedCropToTmp: debugSettings.saveMaskedCropToTmp,
-      })
-      const nextDocument = await refreshDocument()
-      if (selectedPageId) {
-        syncConvertedBlock(nextDocument, selectedPageId, selectedBlockId)
-      }
-      const debugMaskedCropPath =
-        typeof completedJob.payload.debug_masked_crop_path === 'string'
-          ? completedJob.payload.debug_masked_crop_path
-          : null
-      const debugResponsePath =
-        typeof completedJob.payload.debug_response_path === 'string'
-          ? completedJob.payload.debug_response_path
-          : null
-      const debugMessages = [
-        debugMaskedCropPath ? `Masked crop saved to ${debugMaskedCropPath}.` : null,
-        debugResponsePath ? `Response JSON saved to ${debugResponsePath}.` : null,
-      ].filter((message): message is string => Boolean(message))
+      const { debugMessages } = await convertBlock(selectedBlock, selectedBlockInstruction, selectedPage?.id ?? null)
       showToast({
         tone: 'success',
         message:
@@ -770,6 +788,64 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
         message: error instanceof Error && error.message ? error.message : 'Failed to generate block output.',
       })
       return false
+    }
+  }
+
+  async function convertAllBlocks() {
+    if (!selectedPage || !pageDraft) {
+      return false
+    }
+
+    const unsavedBlocks = pageDraft.blocks.filter((block) => !block.id)
+    if (unsavedBlocks.length > 0) {
+      showToast({ tone: 'error', message: 'Save the page before converting all blocks.' })
+      return false
+    }
+    if (pageDraft.blocks.length === 0) {
+      showToast({ tone: 'error', message: EMPTY_PAGE_ACTION_MESSAGE })
+      return false
+    }
+
+    showToast(
+      {
+        tone: 'saving',
+        message:
+          pageDraft.blocks.length === 1
+            ? 'Generating 1 block...'
+            : `Generating ${pageDraft.blocks.length} blocks...`,
+      },
+      false,
+    )
+    setIsBulkConverting(true)
+
+    let convertedCount = 0
+    let debugArtifactCount = 0
+    try {
+      for (const block of pageDraft.blocks) {
+        const { debugMessages } = await convertBlock(block, instructionForBlock(block), selectedPage.id)
+        convertedCount += 1
+        debugArtifactCount += debugMessages.length
+      }
+      showToast({
+        tone: 'success',
+        message:
+          debugArtifactCount > 0
+            ? `${convertedCount} block${convertedCount === 1 ? '' : 's'} generated. ${debugArtifactCount} debug artifact${debugArtifactCount === 1 ? '' : 's'} saved.`
+            : `${convertedCount} block${convertedCount === 1 ? '' : 's'} generated.`,
+      })
+      return true
+    } catch (error) {
+      const baseMessage = error instanceof Error && error.message ? error.message : 'Failed to generate block output.'
+      showToast({
+        tone: 'error',
+        message:
+          convertedCount > 0
+            ? `${convertedCount} block${convertedCount === 1 ? '' : 's'} generated before convert all failed. ${baseMessage}`
+            : baseMessage,
+      })
+      return false
+    } finally {
+      setIsBulkConverting(false)
     }
   }
 
@@ -1025,6 +1101,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     activeTool,
     applySelectedBlock,
     blockInspectorBusy:
+      isBulkConverting ||
       saveLayoutMutation.isPending ||
       pageStatusMutation.isPending ||
       regenerateBlockMutation.isPending,
@@ -1034,6 +1111,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     document,
     documentQuery,
     isResolvingDocumentCreation,
+    isBulkConverting,
     isWorkspaceInitializing,
     editorHelperText,
     activeCutCeilingPath,
@@ -1056,6 +1134,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     selectPage,
     selectBlock,
     cycleBlockType,
+    convertAllBlocks,
     convertSelectedBlock,
     setHoveredBlock,
     setActiveTool,
