@@ -26,6 +26,9 @@ export interface DraftBlock {
   confidence: number
   is_user_corrected: boolean
   crop_url: string | null
+  generated_output: string | null
+  manual_output: string | null
+  user_instruction: string | null
   warnings: string[]
 }
 
@@ -213,6 +216,9 @@ export function toDraftBlock(block: BlockResponse): DraftBlock {
     confidence: block.confidence,
     is_user_corrected: block.is_user_corrected,
     crop_url: block.crop_url,
+    generated_output: block.generated_output,
+    manual_output: block.manual_output,
+    user_instruction: block.user_instruction,
     warnings: block.warnings,
   }
 }
@@ -243,6 +249,9 @@ export function createManualBlock(
     confidence: 1,
     is_user_corrected: true,
     crop_url: null,
+    generated_output: null,
+    manual_output: null,
+    user_instruction: null,
     warnings: [],
   }
 }

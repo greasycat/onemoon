@@ -43,6 +43,7 @@ from ..schemas import (
     RegenerateBlockRequest,
 )
 from ..services.pipeline import (
+    assemble_document,
     compile_document_job,
     create_job,
     ingest_document_job,
@@ -198,6 +199,8 @@ def upsert_page_layout(db: Session, page: Page, blocks: list[PageLayoutBlockPayl
         block.is_user_corrected = payload.source == BlockSource.manual
         block.confidence = 1.0 if payload.source == BlockSource.manual else block.confidence
         block.generated_output = None
+        block.manual_output = None
+        block.user_instruction = None
         block.raw_response = None
         block.warnings = []
         db.flush()
@@ -215,6 +218,7 @@ def upsert_page_layout(db: Session, page: Page, blocks: list[PageLayoutBlockPayl
     if page.review_status == PageReviewStatus.segmented:
         page.review_completed_at = page.review_completed_at or datetime.now(UTC)
     page.document.status = DocumentStatus.review
+    assemble_document(db, page.document_id)
     db.flush()
     db.refresh(page)
     return page
@@ -461,6 +465,7 @@ def create_block(
     page.review_status = PageReviewStatus.in_review if page.review_status == PageReviewStatus.unreviewed else page.review_status
     page.review_started_at = page.review_started_at or datetime.now(UTC)
     page.layout_version += 1
+    assemble_document(db, page.document_id)
     db.commit()
     db.refresh(block)
     return serialize_block(block)
@@ -476,6 +481,8 @@ def update_block(
     block = db.scalar(select(Block).where(Block.id == block_id).options(selectinload(Block.page)))
     if block is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Block not found")
+
+    should_reset_conversion = False
 
     if payload.shape_type is not None or payload.vertices is not None or payload.geometry is not None:
         next_shape_type = payload.shape_type or block.shape_type or BlockShapeType.rect
@@ -505,27 +512,33 @@ def update_block(
             block.vertices = None
         block.is_user_corrected = True
         save_crop(block.page, block)
+        should_reset_conversion = True
     if payload.block_type is not None:
         block.block_type = payload.block_type
         block.is_user_corrected = True
+        should_reset_conversion = True
     block.source = BlockSource.manual
     if payload.approval is not None:
         block.approval = payload.approval
     if payload.order_index is not None:
         block.order_index = payload.order_index
-    if payload.manual_output is not None:
+    if "manual_output" in payload.model_fields_set:
         block.manual_output = payload.manual_output
-    if payload.user_instruction is not None:
+    if "user_instruction" in payload.model_fields_set:
         block.user_instruction = payload.user_instruction
 
-    block.generated_output = None
-    block.raw_response = None
-    block.warnings = []
+    if should_reset_conversion:
+        block.generated_output = None
+        block.manual_output = None
+        block.user_instruction = None
+        block.raw_response = None
+        block.warnings = []
     block.page.review_status = (
         PageReviewStatus.in_review if block.page.review_status == PageReviewStatus.unreviewed else block.page.review_status
     )
     block.page.review_started_at = block.page.review_started_at or datetime.now(UTC)
     block.page.layout_version += 1
+    assemble_document(db, block.page.document_id)
     db.commit()
     db.refresh(block)
     return serialize_block(block)

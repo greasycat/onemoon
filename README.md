@@ -43,6 +43,7 @@ uv run onemoon-backend
 ```
 
 The API runs on `http://localhost:8000` and serves artifacts under `/storage`.
+For actual LLM-backed block conversion, either set `LLM_PROVIDER=openai` and `LLM_API_KEY` or `OPENAI_API_KEY` in `apps/backend/.env`, or keep credentials in the repo-root `.env` with `ONEMOON_LLM_PROVIDER`, `ONEMOON_LLM_MODEL`, and `ONEMOON_API_KEY`. If no real provider is configured, the backend falls back to mock text/math placeholders so the workflow still runs locally.
 
 ### Frontend
 

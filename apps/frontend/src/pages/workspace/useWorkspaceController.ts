@@ -25,6 +25,7 @@ import {
   type DraftPageLayout,
 } from '../../lib/segmentation'
 import type {
+  BlockApproval,
   BlockGeometry,
   BlockSelectionMode,
   BlockShapeType,
@@ -75,10 +76,6 @@ function isEditableTarget(target: EventTarget | null) {
   }
   const tagName = target.tagName.toLowerCase()
   return tagName === 'input' || tagName === 'textarea' || tagName === 'select' || target.isContentEditable
-}
-
-function hasMatchingGeometry(current: BlockGeometry, next: BlockGeometry) {
-  return current.x === next.x && current.y === next.y && current.width === next.width && current.height === next.height
 }
 
 function nextBlockType(current: BlockType) {
@@ -140,6 +137,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
   const [toast, setToast] = useState<WorkspaceToast | null>(null)
   const [debugSettings, setDebugSettings] = useState<WorkspaceDebugSettings>(() => loadWorkspaceDebugSettings())
   const [hoveredBlockKey, setHoveredBlockKey] = useState<string | null>(null)
+  const [conversionInstructions, setConversionInstructions] = useState<Record<string, string>>({})
   const canvasRef = useRef<DocumentCanvasHandle | null>(null)
   const toastTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
 
@@ -240,6 +238,13 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     () => (activeBlockId ? pageDraft?.blocks.find((block) => draftBlockKey(block) === activeBlockId) ?? null : null),
     [activeBlockId, pageDraft],
   )
+  const selectedBlockInstruction = useMemo(() => {
+    if (!selectedBlock) {
+      return ''
+    }
+    const blockKey = draftBlockKey(selectedBlock)
+    return conversionInstructions[blockKey] ?? selectedBlock.user_instruction ?? ''
+  }, [conversionInstructions, selectedBlock])
 
   function setSelectedBlockIds(blockIds: string[] | null | undefined) {
     setSelectedBlockKeys(blockIds)
@@ -403,8 +408,8 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
       action === 'reopen' ? api.reopenPage(token!, pageId) : api.markPageSegmented(token!, pageId),
   })
   const regenerateBlockMutation = useMutation({
-    mutationFn: async (blockId: string) => {
-      const job = await api.regenerateBlock(token!, blockId, '')
+    mutationFn: async ({ blockId, instruction }: { blockId: string; instruction: string }) => {
+      const job = await api.regenerateBlock(token!, blockId, instruction)
       for (let attempt = 0; attempt < 30; attempt += 1) {
         const nextJob = await api.getJob(token!, job.id)
         if (nextJob.status === 'completed') {
@@ -417,6 +422,13 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
       }
       throw new Error('Timed out while converting block.')
     },
+  })
+  const saveBlockReviewMutation = useMutation({
+    mutationFn: ({ blockId, approval, manualOutput }: { blockId: string; approval: BlockApproval; manualOutput: string | null }) =>
+      api.updateBlock(token!, blockId, {
+        approval,
+        manual_output: manualOutput,
+      }),
   })
 
   const activePageDirty = selectedPage ? Boolean(pageDrafts[selectedPage.id]) : false
@@ -492,6 +504,17 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
   const setHoveredBlock = useCallback((blockId: string | null) => {
     setHoveredBlockKey(blockId)
   }, [])
+
+  function updateSelectedBlockInstruction(instruction: string) {
+    if (!selectedBlock) {
+      return
+    }
+    const blockKey = draftBlockKey(selectedBlock)
+    setConversionInstructions((current) => ({
+      ...current,
+      [blockKey]: instruction,
+    }))
+  }
 
   function collectDirtyDrafts(pageIds?: string[]) {
     const allowedPageIds = pageIds ? new Set(pageIds) : null
@@ -682,17 +705,46 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
       return false
     }
 
-    showToast({ tone: 'saving', message: `Converting block #${selectedBlock.order_index + 1}…` }, false)
+    showToast({ tone: 'saving', message: `Generating block #${selectedBlock.order_index + 1}…` }, false)
 
     try {
-      await regenerateBlockMutation.mutateAsync(selectedBlock.id)
+      await regenerateBlockMutation.mutateAsync({
+        blockId: selectedBlock.id,
+        instruction: selectedBlockInstruction,
+      })
       await refreshDocument()
-      showToast({ tone: 'success', message: `Block #${selectedBlock.order_index + 1} converted.` })
+      showToast({ tone: 'success', message: `Block #${selectedBlock.order_index + 1} generated.` })
       return true
     } catch (error) {
       showToast({
         tone: 'error',
-        message: error instanceof Error && error.message ? error.message : 'Failed to convert block.',
+        message: error instanceof Error && error.message ? error.message : 'Failed to generate block output.',
+      })
+      return false
+    }
+  }
+
+  async function saveSelectedBlockReview(payload: { approval: BlockApproval; manualOutput: string | null }) {
+    if (!selectedBlock?.id) {
+      showToast({ tone: 'error', message: 'Select a saved block before updating its review output.' })
+      return false
+    }
+
+    showToast({ tone: 'saving', message: `Saving review for block #${selectedBlock.order_index + 1}…` }, false)
+
+    try {
+      await saveBlockReviewMutation.mutateAsync({
+        blockId: selectedBlock.id,
+        approval: payload.approval,
+        manualOutput: payload.manualOutput,
+      })
+      await refreshDocument()
+      showToast({ tone: 'success', message: `Review for block #${selectedBlock.order_index + 1} saved.` })
+      return true
+    } catch (error) {
+      showToast({
+        tone: 'error',
+        message: error instanceof Error && error.message ? error.message : 'Failed to save block review.',
       })
       return false
     }
@@ -726,6 +778,9 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
       updateDraftBlock(draft, blockId, (block) => ({
         ...block,
         crop_url: null,
+        generated_output: null,
+        manual_output: null,
+        user_instruction: null,
         warnings: [],
         geometry: clampGeometry(payload.geometry),
         vertices: block.shape_type === 'polygon' ? payload.vertices : null,
@@ -745,8 +800,11 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
       updateDraftBlock(draft, draftBlockKey(selectedBlock), (block) => ({
         ...block,
         block_type: payload.block_type,
-        crop_url: hasMatchingGeometry(block.geometry, nextGeometry) ? block.crop_url : null,
-        warnings: hasMatchingGeometry(block.geometry, nextGeometry) ? block.warnings : [],
+        crop_url: null,
+        generated_output: null,
+        manual_output: null,
+        user_instruction: null,
+        warnings: [],
         geometry: nextGeometry,
       })),
     )
@@ -762,6 +820,10 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
       updateDraftBlock(pageDraft, blockId, (block) => ({
         ...block,
         block_type: nextBlockType(block.block_type),
+        generated_output: null,
+        manual_output: null,
+        user_instruction: null,
+        warnings: [],
       })),
     )
     selectSingleBlock(blockId)
@@ -942,8 +1004,13 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     activeReviewStatus,
     activeTool,
     applySelectedBlock,
-    blockInspectorBusy: saveLayoutMutation.isPending || pageStatusMutation.isPending || regenerateBlockMutation.isPending,
+    blockInspectorBusy:
+      saveLayoutMutation.isPending ||
+      pageStatusMutation.isPending ||
+      regenerateBlockMutation.isPending ||
+      saveBlockReviewMutation.isPending,
     canvasRef,
+    conversionInstruction: selectedBlockInstruction,
     debugSettings,
     document,
     documentQuery,
@@ -971,6 +1038,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     selectBlock,
     cycleBlockType,
     convertSelectedBlock,
+    saveSelectedBlockReview,
     setHoveredBlock,
     setActiveTool,
     setViewportState,
@@ -981,5 +1049,6 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     deleteSelectedBlock,
     deleteSelectedBlocks,
     duplicateSelectedBlock,
+    updateSelectedBlockInstruction,
   }
 }

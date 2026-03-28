@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Annotated
 
-from pydantic import field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import AliasChoices, Field, field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 DEFAULT_DATA_DIR = REPO_ROOT / "data"
@@ -12,8 +13,9 @@ DEFAULT_DATA_DIR = REPO_ROOT / "data"
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", REPO_ROOT / ".env"),
         env_file_encoding="utf-8",
+        enable_decoding=False,
         extra="ignore",
     )
 
@@ -23,7 +25,7 @@ class Settings(BaseSettings):
     access_token_expiry_minutes: int = 60 * 12
     admin_username: str = "admin"
     admin_password: str = "onemoon"
-    allowed_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    allowed_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173", "http://127.0.0.1:5173"]
     allowed_origin_regex: str = (
         r"^https?://("
         r"localhost|127\.0\.0\.1|"
@@ -35,8 +37,26 @@ class Settings(BaseSettings):
     )
     data_dir: Path = DEFAULT_DATA_DIR
     database_url: str = f"sqlite:///{(DEFAULT_DATA_DIR / 'onemoon.db').as_posix()}"
-    llm_provider: str = "mock"
-    llm_model: str = "mock-notes-v1"
+    llm_provider: str = Field(
+        default="mock",
+        validation_alias=AliasChoices("ONEMOON_LLM_PROVIDER", "LLM_PROVIDER", "OPENAI_PROVIDER"),
+    )
+    llm_model: str = Field(
+        default="gpt-4.1-mini",
+        validation_alias=AliasChoices("ONEMOON_LLM_MODEL", "LLM_MODEL", "OPENAI_MODEL"),
+    )
+    llm_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("ONEMOON_API_KEY", "LLM_API_KEY", "OPENAI_API_KEY"),
+    )
+    llm_base_url: str = Field(
+        default="https://api.openai.com/v1",
+        validation_alias=AliasChoices("ONEMOON_LLM_BASE_URL", "LLM_BASE_URL", "OPENAI_BASE_URL"),
+    )
+    llm_timeout_seconds: float = Field(
+        default=45.0,
+        validation_alias=AliasChoices("ONEMOON_LLM_TIMEOUT_SECONDS", "LLM_TIMEOUT_SECONDS"),
+    )
     render_dpi: int = 180
 
     @field_validator("allowed_origins", mode="before")

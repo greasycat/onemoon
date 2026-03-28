@@ -1036,6 +1036,14 @@ button {
   padding: 1rem;
 }
 
+.generated-output strong {
+  display: block;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 .generated-output pre {
   margin: 0.75rem 0 0;
   white-space: pre-wrap;

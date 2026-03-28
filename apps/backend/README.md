@@ -12,5 +12,6 @@ uv run pytest
 
 ## Notes
 
-- The current `LLMAdapter` implementation is a mock provider so the end-to-end review loop works without external credentials.
+- The backend keeps the mock adapter as the default so the end-to-end review loop works without external credentials.
+- For real block conversion, set `LLM_PROVIDER=openai` plus `LLM_API_KEY` or `OPENAI_API_KEY` in `apps/backend/.env`, or use the repo-root `.env` with `ONEMOON_LLM_PROVIDER`, `ONEMOON_LLM_MODEL`, and `ONEMOON_API_KEY`.
 - Runtime files are written to the repo-level `data/` directory.

@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react'
+
 import type { DraftBlock } from '../lib/segmentation'
-import type { BlockGeometry, BlockType } from '../lib/types'
+import type { BlockApproval, BlockGeometry, BlockType } from '../lib/types'
 
 interface BlockInspectorProps {
   block: DraftBlock | null
@@ -7,6 +9,7 @@ interface BlockInspectorProps {
   pageLocked: boolean
   isBusy: boolean
   isConversionMode?: boolean
+  conversionInstruction?: string
   onApply: (payload: {
     block_type: BlockType
     geometry: BlockGeometry
@@ -14,10 +17,22 @@ interface BlockInspectorProps {
   onDelete: () => void
   onDeleteSelection: () => void
   onDuplicate: () => void
+  onChangeConversionInstruction?: (instruction: string) => void
   onConvert?: () => void
+  onSaveReview?: (payload: { approval: BlockApproval; manualOutput: string | null }) => void
 }
 
 const blockTypes: BlockType[] = ['text', 'math', 'figure']
+const reviewStates: BlockApproval[] = ['pending', 'approved', 'rejected']
+
+function renderOutputSection(title: string, value: string) {
+  return (
+    <div className="generated-output">
+      <strong>{title}</strong>
+      <pre>{value}</pre>
+    </div>
+  )
+}
 
 export function BlockInspector({
   block,
@@ -25,12 +40,28 @@ export function BlockInspector({
   pageLocked,
   isBusy,
   isConversionMode = false,
+  conversionInstruction = '',
   onApply,
   onDelete,
   onDeleteSelection,
   onDuplicate,
+  onChangeConversionInstruction,
   onConvert,
+  onSaveReview,
 }: BlockInspectorProps) {
+  const [reviewApproval, setReviewApproval] = useState<BlockApproval>('pending')
+  const [manualOutputDraft, setManualOutputDraft] = useState('')
+
+  useEffect(() => {
+    if (!block) {
+      setReviewApproval('pending')
+      setManualOutputDraft('')
+      return
+    }
+    setReviewApproval(block.approval)
+    setManualOutputDraft(block.manual_output ?? '')
+  }, [block])
+
   if (selectedCount > 1) {
     return (
       <aside className="inspector-panel">
@@ -79,6 +110,8 @@ export function BlockInspector({
   }
 
   const geometry = block.geometry
+  const hasOutput = Boolean(block.manual_output?.trim() || block.generated_output?.trim())
+  const reviewIsDirty = reviewApproval !== block.approval || manualOutputDraft !== (block.manual_output ?? '')
 
   return (
     <aside className="inspector-panel">
@@ -116,14 +149,95 @@ export function BlockInspector({
       </label>
 
       {isConversionMode ? (
-        <div className="inspector-section">
-          <h3>Conversion</h3>
-          <div className="button-grid">
-            <button type="button" className="primary-button" disabled={isBusy || !onConvert} onClick={onConvert}>
-              {isBusy ? 'Converting...' : 'Convert'}
-            </button>
+        <>
+          <div className="inspector-section">
+            <h3>Conversion</h3>
+            <label className="field">
+              <span>Instruction</span>
+              <textarea
+                rows={4}
+                value={conversionInstruction}
+                disabled={isBusy}
+                placeholder={
+                  block.block_type === 'math'
+                    ? 'Optional guidance, for example: keep implied multiplication explicit.'
+                    : 'Optional guidance, for example: preserve paragraph breaks and punctuation.'
+                }
+                onChange={(event) => onChangeConversionInstruction?.(event.target.value)}
+              />
+            </label>
+            <p className="selection-hint review-panel-hint">
+              {block.id ? 'Instructions are sent only when you convert this block.' : 'Save the page before converting this block.'}
+            </p>
+            <div className="button-grid">
+              <button type="button" className="primary-button" disabled={isBusy || !onConvert || !block.id} onClick={onConvert}>
+                {isBusy ? 'Converting...' : 'Convert'}
+              </button>
+            </div>
           </div>
-        </div>
+
+          <div className="inspector-section">
+            <h3>Outputs</h3>
+            {block.generated_output?.trim() ? renderOutputSection('Generated output', block.generated_output) : null}
+            {!hasOutput ? (
+              <p className="empty-state">Convert this block to populate extracted text or math for the document preview.</p>
+            ) : null}
+          </div>
+
+          <div className="inspector-section">
+            <h3>Review</h3>
+            <label className="field">
+              <span>Status</span>
+              <select value={reviewApproval} disabled={isBusy || !onSaveReview} onChange={(event) => setReviewApproval(event.target.value as BlockApproval)}>
+                {reviewStates.map((state) => (
+                  <option key={state} value={state}>
+                    {state}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>Manual output</span>
+              <textarea
+                rows={8}
+                value={manualOutputDraft}
+                disabled={isBusy || !onSaveReview}
+                placeholder={block.generated_output?.trim() ? 'Refine the generated output or leave empty to keep it.' : 'Enter a manual transcription for this block.'}
+                onChange={(event) => setManualOutputDraft(event.target.value)}
+              />
+            </label>
+            <p className="selection-hint review-panel-hint">
+              {block.manual_output?.trim()
+                ? 'A saved manual output currently overrides the generated result in the document preview.'
+                : 'Manual output is optional. Leave it empty to use the generated result directly.'}
+            </p>
+            <div className="button-grid">
+              <button
+                type="button"
+                className="secondary-button"
+                disabled={isBusy || !onSaveReview || !reviewIsDirty}
+                onClick={() =>
+                  onSaveReview?.({
+                    approval: reviewApproval,
+                    manualOutput: manualOutputDraft.trim() ? manualOutputDraft.trim() : null,
+                  })}
+              >
+                {isBusy ? 'Saving...' : 'Save Review'}
+              </button>
+            </div>
+          </div>
+
+          {block.warnings.length > 0 ? (
+            <div className="inspector-section">
+              <h3>Warnings</h3>
+              <ul className="warning-list">
+                {block.warnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </>
       ) : (
         <div className="inspector-section">
           <h3>Structure</h3>

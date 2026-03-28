@@ -129,8 +129,8 @@ export interface BlockPatchPayload {
   block_type?: BlockType
   approval?: BlockApproval
   order_index?: number
-  manual_output?: string
-  user_instruction?: string
+  manual_output?: string | null
+  user_instruction?: string | null
 }
 
 export interface PageLayoutBlockPayload {

@@ -26,6 +26,7 @@ export function WorkspacePage() {
     applySelectedBlock,
     blockInspectorBusy,
     canvasRef,
+    conversionInstruction,
     cycleBlockType,
     convertSelectedBlock,
     debugSettings,
@@ -43,6 +44,7 @@ export function WorkspacePage() {
     resetDebugSettings,
     reviewCounts,
     saveActivePage,
+    saveSelectedBlockReview,
     selectedBlock,
     selectedBlockCount,
     selectedBlockIds,
@@ -55,6 +57,7 @@ export function WorkspacePage() {
     toast,
     toolbar,
     updateDebugSetting,
+    updateSelectedBlockInstruction,
     viewportState,
     deleteSelectedBlocks,
     duplicateSelectedBlock,
@@ -97,12 +100,17 @@ export function WorkspacePage() {
       pageLocked={activePageLocked}
       isBusy={blockInspectorBusy}
       isConversionMode={isConversionMode}
+      conversionInstruction={conversionInstruction}
       onApply={applySelectedBlock}
       onDelete={deleteSelectedBlock}
       onDeleteSelection={deleteSelectedBlocks}
       onDuplicate={duplicateSelectedBlock}
+      onChangeConversionInstruction={updateSelectedBlockInstruction}
       onConvert={() => {
         void convertSelectedBlock()
+      }}
+      onSaveReview={(payload) => {
+        void saveSelectedBlockReview(payload)
       }}
     />
   )

@@ -1,5 +1,9 @@
 # Changelog
 
+- Made repo-root `ONEMOON_*` LLM settings override backend-local defaults so the live app can use `.env` for real OpenAI-backed conversion while still falling back to mock output when no provider is configured.
+
+- Added env-configured LLM-backed text/math block generation plus conversion-mode review controls for saving manual output and approval state while keeping the mock provider as the local default.
+
 - Replaced the conversion-mode selected-block `Structure` controls with a real `Convert` button that runs block regeneration and refreshes the document.
 
 - Wired the conversion-mode toggle to auto-save-and-finish on entry and auto-reopen on exit, and removed the standalone workspace `Reopen` action.

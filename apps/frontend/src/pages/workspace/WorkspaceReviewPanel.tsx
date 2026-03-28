@@ -74,6 +74,11 @@ export function WorkspaceReviewPanel({
             const blockKey = draftBlockKey(block)
             const isSelected = selectedBlockIds.includes(blockKey)
             const isPrimarySelected = blockKey === activeBlockId
+            const outputLabel = block.manual_output?.trim()
+              ? 'manual review saved'
+              : block.generated_output?.trim()
+                ? 'generated output ready'
+                : 'awaiting output'
             return (
               <button
                 key={blockKey}
@@ -87,7 +92,7 @@ export function WorkspaceReviewPanel({
                   <strong>
                     #{block.order_index + 1} {block.block_type}
                   </strong>
-                  <p>{block.approval}</p>
+                  <p>{`${block.approval} • ${outputLabel}`}</p>
                 </div>
                 <div className="block-list-status">
                   {isPrimarySelected && selectedBlock ? <span className="selection-chip">focus</span> : null}
