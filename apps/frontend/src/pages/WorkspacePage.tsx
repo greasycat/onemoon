@@ -29,6 +29,7 @@ export function WorkspacePage() {
     documentQuery,
     editorHelperText,
     activeCutCeilingPath,
+    hoveredBlockLabel,
     handleCreateBlock,
     handleUpdateBlock,
     pageDraft,
@@ -44,6 +45,7 @@ export function WorkspacePage() {
     selectedPage,
     selectBlock,
     selectPage,
+    setHoveredBlock,
     setViewportState,
     toast,
     toolbar,
@@ -132,6 +134,7 @@ export function WorkspacePage() {
               onViewportChange={setViewportState}
               onSelectBlock={selectBlock}
               onCycleBlockType={cycleBlockType}
+              onHoveredBlockChange={setHoveredBlock}
               onCreateBlock={handleCreateBlock}
               onUpdateBlock={handleUpdateBlock}
             />
@@ -155,6 +158,7 @@ export function WorkspacePage() {
       {FRONTEND_DEBUG ? (
         <WorkspaceDebugToolbar
           settings={debugSettings}
+          hoveredBlockLabel={hoveredBlockLabel}
           onChange={updateDebugSetting}
           onReset={resetDebugSettings}
         />

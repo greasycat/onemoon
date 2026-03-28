@@ -8,6 +8,7 @@ import {
 
 interface WorkspaceDebugToolbarProps {
   settings: WorkspaceDebugSettings
+  hoveredBlockLabel: string
   onChange: (key: keyof WorkspaceDebugSettings, value: number) => void
   onReset: () => void
 }
@@ -16,7 +17,7 @@ function formatSettingValue(value: number) {
   return value.toFixed(4).replace(/0+$/, '').replace(/\.$/, '')
 }
 
-export function WorkspaceDebugToolbar({ settings, onChange, onReset }: WorkspaceDebugToolbarProps) {
+export function WorkspaceDebugToolbar({ settings, hoveredBlockLabel, onChange, onReset }: WorkspaceDebugToolbarProps) {
   const [isOpen, setIsOpen] = useState(false)
   const dockRef = useRef<HTMLDivElement | null>(null)
   const panelId = useId()
@@ -65,6 +66,13 @@ export function WorkspaceDebugToolbar({ settings, onChange, onReset }: Workspace
             Tune free-form capture in place. Tighter values keep more stroke detail. Looser values close paths and merge
             vertices more aggressively.
           </p>
+
+          <section className="workspace-debug-section" aria-label="Cursor debug">
+            <div className="workspace-debug-indicator-card">
+              <span className="workspace-debug-indicator-label">Hovered block</span>
+              <code>{hoveredBlockLabel}</code>
+            </div>
+          </section>
 
           <section className="workspace-debug-section" aria-label="Drawing controls">
             {WORKSPACE_DEBUG_SETTING_CONFIGS.map((config) => {

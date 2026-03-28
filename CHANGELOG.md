@@ -1,5 +1,7 @@
 # Changelog
 
+- Added a workspace debug hover indicator that shows which block the cursor is currently over inside the edit canvas.
+
 - Added workspace block-type cycling on block double-click and surfaced a picker tip so reviewers can change types faster from the page or review list.
 
 - Made workspace block-type changes apply immediately from the inspector select, so review no longer depends on a separate `Apply To Draft` click.

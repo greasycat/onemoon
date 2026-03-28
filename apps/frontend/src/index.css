@@ -2187,6 +2187,29 @@ button {
   border-top: 1px solid rgba(112, 83, 50, 0.12);
 }
 
+.workspace-debug-indicator-card {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid rgba(112, 83, 50, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 250, 243, 0.74);
+}
+
+.workspace-debug-indicator-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(98, 74, 44, 0.78);
+}
+
+.workspace-debug-indicator-card code {
+  font-size: 0.82rem;
+  color: var(--workspace-ink);
+  word-break: break-word;
+}
+
 .workspace-debug-field {
   display: grid;
   gap: 0.45rem;

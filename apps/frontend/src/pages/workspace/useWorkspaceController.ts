@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import type { DocumentCanvasHandle, CanvasViewportState } from '../../components/DocumentCanvas'
 import type { EditorToolbarProps } from '../../components/EditorToolbar'
@@ -128,6 +128,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
   })
   const [toast, setToast] = useState<WorkspaceToast | null>(null)
   const [debugSettings, setDebugSettings] = useState<WorkspaceDebugSettings>(() => loadWorkspaceDebugSettings())
+  const [hoveredBlockKey, setHoveredBlockKey] = useState<string | null>(null)
   const canvasRef = useRef<DocumentCanvasHandle | null>(null)
   const toastTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
 
@@ -412,6 +413,13 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
       : selectedBlock
         ? `Selected block: #${selectedBlock.order_index + 1} ${selectedBlock.block_type}`
         : 'No block selected'
+  const hoveredBlockLabel = useMemo(() => {
+    if (!hoveredBlockKey || !pageDraft) {
+      return 'Cursor: no block'
+    }
+    const hoveredBlock = pageDraft.blocks.find((block) => draftBlockKey(block) === hoveredBlockKey)
+    return hoveredBlock ? `Cursor: #${hoveredBlock.order_index + 1} ${hoveredBlock.block_type}` : 'Cursor: no block'
+  }, [hoveredBlockKey, pageDraft])
   const reviewActionLabel =
     activeReviewStatus === 'segmented' ? 'Reopen Page' : activeReviewStatus === 'unreviewed' ? 'Start Review' : null
   const canReviewAction = Boolean(reviewActionLabel) && !pageStatusMutation.isPending && !activePageDirty
@@ -434,6 +442,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
 
   function selectPage(pageId: string) {
     setSelectedPageId(pageId)
+    setHoveredBlockKey(null)
     const page = document?.pages.find((candidate) => candidate.id === pageId)
     const firstBlock = page ? (pageDrafts[page.id] ?? pageToDraft(page)).blocks[0] : null
     selectSingleBlock(firstBlock ? draftBlockKey(firstBlock) : null)
@@ -453,6 +462,10 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
   function resetDebugSettings() {
     setDebugSettings({ ...DEFAULT_WORKSPACE_DEBUG_SETTINGS })
   }
+
+  const setHoveredBlock = useCallback((blockId: string | null) => {
+    setHoveredBlockKey(blockId)
+  }, [])
 
   function collectDirtyDrafts(pageIds?: string[]) {
     const allowedPageIds = pageIds ? new Set(pageIds) : null
@@ -905,10 +918,12 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     selectedBlockCount: activeSelectedBlockKeys.length,
     selectedBlockKey: activeBlockId,
     selectedBlockLabel,
+    hoveredBlockLabel,
     selectedPage,
     selectPage,
     selectBlock,
     cycleBlockType,
+    setHoveredBlock,
     setActiveTool,
     setViewportState,
     toast,

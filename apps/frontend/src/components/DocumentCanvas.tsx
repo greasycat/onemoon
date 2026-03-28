@@ -106,6 +106,7 @@ interface DocumentCanvasProps {
   onViewportChange: (viewport: CanvasViewportState) => void
   onSelectBlock: (blockId: string | null, mode?: BlockSelectionMode) => void
   onCycleBlockType: (blockId: string) => void
+  onHoveredBlockChange: (blockId: string | null) => void
   onCreateBlock: (payload: {
     shape_type: BlockShapeType
     geometry: BlockGeometry
@@ -733,6 +734,7 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
     onViewportChange,
     onSelectBlock,
     onCycleBlockType,
+    onHoveredBlockChange,
     onCreateBlock,
     onUpdateBlock,
   },
@@ -1088,6 +1090,10 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
     }
   }, [isPanning, onViewportChange, viewport])
 
+  useEffect(() => {
+    onHoveredBlockChange(null)
+  }, [onHoveredBlockChange, page.id])
+
   const draftRectGeometry =
     interaction?.kind === 'rect-create'
       ? normalizeGeometry(interaction.start, interaction.current, interaction.settings.minBlockSize)
@@ -1172,6 +1178,14 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
             style={{
               width: `${page.width * viewport.zoom}px`,
               height: `${page.height * viewport.zoom}px`,
+            }}
+            onPointerLeave={() => {
+              onHoveredBlockChange(null)
+            }}
+            onPointerMove={(event) => {
+              const point = pointerToRelative(event, event.currentTarget)
+              const hoveredBlock = findTopmostBlockAtPoint(blocks, point)
+              onHoveredBlockChange(hoveredBlock ? draftBlockKey(hoveredBlock) : null)
             }}
             onPointerDown={(event) => {
               if (spacePressed || event.button === 1) {
