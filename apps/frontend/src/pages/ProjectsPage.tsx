@@ -43,8 +43,8 @@ export function ProjectsPage() {
   })
 
   return (
-    <main className="page-shell">
-      <section className="hero-panel">
+    <main className="page-shell projects-dashboard">
+      <section className="hero-panel projects-dashboard-hero">
         <div>
           <p className="eyebrow">Workspace</p>
           <h1>Manage notebooks and send pages into review.</h1>
@@ -54,8 +54,8 @@ export function ProjectsPage() {
         </p>
       </section>
 
-      <section className="two-column-layout">
-        <div className="panel">
+      <section className="two-column-layout projects-dashboard-grid">
+        <div className="panel projects-dashboard-panel projects-dashboard-panel-projects">
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Projects</p>
@@ -117,7 +117,7 @@ export function ProjectsPage() {
           </div>
         </div>
 
-        <div className="panel">
+        <div className="panel projects-dashboard-panel projects-dashboard-panel-upload">
           <div className="panel-heading">
             <div>
               <p className="eyebrow">Upload</p>

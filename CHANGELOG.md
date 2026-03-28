@@ -1,5 +1,7 @@
 # Changelog
 
+- Fixed the projects dashboard foreground/background contrast by scoping workspace-style warm surfaces, controls, and status colors to the dashboard without changing the workspace view.
+
 - Documented the repo rule that each completed round of work should land in its own conventional commit.
 
 - Tightened the workspace gap under the shared top bar and added a top-bar back link to return to the projects view.

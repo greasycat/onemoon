@@ -1035,6 +1035,156 @@ button {
   margin: 0;
 }
 
+.projects-dashboard {
+  position: relative;
+  color: var(--workspace-ink);
+}
+
+.projects-dashboard::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 14% 16%, rgba(255, 244, 223, 0.42), transparent 24%),
+    radial-gradient(circle at 84% 18%, rgba(227, 241, 234, 0.34), transparent 20%),
+    linear-gradient(180deg, rgba(255, 250, 242, 0.16), transparent 34%);
+  opacity: 0.88;
+}
+
+.projects-dashboard > * {
+  position: relative;
+  z-index: 1;
+}
+
+.projects-dashboard-hero,
+.projects-dashboard-panel {
+  border-color: var(--workspace-line);
+  box-shadow: var(--workspace-shadow);
+  background:
+    linear-gradient(180deg, rgba(255, 253, 248, 0.98), rgba(248, 241, 230, 0.88));
+  backdrop-filter: blur(18px);
+}
+
+.projects-dashboard-hero {
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.projects-dashboard-grid {
+  align-items: start;
+}
+
+.projects-dashboard-panel {
+  color: var(--workspace-ink);
+}
+
+.projects-dashboard .panel-heading h2,
+.projects-dashboard .hero-panel h1,
+.projects-dashboard .project-card h3 {
+  font-family: 'Space Grotesk', 'Avenir Next', 'Segoe UI', sans-serif;
+  letter-spacing: -0.03em;
+  color: var(--workspace-ink);
+}
+
+.projects-dashboard .eyebrow,
+.projects-dashboard .field span {
+  color: rgba(121, 86, 49, 0.84);
+}
+
+.projects-dashboard .lede,
+.projects-dashboard .muted-text,
+.projects-dashboard .project-card-action,
+.projects-dashboard .document-list a span:first-child {
+  color: var(--workspace-muted);
+}
+
+.projects-dashboard .field input,
+.projects-dashboard .field select,
+.projects-dashboard .field textarea {
+  background: rgba(255, 252, 246, 0.9);
+  border-color: rgba(97, 71, 46, 0.14);
+  color: var(--workspace-ink);
+}
+
+.projects-dashboard .field input::file-selector-button {
+  border: 1px solid rgba(97, 71, 46, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 248, 238, 0.92);
+  color: var(--workspace-ink);
+  margin-right: 0.75rem;
+  padding: 0.35rem 0.75rem;
+}
+
+.projects-dashboard .primary-button {
+  color: #fff7f2;
+  box-shadow: 0 14px 28px rgba(189, 92, 56, 0.2);
+}
+
+.projects-dashboard .primary-button:disabled {
+  box-shadow: none;
+}
+
+.projects-dashboard .project-card {
+  border-color: rgba(106, 78, 50, 0.12);
+  background:
+    linear-gradient(180deg, rgba(255, 252, 246, 0.92), rgba(247, 240, 230, 0.84));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.52),
+    0 10px 22px rgba(90, 66, 34, 0.06);
+}
+
+.projects-dashboard .project-card-active {
+  border-color: rgba(185, 102, 67, 0.36);
+  background:
+    linear-gradient(180deg, rgba(255, 244, 237, 0.98), rgba(250, 234, 223, 0.88));
+}
+
+.projects-dashboard .project-card-head h3 {
+  margin: 0;
+}
+
+.projects-dashboard .document-list a {
+  border: 1px solid rgba(97, 71, 46, 0.1);
+  background: rgba(248, 241, 230, 0.76);
+  color: var(--workspace-ink);
+}
+
+.projects-dashboard .document-list a:hover {
+  border-color: rgba(153, 94, 61, 0.24);
+  background: rgba(250, 239, 226, 0.9);
+}
+
+.projects-dashboard .status-chip {
+  border: 1px solid rgba(89, 63, 36, 0.08);
+}
+
+.projects-dashboard .status-pending,
+.projects-dashboard .status-uploaded {
+  background: rgba(235, 178, 82, 0.18);
+  color: #865100;
+}
+
+.projects-dashboard .status-review,
+.projects-dashboard .status-completed,
+.projects-dashboard .status-approved {
+  background: rgba(61, 132, 107, 0.14);
+  color: #225b46;
+}
+
+.projects-dashboard .status-rendering,
+.projects-dashboard .status-segmenting,
+.projects-dashboard .status-compiling {
+  background: rgba(77, 123, 191, 0.14);
+  color: #22497a;
+}
+
+.projects-dashboard .status-failed,
+.projects-dashboard .status-rejected {
+  background: rgba(177, 73, 59, 0.12);
+  color: #8d372d;
+}
+
 .workspace-shell {
   position: relative;
   padding-top: 0.75rem;
