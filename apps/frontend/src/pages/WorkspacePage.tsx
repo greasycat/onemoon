@@ -45,6 +45,7 @@ export function WorkspacePage() {
     viewportState,
     deleteSelectedBlocks,
     duplicateSelectedBlock,
+    isResolvingDocumentCreation,
   } = useWorkspaceController(documentId)
 
   const filenameStem = useMemo(() => {
@@ -55,7 +56,7 @@ export function WorkspacePage() {
     return extensionIndex > 0 ? document.filename.slice(0, extensionIndex) : document.filename
   }, [document?.filename])
 
-  if (documentQuery.isLoading) {
+  if (documentQuery.isLoading || isResolvingDocumentCreation) {
     return (
       <main className="page-shell">
         <div className="panel">Loading workspace…</div>

@@ -42,6 +42,7 @@ import {
 } from '../../lib/workspaceDebug'
 
 const POLLABLE_STATUSES = new Set(['uploaded', 'rendering', 'segmenting'])
+const DOCUMENT_CREATION_GRACE_MS = 20_000
 const LAYOUT_BACKUP_KEY_PREFIX = 'onemoon:layout-backup'
 const TOOL_SHORTCUTS: Record<string, 'select' | 'rect' | 'freeform' | 'cut'> = {
   c: 'cut',
@@ -74,6 +75,10 @@ function hasMatchingGeometry(current: BlockGeometry, next: BlockGeometry) {
 }
 
 const EMPTY_PAGE_ACTION_MESSAGE = 'Nothing is created.'
+
+function isDocumentPendingCreationError(error: unknown) {
+  return error instanceof Error && (error.message === 'Document not found' || error.message === 'Not Found')
+}
 
 function normalizeSelectedBlockKeys(pageDraft: DraftPageLayout | null, selectedBlockKeys: string[] | null | undefined) {
   if (selectedBlockKeys === null) {
@@ -115,15 +120,26 @@ export function useWorkspaceController(documentId: string) {
   const [toast, setToast] = useState<WorkspaceToast | null>(null)
   const [debugSettings, setDebugSettings] = useState<WorkspaceDebugSettings>(() => loadWorkspaceDebugSettings())
   const canvasRef = useRef<DocumentCanvasHandle | null>(null)
+  const documentResolveStartedAtRef = useRef(Date.now())
   const toastTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
+  const [documentCreationTimedOut, setDocumentCreationTimedOut] = useState(false)
 
   const documentQuery = useQuery({
     queryKey: ['document', token, documentId],
     queryFn: () => api.getDocument(token!, documentId),
     enabled: Boolean(token && documentId),
+    retry: (failureCount, error) => {
+      if (!isDocumentPendingCreationError(error)) {
+        return failureCount < 1
+      }
+      return Date.now() - documentResolveStartedAtRef.current < DOCUMENT_CREATION_GRACE_MS
+    },
     refetchInterval: (query) => {
       const document = query.state.data as DocumentDetailResponse | undefined
-      return document && POLLABLE_STATUSES.has(document.status) ? 2000 : false
+      if (document && POLLABLE_STATUSES.has(document.status)) {
+        return 2000
+      }
+      return isDocumentPendingCreationError(query.state.error) ? 2000 : false
     },
   })
 
@@ -134,6 +150,10 @@ export function useWorkspaceController(documentId: string) {
   })
 
   const document = documentQuery.data
+  const isResolvingDocumentCreation =
+    !documentCreationTimedOut &&
+    !document &&
+    isDocumentPendingCreationError(documentQuery.error)
   const projectName = useMemo(
     () => projectsQuery.data?.find((project) => project.id === document?.project_id)?.name ?? '',
     [document?.project_id, projectsQuery.data],
@@ -302,6 +322,28 @@ export function useWorkspaceController(documentId: string) {
     }
     window.localStorage.setItem(storageKey, JSON.stringify(payload))
   }
+
+  useEffect(() => {
+    documentResolveStartedAtRef.current = Date.now()
+    setDocumentCreationTimedOut(false)
+  }, [documentId])
+
+  useEffect(() => {
+    if (!isResolvingDocumentCreation) {
+      return
+    }
+    const remaining = DOCUMENT_CREATION_GRACE_MS - (Date.now() - documentResolveStartedAtRef.current)
+    if (remaining <= 0) {
+      setDocumentCreationTimedOut(true)
+      return
+    }
+    const timeoutId = window.setTimeout(() => {
+      setDocumentCreationTimedOut(true)
+    }, remaining)
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [isResolvingDocumentCreation])
 
   useEffect(() => {
     return () => {
@@ -726,6 +768,7 @@ export function useWorkspaceController(documentId: string) {
     debugSettings,
     document,
     documentQuery,
+    isResolvingDocumentCreation,
     editorHelperText,
     activeCutCeilingPath,
     handleCreateBlock,

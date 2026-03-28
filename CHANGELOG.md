@@ -1,5 +1,7 @@
 # Changelog
 
+- Kept newly-uploaded workspace routes in a loading state while the backend finishes creating large documents, instead of flashing `Document not found.` during the initial handoff.
+
 - Removed the dashboard upload side panel and moved upload actions into each workspace row so files can be sent to review directly beside the folder name.
 
 - Moved the workspace top-bar `Back to projects` link below the app name so the brand stack reads title-first.
