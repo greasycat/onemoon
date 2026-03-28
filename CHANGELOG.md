@@ -1,5 +1,7 @@
 # Changelog
 
+- Restored more natural non-conversion canvas wheel feel by letting the browser handle vertical scrolling first and only falling back to manual workspace scroll routing when native scrolling does not move anything.
+
 - Fixed non-conversion workspace canvas wheel scrolling by routing mouse-wheel input to the nearest scrollable workspace container instead of the document root, so zoomed canvases scroll again under the cursor.
 
 - Routed wheel scrolling on the non-conversion canvas surface back to the page scroll so the review workspace scrolls even when the cursor is over the image instead of only over floating overlays.

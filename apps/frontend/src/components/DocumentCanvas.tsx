@@ -128,6 +128,25 @@ function isScrollableOnY(element: HTMLElement) {
   return element.scrollHeight - element.clientHeight > WHEEL_SCROLL_EPSILON
 }
 
+function getScrollableAncestors(start: HTMLElement | null) {
+  const ancestors: HTMLElement[] = []
+  let current = start
+
+  while (current) {
+    if (isScrollableOnY(current)) {
+      ancestors.push(current)
+    }
+    current = current.parentElement
+  }
+
+  const scrollingElement = document.scrollingElement
+  if (scrollingElement instanceof HTMLElement && !ancestors.includes(scrollingElement)) {
+    ancestors.push(scrollingElement)
+  }
+
+  return ancestors
+}
+
 function scrollElementByDeltaY(element: HTMLElement, deltaY: number) {
   const maxScrollTop = element.scrollHeight - element.clientHeight
   if (maxScrollTop <= WHEEL_SCROLL_EPSILON) {
@@ -144,20 +163,8 @@ function scrollElementByDeltaY(element: HTMLElement, deltaY: number) {
 }
 
 function scrollNearestScrollableAncestor(start: HTMLElement | null, deltaY: number) {
-  let current = start
-  while (current) {
-    if (isScrollableOnY(current) && scrollElementByDeltaY(current, deltaY)) {
-      return true
-    }
-    current = current.parentElement
-  }
-
-  const scrollingElement = document.scrollingElement
-  if (scrollingElement instanceof HTMLElement) {
-    return scrollElementByDeltaY(scrollingElement, deltaY)
-  }
-
-  return false
+  const scrollableAncestors = getScrollableAncestors(start)
+  return scrollableAncestors.some((element) => scrollElementByDeltaY(element, deltaY))
 }
 
 function normalizeGeometry(start: CanvasPoint, end: CanvasPoint, minBlockSize: number): BlockGeometry {
@@ -1190,9 +1197,22 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
               return
             }
 
-            if (scrollNearestScrollableAncestor(event.currentTarget, event.deltaY)) {
-              event.preventDefault()
-            }
+            const viewportElement = event.currentTarget
+            const deltaY = event.deltaY
+            const scrollableAncestors = getScrollableAncestors(viewportElement)
+            const previousScrollTops = scrollableAncestors.map((element) => ({
+              element,
+              scrollTop: element.scrollTop,
+            }))
+
+            window.requestAnimationFrame(() => {
+              const didNativeScroll = previousScrollTops.some(
+                ({ element, scrollTop }) => Math.abs(element.scrollTop - scrollTop) > WHEEL_SCROLL_EPSILON,
+              )
+              if (!didNativeScroll) {
+                scrollNearestScrollableAncestor(viewportElement, deltaY)
+              }
+            })
           }}
           onContextMenu={(event) => {
             event.preventDefault()

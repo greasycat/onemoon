@@ -2517,6 +2517,7 @@ button {
     var(--canvas-bg);
   height: 100%;
   min-height: clamp(420px, 70vh, 920px);
+  overscroll-behavior-y: auto;
   padding: 6.25rem 1.1rem 1.1rem;
 }
 
