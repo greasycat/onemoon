@@ -1,5 +1,7 @@
 # Changelog
 
+- Fixed workspace `100%` / fit-page zoom so it measures the unobscured canvas area between the floating overlay rails instead of the raw viewport box, keeping the full page visible again after the layout changes.
+
 - Switched the workspace conversion grid to a `1 / 2 / 2` column ratio and removed the extra canvas-shell shrink so sizing now comes from the layout columns instead of a fixed shell cap.
 
 - Rebalanced the workspace conversion layout so the block list and selected-block panel stack on the left, the document preview stays on the right, and the canvas shell renders smaller in conversion mode.

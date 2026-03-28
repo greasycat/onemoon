@@ -740,6 +740,8 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
 ) {
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const surfaceRef = useRef<HTMLDivElement | null>(null)
+  const overlayStackRef = useRef<HTMLDivElement | null>(null)
+  const sideOverlayRef = useRef<HTMLDivElement | null>(null)
   const toastTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
   const [interaction, setInteraction] = useState<InteractionState | null>(null)
   const [localToast, setLocalToast] = useState<DocumentCanvasProps['toast']>(null)
@@ -794,7 +796,58 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
   }
 
   function computeFitPageZoom() {
-    return computeFitZoom('fit-page')
+    const viewportElement = viewportRef.current
+    if (!viewportElement) {
+      return 1
+    }
+
+    const viewportRect = viewportElement.getBoundingClientRect()
+    const computedStyle = window.getComputedStyle(viewportElement)
+    const paddingLeft = Number.parseFloat(computedStyle.paddingLeft) || 0
+    const paddingRight = Number.parseFloat(computedStyle.paddingRight) || 0
+    const paddingTop = Number.parseFloat(computedStyle.paddingTop) || 0
+    const paddingBottom = Number.parseFloat(computedStyle.paddingBottom) || 0
+
+    const contentWidth = Math.max(1, viewportElement.clientWidth - paddingLeft - paddingRight)
+    const contentHeight = Math.max(1, viewportElement.clientHeight - paddingTop - paddingBottom)
+    const contentLeft = viewportRect.left + paddingLeft
+    const contentRight = viewportRect.right - paddingRight
+    const contentTop = viewportRect.top + paddingTop
+    const contentBottom = viewportRect.bottom - paddingBottom
+
+    let leftObstruction = 0
+    let rightObstruction = 0
+
+    const overlayEntries: Array<{ element: HTMLDivElement | null; side: 'left' | 'right' }> = [
+      { element: overlayStackRef.current, side: 'left' },
+      { element: sideOverlayRef.current, side: 'right' },
+    ]
+
+    for (const entry of overlayEntries) {
+      if (!entry.element) {
+        continue
+      }
+
+      const overlayRect = entry.element.getBoundingClientRect()
+      if (overlayRect.width <= 0 || overlayRect.height <= 0) {
+        continue
+      }
+
+      const verticalOverlap = Math.min(overlayRect.bottom, contentBottom) - Math.max(overlayRect.top, contentTop)
+      if (verticalOverlap <= 0) {
+        continue
+      }
+
+      if (entry.side === 'left') {
+        leftObstruction = Math.max(leftObstruction, Math.max(0, Math.min(contentRight, overlayRect.right) - contentLeft))
+      } else {
+        rightObstruction = Math.max(rightObstruction, Math.max(0, contentRight - Math.max(contentLeft, overlayRect.left)))
+      }
+    }
+
+    const widthZoom = Math.max(1, contentWidth - leftObstruction - rightObstruction) / page.width
+    const heightZoom = contentHeight / page.height
+    return clamp(Math.min(widthZoom, heightZoom), MIN_ZOOM, MAX_ZOOM)
   }
 
   function computeFitZoom(mode: Exclude<CanvasViewMode, 'manual'>) {
@@ -802,9 +855,18 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
     if (!viewportElement) {
       return 1
     }
-    const widthZoom = viewportElement.clientWidth / page.width
-    const heightZoom = viewportElement.clientHeight / page.height
-    const nextZoom = mode === 'fit-width' ? widthZoom : Math.min(widthZoom, heightZoom)
+
+    const computedStyle = window.getComputedStyle(viewportElement)
+    const paddingLeft = Number.parseFloat(computedStyle.paddingLeft) || 0
+    const paddingRight = Number.parseFloat(computedStyle.paddingRight) || 0
+    const paddingTop = Number.parseFloat(computedStyle.paddingTop) || 0
+    const paddingBottom = Number.parseFloat(computedStyle.paddingBottom) || 0
+    const contentWidth = Math.max(1, viewportElement.clientWidth - paddingLeft - paddingRight)
+    const contentHeight = Math.max(1, viewportElement.clientHeight - paddingTop - paddingBottom)
+
+    const widthZoom = contentWidth / page.width
+    const heightZoom = contentHeight / page.height
+    const nextZoom = mode === 'fit-width' ? widthZoom : Math.min(computeFitPageZoom(), heightZoom)
     return clamp(nextZoom, MIN_ZOOM, MAX_ZOOM)
   }
 
@@ -873,10 +935,16 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
     })
 
     observer.observe(viewportElement)
+    if (overlayStackRef.current) {
+      observer.observe(overlayStackRef.current)
+    }
+    if (sideOverlayRef.current) {
+      observer.observe(sideOverlayRef.current)
+    }
     return () => {
       observer.disconnect()
     }
-  }, [onViewportChange, page.height, page.width])
+  }, [blockInfoPanel, blockListPanel, onViewportChange, page.height, page.width, toolbar])
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -1151,11 +1219,15 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
   return (
     <section className={`canvas-panel canvas-panel-embedded ${toolbar ? '' : 'canvas-panel-toolbar-hidden'}`}>
       <div className="canvas-stage">
-        <div className={`canvas-overlay-stack ${toolbar ? '' : 'canvas-overlay-stack-toolbar-hidden'}`.trim()}>
+        <div className={`canvas-overlay-stack ${toolbar ? '' : 'canvas-overlay-stack-toolbar-hidden'}`.trim()} ref={overlayStackRef}>
           {toolbar ? <EditorToolbar {...toolbar} /> : null}
           {blockListPanel ? <div className="canvas-block-list-overlay">{blockListPanel}</div> : null}
         </div>
-        {blockInfoPanel ? <div className="canvas-side-overlay">{blockInfoPanel}</div> : null}
+        {blockInfoPanel ? (
+          <div className="canvas-side-overlay" ref={sideOverlayRef}>
+            {blockInfoPanel}
+          </div>
+        ) : null}
         {activeToast ? (
           <div
             className={`canvas-toast canvas-toast-${activeToast.tone}`}
