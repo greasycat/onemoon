@@ -8,6 +8,7 @@
 
 ## Version Control
 
+- Commit for every round of change.
 - Use conventional commit messages.
 - Keep `CHANGELOG.md` updated with a short developer-facing summary for each completed change.
 - Prefer working on feature branches for substantial changes.

@@ -1,5 +1,7 @@
 # Changelog
 
+- Documented the repo rule that each completed round of work should land in its own conventional commit.
+
 - Tightened the workspace gap under the shared top bar and added a top-bar back link to return to the projects view.
 
 - Prevented page overscroll chaining with contained workspace scrollers plus a document-level wheel/touch fallback, so hitting the end of a page no longer leaks into extra browser or parent-page scrolling.
