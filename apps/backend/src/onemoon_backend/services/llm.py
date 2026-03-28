@@ -129,7 +129,8 @@ def _prepare_llm_image(image_path: Path) -> PreparedLLMImage:
         with Image.open(BytesIO(image_bytes)) as image:
             rgba_image = image.convert("RGBA")
             alpha_channel = rgba_image.getchannel("A")
-            if alpha_channel.getbbox() and alpha_channel.getbbox() != (0, 0, rgba_image.width, rgba_image.height):
+            alpha_extrema = alpha_channel.getextrema()
+            if alpha_extrema and alpha_extrema[0] < 255:
                 flattened = Image.new("RGB", rgba_image.size, "white")
                 flattened.paste(rgba_image, mask=alpha_channel)
                 buffer = BytesIO()

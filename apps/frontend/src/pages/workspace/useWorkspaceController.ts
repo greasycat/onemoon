@@ -17,6 +17,7 @@ import {
   isPolygonBlock,
   nudgeGeometry,
   pageToDraft,
+  toDraftBlock,
   reorderDraftBlock,
   toPageLayoutPayload,
   translateVertices,
@@ -309,7 +310,41 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
   }
 
   async function refreshDocument() {
-    await queryClient.invalidateQueries({ queryKey: ['document', token, documentId] })
+    if (!token) {
+      return undefined
+    }
+    return queryClient.fetchQuery({
+      queryKey: ['document', token, documentId],
+      queryFn: () => api.getDocument(token, documentId),
+    })
+  }
+
+  function syncConvertedBlock(nextDocument: DocumentDetailResponse | undefined, pageId: string, blockId: string) {
+    const nextPage = nextDocument?.pages.find((page) => page.id === pageId)
+    const nextBlock = nextPage?.blocks.find((block) => block.id === blockId)
+    if (!nextPage || !nextBlock) {
+      return
+    }
+
+    setPageDrafts((current) => {
+      const draft = current[pageId]
+      if (!draft) {
+        return current
+      }
+
+      const nextBlocks = draft.blocks.map((block) =>
+        block.id === blockId ? { ...toDraftBlock(nextBlock), client_id: block.client_id } : block,
+      )
+      return {
+        ...current,
+        [pageId]: {
+          ...draft,
+          review_status: nextPage.review_status,
+          layout_version: nextPage.layout_version,
+          blocks: nextBlocks,
+        },
+      }
+    })
   }
 
   function showToast(nextToast: WorkspaceToast, autoHide = true) {
@@ -698,12 +733,17 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     showToast({ tone: 'saving', message: `Generating block #${selectedBlock.order_index + 1}…` }, false)
 
     try {
+      const selectedBlockId = selectedBlock.id
+      const selectedPageId = selectedPage?.id ?? null
       const completedJob = await regenerateBlockMutation.mutateAsync({
-        blockId: selectedBlock.id,
+        blockId: selectedBlockId,
         instruction: selectedBlockInstruction,
         saveMaskedCropToTmp: debugSettings.saveMaskedCropToTmp,
       })
-      await refreshDocument()
+      const nextDocument = await refreshDocument()
+      if (selectedPageId) {
+        syncConvertedBlock(nextDocument, selectedPageId, selectedBlockId)
+      }
       const debugMaskedCropPath =
         typeof completedJob.payload.debug_masked_crop_path === 'string'
           ? completedJob.payload.debug_masked_crop_path

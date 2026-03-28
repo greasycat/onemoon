@@ -230,6 +230,23 @@ def test_read_image_data_url_flattens_transparent_surround_to_white(tmp_path: Pa
     assert flattened.getpixel((12, 10)) == (0, 0, 0)
 
 
+def test_read_image_data_url_flattens_full_bounds_transparency_to_white(tmp_path: Path) -> None:
+    llm_module = importlib.import_module("onemoon_backend.services.llm")
+    image_path = tmp_path / "masked-block-full-bounds.png"
+
+    image = Image.new("RGBA", (24, 24), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.polygon([(12, 0), (23, 12), (12, 23), (0, 12)], fill=(0, 0, 0, 255))
+    image.save(image_path)
+
+    data_url = llm_module._read_image_data_url(image_path)
+    encoded = data_url.split(",", 1)[1]
+    flattened = Image.open(BytesIO(b64decode(encoded))).convert("RGB")
+
+    assert flattened.getpixel((0, 0)) == (255, 255, 255)
+    assert flattened.getpixel((12, 12)) == (0, 0, 0)
+
+
 def test_mock_adapter_saves_prepared_debug_crop_when_requested(tmp_path: Path) -> None:
     llm_module = importlib.import_module("onemoon_backend.services.llm")
     image_path = tmp_path / "masked-block.png"
