@@ -254,7 +254,10 @@ button {
   margin-top: 1.5rem;
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   gap: 1rem;
+  height: 100%;
+  min-height: 0;
 }
 
 .workspace-loading-shell {
@@ -294,19 +297,25 @@ button {
 
 .workspace-main {
   display: grid;
+  grid-template-rows: minmax(0, 1fr);
   gap: 1rem;
+  height: 100%;
   min-height: 0;
+  overflow: hidden;
 }
 
 .workspace-main-layout {
   display: grid;
   grid-template-columns: 1fr;
+  grid-template-rows: minmax(0, 1fr);
   gap: 1rem;
+  height: 100%;
   min-height: 0;
   min-width: 0;
   width: 100%;
   max-width: 100%;
   align-items: stretch;
+  overflow: hidden;
 }
 
 .workspace-sidepanels {
@@ -484,6 +493,11 @@ button {
 .page-list {
   display: grid;
   gap: 0.75rem;
+}
+
+.page-list {
+  min-height: 0;
+  overflow: auto;
 }
 
 .progress-summary {
@@ -1790,7 +1804,6 @@ button {
   position: relative;
   z-index: 1;
   margin-top: 0.5rem;
-  min-height: 100%;
   align-items: stretch;
 }
 
@@ -1798,11 +1811,15 @@ button {
 .workspace-sidepanels {
   min-width: 0;
   min-height: 0;
-  align-content: start;
+  align-content: stretch;
 }
 
 .page-sidebar {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   padding: 1.1rem;
 }
 
@@ -1881,7 +1898,8 @@ button {
 .editor-workbench {
   display: grid;
   gap: 1rem;
-  min-height: 100%;
+  height: 100%;
+  min-height: 0;
   min-width: 0;
   width: 100%;
   max-width: 100%;
@@ -1928,7 +1946,8 @@ button {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
   gap: 0.9rem;
-  align-items: start;
+  height: 100%;
+  align-items: stretch;
   min-height: 0;
   min-width: 0;
   width: 100%;
@@ -1941,8 +1960,9 @@ button {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 2fr);
   gap: 0.9rem;
+  height: 100%;
   min-height: 0;
-  align-items: start;
+  align-items: stretch;
 }
 
 .editor-workbench-canvas-shell,
