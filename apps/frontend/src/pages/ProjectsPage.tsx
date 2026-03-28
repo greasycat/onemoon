@@ -1,11 +1,15 @@
 import {
   ArrowRight,
   CheckCircle2,
+  ChevronRight,
   Clock3,
+  FileText,
   FileUp,
+  Folder,
   FolderOpen,
   FolderPlus,
   LayoutGrid,
+  Trash2,
   Upload,
 } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -87,6 +91,7 @@ export function ProjectsPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [createErrorMessage, setCreateErrorMessage] = useState<string | null>(null)
   const [uploadErrorMessage, setUploadErrorMessage] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<{ type: 'project' | 'document'; id: string } | null>(null)
 
   const projectsQuery = useQuery({
     queryKey: ['projects', token],
@@ -104,6 +109,23 @@ export function ProjectsPage() {
     },
     onError: (error: Error) => {
       setCreateErrorMessage(error.message)
+    },
+  })
+
+  const deleteProjectMutation = useMutation({
+    mutationFn: (projectId: string) => api.deleteProject(token!, projectId),
+    onSuccess: async () => {
+      setPendingDelete(null)
+      setSelectedProjectId('')
+      await queryClient.invalidateQueries({ queryKey: ['projects', token] })
+    },
+  })
+
+  const deleteDocumentMutation = useMutation({
+    mutationFn: (documentId: string) => api.deleteDocument(token!, documentId),
+    onSuccess: async () => {
+      setPendingDelete(null)
+      await queryClient.invalidateQueries({ queryKey: ['projects', token] })
     },
   })
 
@@ -148,74 +170,54 @@ export function ProjectsPage() {
 
   return (
     <main className="page-shell projects-dashboard">
-      <section className="panel projects-dashboard-hero">
-        <div className="projects-dashboard-hero-copy">
+      <header className="projects-dashboard-header">
+        <div className="projects-dashboard-header-title">
           <p className="eyebrow">Dashboard</p>
-          <h1>Upload fast. Review cleanly. Re-enter work instantly.</h1>
-          <p className="lede">
-            Keep notebooks separated by workspace, route the next file into the right queue, and reopen the latest review session without scanning clutter.
-          </p>
-          <div className="projects-dashboard-pill-row">
-            <span className="projects-dashboard-pill">Projects {projects.length}</span>
-            <span className="projects-dashboard-pill">In review {reviewDocuments}</span>
-            <span className="projects-dashboard-pill">Completed {completedDocuments}</span>
+          <h1>Your workspaces</h1>
+        </div>
+        <div className="projects-dashboard-header-actions">
+          <div className="projects-dashboard-meta-row" aria-label="Dashboard summary">
+            <span className="projects-dashboard-meta-item">
+              <LayoutGrid aria-hidden="true" />
+              {projects.length} workspaces
+            </span>
+            <span className="projects-dashboard-meta-item">
+              <FileUp aria-hidden="true" />
+              {totalDocuments} uploads
+            </span>
+            <span className="projects-dashboard-meta-item">
+              <Clock3 aria-hidden="true" />
+              {processingDocuments + reviewDocuments} active
+            </span>
+            <span className="projects-dashboard-meta-item">
+              <CheckCircle2 aria-hidden="true" />
+              {completedDocuments} done
+            </span>
           </div>
           {latestDocument ? (
             <Link className="secondary-button projects-dashboard-link-button" to={`/documents/${latestDocument.document.id}`}>
-              <span>Open latest document</span>
+              <span>Open latest</span>
               <ArrowRight className="button-inline-icon" aria-hidden="true" />
             </Link>
           ) : null}
         </div>
-
-        <div className="projects-dashboard-stat-grid" aria-label="Dashboard summary">
-          <article className="projects-dashboard-stat-card">
-            <div className="projects-dashboard-stat-icon">
-              <LayoutGrid aria-hidden="true" />
-            </div>
-            <strong>{projects.length}</strong>
-            <span>workspaces</span>
-          </article>
-          <article className="projects-dashboard-stat-card">
-            <div className="projects-dashboard-stat-icon">
-              <FileUp aria-hidden="true" />
-            </div>
-            <strong>{totalDocuments}</strong>
-            <span>uploads tracked</span>
-          </article>
-          <article className="projects-dashboard-stat-card">
-            <div className="projects-dashboard-stat-icon">
-              <Clock3 aria-hidden="true" />
-            </div>
-            <strong>{processingDocuments + reviewDocuments}</strong>
-            <span>active queue</span>
-          </article>
-          <article className="projects-dashboard-stat-card">
-            <div className="projects-dashboard-stat-icon">
-              <CheckCircle2 aria-hidden="true" />
-            </div>
-            <strong>{completedDocuments}</strong>
-            <span>completed</span>
-          </article>
-        </div>
-      </section>
+      </header>
 
       <section className="projects-dashboard-layout">
         <div className="projects-dashboard-main">
-          <section className="panel projects-dashboard-create-panel">
+          <section className="panel projects-dashboard-library-panel">
             <div className="panel-heading projects-dashboard-section-heading">
               <div>
-                <p className="eyebrow">Workspace setup</p>
-                <h2>Create a new notebook lane</h2>
+                <p className="eyebrow">Library</p>
+                <h2>Workspaces</h2>
               </div>
-              <div className="projects-dashboard-inline-meta">
-                <FolderPlus aria-hidden="true" />
-                <span>Reusable grouping for future uploads and review sessions.</span>
-              </div>
+              <p className="muted-text">
+                {activeProject ? `Active: ${activeProject.name}` : 'Create a workspace to begin.'}
+              </p>
             </div>
 
             <form
-              className="projects-dashboard-create-form"
+              className="projects-dashboard-create-bar"
               onSubmit={(event) => {
                 event.preventDefault()
                 setCreateErrorMessage(null)
@@ -223,7 +225,7 @@ export function ProjectsPage() {
               }}
             >
               <label className="field">
-                <span>Name</span>
+                <span>New workspace</span>
                 <input
                   name="projectName"
                   autoComplete="off"
@@ -232,80 +234,130 @@ export function ProjectsPage() {
                   onChange={(event) => setProjectName(event.target.value)}
                 />
               </label>
-              <button type="submit" className="primary-button" disabled={createProjectMutation.isPending || !projectName.trim()}>
-                {createProjectMutation.isPending ? 'Creating…' : 'Create workspace'}
+              <button type="submit" className="secondary-button" disabled={createProjectMutation.isPending || !projectName.trim()}>
+                <FolderPlus className="button-inline-icon" aria-hidden="true" />
+                <span>{createProjectMutation.isPending ? 'Creating…' : 'Create'}</span>
               </button>
             </form>
 
             {createErrorMessage ? <p className="error-text" role="alert">{createErrorMessage}</p> : null}
             {projectsQuery.isError ? <p className="error-text" role="alert">Unable to load workspaces.</p> : null}
-          </section>
-
-          <section className="panel projects-dashboard-library-panel">
-            <div className="panel-heading projects-dashboard-section-heading">
-              <div>
-                <p className="eyebrow">Library</p>
-                <h2>Choose a workspace</h2>
-              </div>
-              <p className="muted-text">
-                {activeProject ? `Selected: ${activeProject.name}` : 'Create a workspace to begin.'}
-              </p>
-            </div>
 
             {projects.length > 0 ? (
               <div className="projects-dashboard-project-list">
                 {projects.map((project) => {
                   const projectIsActive = activeProjectId === project.id
-                  const recentDocuments = [...project.documents]
+                  const sortedDocuments = [...project.documents]
                     .sort((left, right) => right.updated_at.localeCompare(left.updated_at))
-                    .slice(0, 3)
+
+                  const projectPendingDelete = pendingDelete?.type === 'project' && pendingDelete.id === project.id
 
                   return (
                     <article
                       key={project.id}
-                      className={`project-card projects-dashboard-project-card ${projectIsActive ? 'project-card-active' : ''}`}
+                      className={`projects-dashboard-folder ${projectIsActive ? 'projects-dashboard-folder-open' : ''}`}
                     >
-                      <button
-                        type="button"
-                        className="project-card-select"
-                        aria-pressed={projectIsActive}
-                        onClick={() => {
-                          setSelectedProjectId(project.id)
-                          setUploadErrorMessage(null)
-                        }}
-                      >
-                        <div className="projects-dashboard-project-head">
-                          <div>
-                            <h3>{project.name}</h3>
-                            <p className="projects-dashboard-project-date">
-                              Updated {formatDateTime(getProjectLastActivity(project))}
-                            </p>
-                          </div>
-                          <span className="status-chip status-review">{project.document_count} docs</span>
+                      {projectPendingDelete ? (
+                        <div className="projects-dashboard-folder-row projects-dashboard-delete-confirm">
+                          <Trash2 className="projects-dashboard-delete-confirm-icon" aria-hidden="true" />
+                          <span className="projects-dashboard-delete-confirm-label">Delete "{project.name}"?</span>
+                          <button type="button" className="projects-dashboard-delete-cancel" onClick={() => setPendingDelete(null)}>
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            className="projects-dashboard-delete-ok"
+                            disabled={deleteProjectMutation.isPending}
+                            onClick={() => deleteProjectMutation.mutate(project.id)}
+                          >
+                            {deleteProjectMutation.isPending ? 'Deleting…' : 'Delete'}
+                          </button>
                         </div>
-                        <div className="projects-dashboard-project-action">
-                          <span>{projectIsActive ? 'Active workspace' : 'Set as active'}</span>
-                          <ArrowRight className="button-inline-icon" aria-hidden="true" />
-                        </div>
-                      </button>
-
-                      {recentDocuments.length > 0 ? (
-                        <ul className="document-list projects-dashboard-document-list">
-                          {recentDocuments.map((document) => (
-                            <li key={document.id}>
-                              <Link className="projects-dashboard-document-link" to={`/documents/${document.id}`}>
-                                <span>
-                                  {document.title}
-                                  <small>{document.page_count} pages</small>
-                                </span>
-                                <span className={`status-chip status-${document.status}`}>{document.status}</span>
-                              </Link>
-                            </li>
-                          ))}
-                        </ul>
                       ) : (
-                        <p className="muted-text">No uploads yet. Use the action rail to add the first file.</p>
+                        <div className="projects-dashboard-folder-row">
+                          <button
+                            type="button"
+                            className="projects-dashboard-folder-toggle"
+                            aria-expanded={projectIsActive}
+                            onClick={() => {
+                              setSelectedProjectId(projectIsActive ? '' : project.id)
+                              setUploadErrorMessage(null)
+                            }}
+                          >
+                            <ChevronRight className="projects-dashboard-folder-chevron" aria-hidden="true" />
+                            {projectIsActive
+                              ? <FolderOpen className="projects-dashboard-folder-icon" aria-hidden="true" />
+                              : <Folder className="projects-dashboard-folder-icon" aria-hidden="true" />
+                            }
+                            <span className="projects-dashboard-folder-name">{project.name}</span>
+                            <span className="projects-dashboard-folder-meta">
+                              <span className="projects-dashboard-project-date">{formatDateTime(getProjectLastActivity(project))}</span>
+                              <span className="projects-dashboard-doc-count">{project.document_count} docs</span>
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            className="projects-dashboard-delete-btn"
+                            aria-label={`Delete ${project.name}`}
+                            onClick={() => setPendingDelete({ type: 'project', id: project.id })}
+                          >
+                            <Trash2 aria-hidden="true" />
+                          </button>
+                        </div>
                       )}
+
+                      <div className="projects-dashboard-folder-contents">
+                        <div className="projects-dashboard-folder-inner">
+                          {sortedDocuments.length > 0 ? (
+                            <ul className="document-list projects-dashboard-document-list">
+                              {sortedDocuments.map((document) => {
+                                const docPendingDelete = pendingDelete?.type === 'document' && pendingDelete.id === document.id
+                                return (
+                                  <li key={document.id}>
+                                    {docPendingDelete ? (
+                                      <div className="projects-dashboard-file-confirm">
+                                        <FileText className="projects-dashboard-file-icon" aria-hidden="true" />
+                                        <span className="projects-dashboard-delete-confirm-label">Delete file?</span>
+                                        <button type="button" className="projects-dashboard-delete-cancel" onClick={() => setPendingDelete(null)}>
+                                          Cancel
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="projects-dashboard-delete-ok"
+                                          disabled={deleteDocumentMutation.isPending}
+                                          onClick={() => deleteDocumentMutation.mutate(document.id)}
+                                        >
+                                          {deleteDocumentMutation.isPending ? 'Deleting…' : 'Delete'}
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <div className="projects-dashboard-file-row">
+                                        <Link className="projects-dashboard-document-link" to={`/documents/${document.id}`}>
+                                          <FileText className="projects-dashboard-file-icon" aria-hidden="true" />
+                                          <span>
+                                            {document.title}
+                                            <small>{document.page_count} pages</small>
+                                          </span>
+                                        </Link>
+                                        <button
+                                          type="button"
+                                          className="projects-dashboard-delete-btn"
+                                          aria-label={`Delete ${document.title}`}
+                                          onClick={() => setPendingDelete({ type: 'document', id: document.id })}
+                                        >
+                                          <Trash2 aria-hidden="true" />
+                                        </button>
+                                      </div>
+                                    )}
+                                  </li>
+                                )
+                              })}
+                            </ul>
+                          ) : (
+                            <p className="projects-dashboard-folder-empty">No uploads yet.</p>
+                          )}
+                        </div>
+                      </div>
                     </article>
                   )
                 })}

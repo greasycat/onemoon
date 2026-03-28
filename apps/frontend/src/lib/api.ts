@@ -124,6 +124,7 @@ async function request<T>(
   }
 
   const text = await response.text()
+  return (text ? text : undefined) as T
 }
 
 export const api = {
@@ -230,6 +231,16 @@ export const api = {
     }),
   getJob: (token: string, jobId: string) =>
     request<JobResponse>(`/jobs/${jobId}`, {
+      token,
+    }),
+  deleteProject: (token: string, projectId: string) =>
+    request<void>(`/projects/${projectId}`, {
+      method: 'DELETE',
+      token,
+    }),
+  deleteDocument: (token: string, documentId: string) =>
+    request<void>(`/documents/${documentId}`, {
+      method: 'DELETE',
       token,
     }),
 }
