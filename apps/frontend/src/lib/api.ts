@@ -114,7 +114,16 @@ async function request<T>(
     throw new Error(message)
   }
 
-  return (await response.json()) as T
+  if (response.status === 204 || response.status === 205) {
+    return undefined as T
+  }
+
+  const contentType = response.headers.get('Content-Type') ?? ''
+  if (contentType.includes('application/json')) {
+    return (await response.json()) as T
+  }
+
+  const text = await response.text()
 }
 
 export const api = {
