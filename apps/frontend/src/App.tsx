@@ -67,14 +67,14 @@ function ProtectedShell() {
     <div className="app-shell">
       <nav className="topbar">
         <div className="topbar-brand">
+          <p className="eyebrow">OneMoon</p>
+          <strong>Interactive note-to-LaTeX</strong>
           {isWorkspaceRoute ? (
             <Link className="back-link topbar-back-link" to="/">
               <ArrowLeft className="back-link-icon" aria-hidden="true" />
               <span>Back to projects</span>
             </Link>
           ) : null}
-          <p className="eyebrow">OneMoon</p>
-          <strong>Interactive note-to-LaTeX</strong>
         </div>
         <div className="topbar-actions">
           <ThemeToggle />

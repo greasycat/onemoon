@@ -1,5 +1,7 @@
 # Changelog
 
+- Moved the workspace top-bar `Back to projects` link below the app name so the brand stack reads title-first.
+
 - Fixed frontend delete mutations by treating empty `204/205` API responses as successful, so document and project removals update the dashboard without a manual refresh.
 
 - Fixed backend startup by making project/document delete routes explicit empty `204 No Content` responses that FastAPI accepts at import time.
