@@ -91,6 +91,7 @@ interface DocumentCanvasProps {
   blocks: DraftBlock[]
   cutCeilingPath: BlockVertex[] | null
   toolbar: EditorToolbarProps
+  blockListPanel?: ReactNode
   blockInfoPanel?: ReactNode
   toast?: {
     tone: 'saving' | 'success' | 'error'
@@ -721,10 +722,11 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
     page,
     blocks,
     cutCeilingPath,
-  toolbar,
-  blockInfoPanel,
-  toast,
-  tooltipLabel,
+    toolbar,
+    blockListPanel,
+    blockInfoPanel,
+    toast,
+    tooltipLabel,
     tooltipText,
     selectedBlockIds,
     activeBlockId,
@@ -1131,7 +1133,10 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
       <div className="canvas-stage">
         <div className="canvas-overlay-stack">
           <EditorToolbar {...toolbar} />
-          <CanvasTooltip label={tooltipLabel} message={tooltipText} />
+          <div className="canvas-overlay-column">
+            <CanvasTooltip label={tooltipLabel} message={tooltipText} />
+            {blockListPanel ? <div className="canvas-block-list-overlay">{blockListPanel}</div> : null}
+          </div>
         </div>
         {blockInfoPanel ? <div className="canvas-side-overlay">{blockInfoPanel}</div> : null}
         {activeToast ? (

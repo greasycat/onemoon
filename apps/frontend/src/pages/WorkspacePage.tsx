@@ -96,6 +96,17 @@ export function WorkspacePage() {
       onDuplicate={duplicateSelectedBlock}
     />
   )
+  const blockListPanel = (
+    <WorkspaceReviewPanel
+      activeBlockId={selectedBlockKey}
+      pageDraft={pageDraft}
+      selectedBlockIds={selectedBlockIds}
+      selectedBlock={selectedBlock}
+      selectionCount={selectedBlockCount}
+      onSelectBlock={selectBlock}
+      onCycleBlockType={cycleBlockType}
+    />
+  )
 
   return (
     <main className="workspace-shell">
@@ -122,6 +133,7 @@ export function WorkspacePage() {
               cutCeilingPath={activeCutCeilingPath}
               debugSettings={debugSettings}
               toolbar={toolbar}
+              blockListPanel={blockListPanel}
               blockInfoPanel={blockInfoPanel}
               toast={toast}
               tooltipLabel={selectedBlockLabel}
@@ -138,18 +150,6 @@ export function WorkspacePage() {
               onUpdateBlock={handleUpdateBlock}
             />
           </section>
-        </div>
-
-        <div className="workspace-sidepanels">
-          <WorkspaceReviewPanel
-            activeBlockId={selectedBlockKey}
-            pageDraft={pageDraft}
-            selectedBlockIds={selectedBlockIds}
-            selectedBlock={selectedBlock}
-            selectionCount={selectedBlockCount}
-            onSelectBlock={selectBlock}
-            onCycleBlockType={cycleBlockType}
-          />
         </div>
       </section>
       {FRONTEND_DEBUG ? (

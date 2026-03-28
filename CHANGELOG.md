@@ -1,5 +1,7 @@
 # Changelog
 
+- Moved the workspace block list into the review canvas as an embedded overlay and removed the dedicated right-side panel so the canvas has more room.
+
 - Renamed the workspace page-review side panel heading to `Block List`.
 
 - Removed the workspace page-review summary cards for zoom level, layout version, and view mode so the side panel stays focused on block counts and the review list.

@@ -33,7 +33,7 @@ export function WorkspaceReviewPanel({
   }
 
   return (
-    <section className="panel">
+    <aside className="workspace-review-panel" aria-label="Block list">
       <div className="panel-heading">
         <div>
           <p className="eyebrow">Block List</p>
@@ -78,6 +78,6 @@ export function WorkspaceReviewPanel({
           )
         })}
       </div>
-    </section>
+    </aside>
   )
 }
