@@ -1,5 +1,7 @@
 # Changelog
 
+- Removed the block inspector source, shape, and confidence metadata cards so the panel stays focused on type and structure edits.
+
 - Fixed polygon block double-click type changes to respect the real polygon hit area instead of the bounding box, so empty bbox space now targets the actual block under the cursor.
 
 - Added a workspace debug hover indicator that shows which block the cursor is currently over inside the edit canvas.

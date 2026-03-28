@@ -86,21 +86,6 @@ export function BlockInspector({
         <span className={`status-chip status-${block.approval}`}>{block.approval}</span>
       </div>
 
-      <div className="stats-grid">
-        <div className="stat-card">
-          <span>Source</span>
-          <strong>{block.source}</strong>
-        </div>
-        <div className="stat-card">
-          <span>Confidence</span>
-          <strong>{Math.round(block.confidence * 100)}%</strong>
-        </div>
-        <div className="stat-card">
-          <span>Shape</span>
-          <strong>{block.shape_type}</strong>
-        </div>
-      </div>
-
       <label className="field">
         <span>Block type</span>
         <select
