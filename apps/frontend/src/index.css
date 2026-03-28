@@ -195,6 +195,15 @@ button {
   border-radius: 18px;
 }
 
+.topbar-brand {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.topbar-back-link {
+  margin-bottom: 0.35rem;
+}
+
 .topbar-actions,
 .status-stack,
 .button-row,
@@ -1028,6 +1037,7 @@ button {
 
 .workspace-shell {
   position: relative;
+  padding-top: 0.75rem;
 }
 
 .canvas-toast {
@@ -1122,6 +1132,7 @@ button {
 .workspace-grid {
   position: relative;
   z-index: 1;
+  margin-top: 0.5rem;
 }
 
 .workspace-main,

@@ -1,8 +1,12 @@
 # Changelog
 
+- Tightened the workspace gap under the shared top bar and added a top-bar back link to return to the projects view.
+
 - Prevented page overscroll chaining with contained workspace scrollers plus a document-level wheel/touch fallback, so hitting the end of a page no longer leaks into extra browser or parent-page scrolling.
 
 - Merged the document editor header into a single top bar that only shows the project name and the source filename without its extension.
+
+- Removed block-inspector merge/split actions and the manual approval pill buttons, and changed new/default block types to `text` instead of `unknown`.
 
 - Moved the selected-block inspector into a canvas-right overlay so block information stays attached to the work surface while the side column focuses on page review.
 

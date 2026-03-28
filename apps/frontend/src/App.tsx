@@ -1,5 +1,6 @@
+import { ArrowLeft } from 'lucide-react'
 import { useEffect } from 'react'
-import { Navigate, Outlet, Route, Routes, useNavigate } from 'react-router-dom'
+import { Link, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from './lib/auth'
 import { ThemeToggle } from './components/ThemeToggle'
@@ -54,7 +55,9 @@ function getScrollableAncestors(target: EventTarget | null) {
 
 function ProtectedShell() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { token, username, logout } = useAuth()
+  const isWorkspaceRoute = location.pathname.startsWith('/documents/')
 
   if (!token) {
     return <Navigate to="/login" replace />
@@ -63,7 +66,13 @@ function ProtectedShell() {
   return (
     <div className="app-shell">
       <nav className="topbar">
-        <div>
+        <div className="topbar-brand">
+          {isWorkspaceRoute ? (
+            <Link className="back-link topbar-back-link" to="/">
+              <ArrowLeft className="back-link-icon" aria-hidden="true" />
+              <span>Back to projects</span>
+            </Link>
+          ) : null}
           <p className="eyebrow">OneMoon</p>
           <strong>Interactive note-to-LaTeX</strong>
         </div>
