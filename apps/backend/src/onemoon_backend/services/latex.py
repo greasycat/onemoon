@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -7,6 +8,9 @@ from pathlib import Path
 
 from ..models import Block, BlockApproval, BlockType
 from ..storage import absolute_path
+
+MATH_ENV_PATTERN = re.compile(r"^\\begin\{(?P<name>equation\*?|align\*?|gather\*?)\}\s*.*\s*\\end\{(?P=name)\}$", re.DOTALL)
+TEXT_BLOCK_PATTERN = re.compile(r"^\\begin\{textblock\}\s*.*\s*\\end\{textblock\}$", re.DOTALL)
 
 
 def _normalize_text(output: str) -> str:
@@ -21,6 +25,28 @@ def _resolved_block_content(block: Block) -> str | None:
         if normalized:
             return normalized
     return None
+
+
+def _ensure_display_math(content: str) -> str:
+    normalized = _normalize_text(content)
+    if MATH_ENV_PATTERN.match(normalized):
+        return normalized
+    if normalized.startswith("\\[") and normalized.endswith("\\]"):
+        return normalized
+    if normalized.startswith("$$") and normalized.endswith("$$"):
+        return normalized
+    if normalized.startswith("\\(") and normalized.endswith("\\)"):
+        normalized = normalized[2:-2].strip()
+    elif normalized.startswith("$") and normalized.endswith("$"):
+        normalized = normalized[1:-1].strip()
+    return f"\\[\n{normalized}\n\\]"
+
+
+def _ensure_text_block(content: str) -> str:
+    normalized = _normalize_text(content)
+    if TEXT_BLOCK_PATTERN.match(normalized):
+        return normalized
+    return "\n".join([r"\begin{textblock}", normalized, r"\end{textblock}"])
 
 
 def _pending_block_placeholder(block: Block) -> str:
@@ -45,9 +71,7 @@ def block_to_latex(block: Block) -> str:
         return _pending_block_placeholder(block)
 
     if block.block_type == BlockType.math:
-        if content.startswith("\\[") or content.startswith("$$"):
-            return content
-        return f"\\[\n{content}\n\\]"
+        return _ensure_display_math(content)
 
     if block.block_type == BlockType.figure:
         return (
@@ -61,7 +85,7 @@ def block_to_latex(block: Block) -> str:
     if block.block_type == BlockType.unknown:
         return f"% Unknown block {block.id}\n{content}"
 
-    return content
+    return _ensure_text_block(content)
 
 
 def build_document_latex(title: str, ordered_blocks: list[Block]) -> str:
@@ -74,6 +98,7 @@ def build_document_latex(title: str, ordered_blocks: list[Block]) -> str:
         "\\usepackage{amssymb}\n"
         "\\usepackage{graphicx}\n"
         "\\usepackage{microtype}\n"
+        "\\newenvironment{textblock}{\\par\\noindent\\ignorespaces}{\\par}\n"
         "\\title{" + title.replace("{", "").replace("}", "") + "}\n"
         "\\date{}\n"
         "\\begin{document}\n"

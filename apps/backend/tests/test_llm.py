@@ -82,18 +82,19 @@ def test_openai_adapter_normalizes_text_output_and_embeds_image_input(tmp_path: 
 
     result = adapter.convert(payload)
 
-    assert result.normalized_output == "First line.\nSecond line."
+    assert result.normalized_output == "\\begin{textblock}\nFirst line.\nSecond line.\n\\end{textblock}"
     assert captured_request["model"] == "gpt-5.4"
     input_items = captured_request["input"]
     assert isinstance(input_items, list)
     user_content = input_items[0]["content"]
     assert user_content[0]["type"] == "input_text"
     assert "Block type: text." in user_content[0]["text"]
+    assert "Return the full text wrapped in \\begin{textblock} ... \\end{textblock}." in user_content[0]["text"]
     assert user_content[1]["type"] == "input_image"
     assert user_content[1]["image_url"].startswith("data:image/png;base64,")
 
 
-def test_openai_adapter_strips_display_math_wrappers(tmp_path: Path) -> None:
+def test_openai_adapter_preserves_full_display_math_environment(tmp_path: Path) -> None:
     llm_module = importlib.import_module("onemoon_backend.services.llm")
     adapter = llm_module.OpenAIResponsesLLMAdapter(
         api_key="test-key",
@@ -120,7 +121,46 @@ def test_openai_adapter_strips_display_math_wrappers(tmp_path: Path) -> None:
 
     result = adapter.convert(payload)
 
-    assert result.normalized_output == "a^2 + b^2 = c^2"
+    assert result.normalized_output == "\\[\na^2 + b^2 = c^2\n\\]"
+
+
+def test_openai_adapter_wraps_bare_math_in_display_environment(tmp_path: Path) -> None:
+    llm_module = importlib.import_module("onemoon_backend.services.llm")
+    adapter = llm_module.OpenAIResponsesLLMAdapter(
+        api_key="test-key",
+        model="gpt-5.4",
+        base_url="https://api.openai.com/v1",
+        timeout_seconds=10,
+    )
+    payload = _make_payload(llm_module, tmp_path, BlockType.math)
+    captured_request: dict[str, object] = {}
+
+    def fake_request(request_body):
+        captured_request.update(request_body)
+        return {
+            "status": "completed",
+            "output": [
+                {
+                    "type": "message",
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": "a^2 + b^2 = c^2",
+                        }
+                    ],
+                }
+            ],
+        }
+
+    adapter._request_response_payload = fake_request  # type: ignore[method-assign]
+
+    result = adapter.convert(payload)
+
+    assert result.normalized_output == "\\[\na^2 + b^2 = c^2\n\\]"
+    input_items = captured_request["input"]
+    assert isinstance(input_items, list)
+    user_content = input_items[0]["content"]
+    assert "Return a complete LaTeX display-math environment." in user_content[0]["text"]
 
 
 def test_openai_adapter_builds_figure_snippet_from_caption_text(tmp_path: Path) -> None:
@@ -206,7 +246,7 @@ def test_openai_adapter_saves_response_json_when_debug_requested(tmp_path: Path)
     saved_payload = json.loads(response_path.read_text(encoding="utf-8"))
     assert saved_payload["provider"] == "openai-responses"
     assert saved_payload["model"] == "gpt-5.4"
-    assert saved_payload["normalized_output"] == "First line.\nSecond line."
+    assert saved_payload["normalized_output"] == "\\begin{textblock}\nFirst line.\nSecond line.\n\\end{textblock}"
     assert saved_payload["response"]["status"] == "completed"
     response_path.unlink()
     if result.debug_image_path:

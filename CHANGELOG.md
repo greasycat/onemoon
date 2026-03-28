@@ -1,5 +1,7 @@
 # Changelog
 
+- Updated conversion output formatting so math blocks now return full LaTeX display environments and text blocks are wrapped in a `textblock` environment across mock output, block previews, and assembled document LaTeX.
+
 - Added a conversion-mode `Convert all` action above the block list and removed the block-count / selection-count summary cards from that panel.
 
 - Fixed polygon conversion crops so any transparent pixels inside a full-size masked bounding box are still flattened onto white for the LLM request image, and synced the converted block payload back into the workspace so the block-source panel refreshes immediately after `Convert`.

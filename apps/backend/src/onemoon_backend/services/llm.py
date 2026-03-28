@@ -17,15 +17,22 @@ from PIL import Image
 from ..config import get_settings
 from ..models import BlockType
 
-TEXT_PLACEHOLDER = "Review the extracted note text and replace this placeholder with the final prose."
-MATH_PLACEHOLDER = r"\alpha + \beta = \gamma"
+TEXT_PLACEHOLDER = "\n".join(
+    [
+        r"\begin{textblock}",
+        "Review the extracted note text and replace this placeholder with the final prose.",
+        r"\end{textblock}",
+    ]
+)
+MATH_PLACEHOLDER = "\n".join([r"\[", r"\alpha + \beta = \gamma", r"\]"])
 FIGURE_DESCRIPTION_PLACEHOLDER = "Replace this caption with a concise description of the figure."
 OPENAI_PROVIDER_NAMES = {"openai", "openai-responses", "openai_responses"}
 FENCED_BLOCK_PATTERN = re.compile(r"^```[a-zA-Z0-9_-]*\s*|\s*```$", re.DOTALL)
 MATH_ENV_PATTERN = re.compile(
-    r"^\\begin\{(?P<name>equation\*?|align\*?|gather\*?)\}\s*(?P<body>.*)\s*\\end\{(?P=name)\}$",
+    r"^\\begin\{(?P<name>equation\*?|align\*?|gather\*?)\}\s*.*\s*\\end\{(?P=name)\}$",
     re.DOTALL,
 )
+TEXT_BLOCK_PATTERN = re.compile(r"^\\begin\{textblock\}\s*.*\s*\\end\{textblock\}$", re.DOTALL)
 
 
 @dataclass(slots=True)
@@ -71,21 +78,28 @@ def _normalize_text_output(value: str) -> str:
 
 def _normalize_math_output(value: str) -> str:
     cleaned = _normalize_text_output(value)
-    match = MATH_ENV_PATTERN.match(cleaned)
-    if match:
-        cleaned = match.group("body").strip()
+    if not cleaned:
+        return cleaned
+    if MATH_ENV_PATTERN.match(cleaned):
+        return cleaned
+    if cleaned.startswith(r"\[") and cleaned.endswith(r"\]"):
+        return cleaned
+    if cleaned.startswith("$$") and cleaned.endswith("$$"):
+        return cleaned
+    if cleaned.startswith(r"\(") and cleaned.endswith(r"\)"):
+        cleaned = cleaned[2:-2].strip()
+    elif cleaned.startswith("$") and cleaned.endswith("$"):
+        cleaned = cleaned[1:-1].strip()
+    return "\n".join([r"\[", cleaned, r"\]"])
 
-    paired_delimiters = (
-        (r"\[", r"\]"),
-        (r"\(", r"\)"),
-        ("$$", "$$"),
-        ("$", "$"),
-    )
-    for prefix, suffix in paired_delimiters:
-        if cleaned.startswith(prefix) and cleaned.endswith(suffix):
-            cleaned = cleaned[len(prefix) : len(cleaned) - len(suffix)].strip()
-            break
-    return cleaned
+
+def _normalize_text_block_output(value: str) -> str:
+    cleaned = _normalize_text_output(value)
+    if not cleaned:
+        return cleaned
+    if TEXT_BLOCK_PATTERN.match(cleaned):
+        return cleaned
+    return "\n".join([r"\begin{textblock}", cleaned, r"\end{textblock}"])
 
 
 def _escape_latex_text(value: str) -> str:
@@ -119,6 +133,8 @@ def _build_figure_snippet(image_path: Path, description: str) -> str:
 def _output_for_block_type(block_type: BlockType, value: str) -> str:
     if block_type == BlockType.math:
         return _normalize_math_output(value)
+    if block_type == BlockType.text:
+        return _normalize_text_block_output(value)
     return _normalize_text_output(value)
 
 
@@ -322,8 +338,9 @@ class OpenAIResponsesLLMAdapter:
             shared.extend(
                 [
                     "Block type: math.",
-                    "Return only the LaTeX math body.",
-                    "Do not include $...$, \\(...\\), \\[...\\], equation environments, or prose.",
+                    "Return a complete LaTeX display-math environment.",
+                    "Wrap the final math in \\[...\\] or an equivalent equation, align, or gather environment.",
+                    "Do not return prose, markdown fences, or bare math without an environment.",
                 ]
             )
         elif payload.block_type == BlockType.figure:
@@ -339,7 +356,8 @@ class OpenAIResponsesLLMAdapter:
             shared.extend(
                 [
                     "Block type: text.",
-                    "Return plain text prose only.",
+                    "Return the full text wrapped in \\begin{textblock} ... \\end{textblock}.",
+                    "Return only that text block.",
                     "Preserve line breaks only when they reflect the visible note structure.",
                 ]
             )

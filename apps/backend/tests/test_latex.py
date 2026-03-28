@@ -25,10 +25,16 @@ def make_block(
     )
 
 
-def test_math_blocks_are_wrapped_in_display_math() -> None:
-    latex = block_to_latex(make_block(BlockType.math, "a^2 + b^2 = c^2"))
-    assert latex.startswith("\\[")
+def test_math_blocks_preserve_full_display_math_environment() -> None:
+    latex = block_to_latex(make_block(BlockType.math, "\\begin{equation*}\na^2 + b^2 = c^2\n\\end{equation*}"))
+    assert latex.startswith("\\begin{equation*}")
     assert "a^2 + b^2 = c^2" in latex
+
+
+def test_text_blocks_are_wrapped_in_textblock_environment() -> None:
+    latex = block_to_latex(make_block(BlockType.text, "This is a note."))
+    assert latex.startswith("\\begin{textblock}")
+    assert "This is a note." in latex
 
 
 def test_document_builder_includes_text_and_math_blocks() -> None:
@@ -40,6 +46,7 @@ def test_document_builder_includes_text_and_math_blocks() -> None:
         ],
     )
     assert "\\documentclass" in source
+    assert "\\newenvironment{textblock}" in source
     assert "This is a note." in source
     assert "\\[" in source
 
