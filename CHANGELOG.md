@@ -1,5 +1,7 @@
 # Changelog
 
+- Trimmed the workspace conversion rail so it only shows the rendered preview block and LaTeX code block, removing the extra description, stats, and section headings.
+
 - Added a workspace conversion rail with a right-side LaTeX document preview and a header toggle to hide or restore the embedded editor toolbar.
 
 - Constrained the protected app shell to the viewport and made workspace/page containers fill the remaining row under the top bar, fixing the oversized workspace height.
