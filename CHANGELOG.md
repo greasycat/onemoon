@@ -1,5 +1,7 @@
 # Changelog
 
+- Replaced the conversion-mode selected-block `Structure` controls with a real `Convert` button that runs block regeneration and refreshes the document.
+
 - Wired the conversion-mode toggle to auto-save-and-finish on entry and auto-reopen on exit, and removed the standalone workspace `Reopen` action.
 
 - Merged the workspace `Save` and `FIN` actions into a single `Save` control that saves dirty drafts and marks the active page finished in one step.

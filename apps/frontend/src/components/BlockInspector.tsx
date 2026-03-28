@@ -6,6 +6,7 @@ interface BlockInspectorProps {
   selectedCount: number
   pageLocked: boolean
   isBusy: boolean
+  isConversionMode?: boolean
   onApply: (payload: {
     block_type: BlockType
     geometry: BlockGeometry
@@ -13,6 +14,7 @@ interface BlockInspectorProps {
   onDelete: () => void
   onDeleteSelection: () => void
   onDuplicate: () => void
+  onConvert?: () => void
 }
 
 const blockTypes: BlockType[] = ['text', 'math', 'figure']
@@ -22,10 +24,12 @@ export function BlockInspector({
   selectedCount,
   pageLocked,
   isBusy,
+  isConversionMode = false,
   onApply,
   onDelete,
   onDeleteSelection,
   onDuplicate,
+  onConvert,
 }: BlockInspectorProps) {
   if (selectedCount > 1) {
     return (
@@ -111,17 +115,28 @@ export function BlockInspector({
         <p className="selection-hint review-panel-hint">Tip: double-click a block on the page or in the review list to cycle its type faster.</p>
       </label>
 
-      <div className="inspector-section">
-        <h3>Structure</h3>
-        <div className="button-grid">
-          <button type="button" className="secondary-button" disabled={pageLocked || isBusy} onClick={onDuplicate}>
-            Duplicate
-          </button>
-          <button type="button" className="secondary-button" disabled={pageLocked || isBusy} onClick={onDelete}>
-            Delete
-          </button>
+      {isConversionMode ? (
+        <div className="inspector-section">
+          <h3>Conversion</h3>
+          <div className="button-grid">
+            <button type="button" className="primary-button" disabled={isBusy || !onConvert} onClick={onConvert}>
+              {isBusy ? 'Converting...' : 'Convert'}
+            </button>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="inspector-section">
+          <h3>Structure</h3>
+          <div className="button-grid">
+            <button type="button" className="secondary-button" disabled={pageLocked || isBusy} onClick={onDuplicate}>
+              Duplicate
+            </button>
+            <button type="button" className="secondary-button" disabled={pageLocked || isBusy} onClick={onDelete}>
+              Delete
+            </button>
+          </div>
+        </div>
+      )}
     </aside>
   )
 }

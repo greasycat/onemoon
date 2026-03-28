@@ -63,6 +63,12 @@ interface SaveLayoutVariables {
   draft: DraftPageLayout
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
+}
+
 function isEditableTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) {
     return false
@@ -396,6 +402,22 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     mutationFn: ({ pageId, action }: { pageId: string; action: 'reopen' | 'mark-segmented' }) =>
       action === 'reopen' ? api.reopenPage(token!, pageId) : api.markPageSegmented(token!, pageId),
   })
+  const regenerateBlockMutation = useMutation({
+    mutationFn: async (blockId: string) => {
+      const job = await api.regenerateBlock(token!, blockId, '')
+      for (let attempt = 0; attempt < 30; attempt += 1) {
+        const nextJob = await api.getJob(token!, job.id)
+        if (nextJob.status === 'completed') {
+          return nextJob
+        }
+        if (nextJob.status === 'failed') {
+          throw new Error(nextJob.message || 'Failed to convert block.')
+        }
+        await sleep(1000)
+      }
+      throw new Error('Timed out while converting block.')
+    },
+  })
 
   const activePageDirty = selectedPage ? Boolean(pageDrafts[selectedPage.id]) : false
   const activePageLocked = selectedPage?.review_status === 'segmented'
@@ -651,6 +673,31 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     }
   }
 
+  async function convertSelectedBlock() {
+    if (!selectedBlock) {
+      return false
+    }
+    if (!selectedBlock.id) {
+      showToast({ tone: 'error', message: 'Save the page before converting a block.' })
+      return false
+    }
+
+    showToast({ tone: 'saving', message: `Converting block #${selectedBlock.order_index + 1}…` }, false)
+
+    try {
+      await regenerateBlockMutation.mutateAsync(selectedBlock.id)
+      await refreshDocument()
+      showToast({ tone: 'success', message: `Block #${selectedBlock.order_index + 1} converted.` })
+      return true
+    } catch (error) {
+      showToast({
+        tone: 'error',
+        message: error instanceof Error && error.message ? error.message : 'Failed to convert block.',
+      })
+      return false
+    }
+  }
+
   function handleCreateBlock(payload: {
     shape_type: BlockShapeType
     geometry: BlockGeometry
@@ -895,7 +942,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     activeReviewStatus,
     activeTool,
     applySelectedBlock,
-    blockInspectorBusy: saveLayoutMutation.isPending || pageStatusMutation.isPending,
+    blockInspectorBusy: saveLayoutMutation.isPending || pageStatusMutation.isPending || regenerateBlockMutation.isPending,
     canvasRef,
     debugSettings,
     document,
@@ -923,6 +970,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     selectPage,
     selectBlock,
     cycleBlockType,
+    convertSelectedBlock,
     setHoveredBlock,
     setActiveTool,
     setViewportState,

@@ -27,6 +27,7 @@ export function WorkspacePage() {
     blockInspectorBusy,
     canvasRef,
     cycleBlockType,
+    convertSelectedBlock,
     debugSettings,
     deleteSelectedBlock,
     document,
@@ -95,10 +96,14 @@ export function WorkspacePage() {
       selectedCount={selectedBlockCount}
       pageLocked={activePageLocked}
       isBusy={blockInspectorBusy}
+      isConversionMode={isConversionMode}
       onApply={applySelectedBlock}
       onDelete={deleteSelectedBlock}
       onDeleteSelection={deleteSelectedBlocks}
       onDuplicate={duplicateSelectedBlock}
+      onConvert={() => {
+        void convertSelectedBlock()
+      }}
     />
   )
   const blockListPanel = (
