@@ -835,39 +835,9 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
             return 1
         }
 
-        const { contentWidth, contentHeight, contentLeft, contentRight, contentTop, contentBottom } = viewportBox
+        const { contentWidth, contentHeight } = viewportBox
 
-        let leftObstruction = 0
-        let rightObstruction = 0
-
-        const overlayEntries: Array<{ element: HTMLDivElement | null; side: 'left' | 'right' }> = [
-            { element: overlayStackRef.current, side: 'left' },
-            { element: sideOverlayRef.current, side: 'right' },
-        ]
-
-        for (const entry of overlayEntries) {
-            if (!entry.element) {
-                continue
-            }
-
-            const overlayRect = entry.element.getBoundingClientRect()
-            if (overlayRect.width <= 0 || overlayRect.height <= 0) {
-                continue
-            }
-
-            const verticalOverlap = Math.min(overlayRect.bottom, contentBottom) - Math.max(overlayRect.top, contentTop)
-            if (verticalOverlap <= 0) {
-                continue
-            }
-
-            if (entry.side === 'left') {
-                leftObstruction = Math.max(leftObstruction, Math.max(0, Math.min(contentRight, overlayRect.right) - contentLeft))
-            } else {
-                rightObstruction = Math.max(rightObstruction, Math.max(0, contentRight - Math.max(contentLeft, overlayRect.left)))
-            }
-        }
-
-        const widthZoom = Math.max(1, contentWidth - leftObstruction - rightObstruction) / page.width
+        const widthZoom = contentWidth / page.width
         const heightZoom = contentHeight / page.height
         return clamp(Math.min(widthZoom, heightZoom), MIN_ZOOM, MAX_ZOOM)
     }
@@ -980,12 +950,6 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
         })
 
         observer.observe(viewportElement)
-        if (overlayStackRef.current) {
-            observer.observe(overlayStackRef.current)
-        }
-        if (sideOverlayRef.current) {
-            observer.observe(sideOverlayRef.current)
-        }
         return () => {
             observer.disconnect()
         }
