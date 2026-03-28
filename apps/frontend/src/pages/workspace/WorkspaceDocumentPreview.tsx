@@ -63,6 +63,7 @@ export function WorkspaceDocumentPreview({ document }: WorkspaceDocumentPreviewP
       </div>
 
       <section className="workspace-document-preview-section workspace-document-source">
+        <p className="eyebrow">Document source</p>
         <div className="generated-output workspace-document-preview-source">
           <pre>{latexSource}</pre>
         </div>

@@ -25,15 +25,6 @@ interface BlockInspectorProps {
 const blockTypes: BlockType[] = ['text', 'math', 'figure']
 const reviewStates: BlockApproval[] = ['pending', 'approved', 'rejected']
 
-function renderOutputSection(title: string, value: string) {
-  return (
-    <div className="generated-output">
-      <strong>{title}</strong>
-      <pre>{value}</pre>
-    </div>
-  )
-}
-
 export function BlockInspector({
   block,
   selectedCount,
@@ -177,11 +168,12 @@ export function BlockInspector({
           </div>
 
           <div className="inspector-section">
-            <h3>Outputs</h3>
-            {block.generated_output?.trim() ? renderOutputSection('Generated output', block.generated_output) : null}
-            {!hasOutput ? (
-              <p className="empty-state">Convert this block to populate extracted text or math for the document preview.</p>
-            ) : null}
+            <h3>Document source</h3>
+            <p className="selection-hint review-panel-hint">
+              {hasOutput
+                ? 'Converted LaTeX is shown in the document source panel on the right.'
+                : 'Convert this block to populate the document source panel on the right.'}
+            </p>
           </div>
 
           <div className="inspector-section">
@@ -208,7 +200,7 @@ export function BlockInspector({
             </label>
             <p className="selection-hint review-panel-hint">
               {block.manual_output?.trim()
-                ? 'A saved manual output currently overrides the generated result in the document preview.'
+                ? 'A saved manual output currently overrides the generated result in the document source panel.'
                 : 'Manual output is optional. Leave it empty to use the generated result directly.'}
             </p>
             <div className="button-grid">
