@@ -1,5 +1,7 @@
 # Changelog
 
+- Merged the workspace `Save` and `FIN` actions into a single `Save` control that saves dirty drafts and marks the active page finished in one step.
+
 - Disabled canvas block dragging in conversion mode so reviewers can still select blocks there without accidentally moving them.
 
 - Added a conversion-mode zoom toolbar overlay on the canvas so zoom controls stay available in conversion mode without bringing back the full review toolbar, and kept that toolbar background transparent.

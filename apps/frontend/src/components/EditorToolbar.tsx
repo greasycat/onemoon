@@ -2,7 +2,6 @@ import type { LucideIcon } from 'lucide-react'
 import {
   ArrowLeft,
   ArrowRight,
-  BadgeCheck,
   MousePointer2,
   PenTool,
   Play,
@@ -79,7 +78,6 @@ export interface EditorToolbarProps {
   canDiscard: boolean
   canReview: boolean
   reviewLabel: string | null
-  canMarkSegmented: boolean
   zoomPercent: number
   viewMode: ViewMode
   onPreviousPage: () => void
@@ -92,7 +90,6 @@ export interface EditorToolbarProps {
   onSave: () => void
   onDiscard: () => void
   onReviewAction: () => void
-  onMarkSegmented: () => void
 }
 
 export function EditorToolbar({
@@ -107,7 +104,6 @@ export function EditorToolbar({
   canDiscard,
   canReview,
   reviewLabel,
-  canMarkSegmented,
   zoomPercent,
   viewMode,
   onPreviousPage,
@@ -120,7 +116,6 @@ export function EditorToolbar({
   onSave,
   onDiscard,
   onReviewAction,
-  onMarkSegmented,
 }: EditorToolbarProps) {
   return (
     <section className="editor-toolbar" aria-label="Editor controls">
@@ -254,8 +249,8 @@ export function EditorToolbar({
             className="primary-button toolbar-icon-button"
             label="Save"
             icon={Save}
-            ariaLabel="Save draft"
-            title="Save draft (S or Ctrl/Cmd+S)"
+            ariaLabel="Save page and finish review"
+            title="Save page and finish review (S or Ctrl/Cmd+S)"
             shortcut="S"
             disabled={!canSave}
             onClick={onSave}
@@ -271,16 +266,6 @@ export function EditorToolbar({
               onClick={onReviewAction}
             />
           ) : null}
-          <ToolbarButton
-            className="secondary-button toolbar-icon-button"
-            label="FIN"
-            icon={BadgeCheck}
-            ariaLabel="Save all drafts and mark finish"
-            title="Save all drafts and mark finish (Ctrl/Cmd+Enter)"
-            shortcut="Ctrl+Enter"
-            disabled={!canMarkSegmented}
-            onClick={onMarkSegmented}
-          />
         </div>
       </div>
 

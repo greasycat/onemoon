@@ -430,7 +430,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
   const canReviewAction = Boolean(reviewActionLabel) && !pageStatusMutation.isPending && !activePageDirty
   const activePageHasNoBlocks = (pageDraft?.blocks.length ?? 0) === 0
   const allowEmptyPageActionToast = !activePageLocked && activePageHasNoBlocks
-  const canMarkSegmented =
+  const canSaveAction =
     !pageStatusMutation.isPending &&
     !saveLayoutMutation.isPending &&
     activeReviewStatus !== 'segmented' &&
@@ -485,22 +485,21 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     )
   }
 
-  function showEmptyDraftError(queue: SaveLayoutVariables[], context: 'save' | 'finish') {
-    if (queue.length <= 1 || context === 'save') {
+  function showEmptyDraftError(queue: SaveLayoutVariables[]) {
+    if (queue.length <= 1) {
       showToast({ tone: 'error', message: EMPTY_PAGE_ACTION_MESSAGE })
       return
     }
     const firstEmptyDraft = queue.find((entry) => entry.draft.blocks.length === 0)
     showToast({
       tone: 'error',
-      message: firstEmptyDraft ? `Page ${firstEmptyDraft.pageIndex + 1} has no blocks. Finish aborted.` : EMPTY_PAGE_ACTION_MESSAGE,
+      message: firstEmptyDraft ? `Page ${firstEmptyDraft.pageIndex + 1} has no blocks. Save aborted.` : EMPTY_PAGE_ACTION_MESSAGE,
     })
   }
 
   async function saveDraftQueue(
     queue: SaveLayoutVariables[],
     options: {
-      context: 'save' | 'finish'
       showSavingToast?: boolean
       successMessage?: string | null
     },
@@ -510,7 +509,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     }
 
     if (queue.some((entry) => entry.draft.blocks.length === 0)) {
-      showEmptyDraftError(queue, options.context)
+      showEmptyDraftError(queue)
       return false
     }
 
@@ -558,17 +557,52 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
   }
 
   async function saveActivePage() {
-    if (!selectedPage || !pageDraft || activePageLocked || saveLayoutMutation.isPending) {
+    if (!selectedPage || !pageDraft || !canSaveAction) {
       return
     }
     if (pageDraft.blocks.length === 0) {
       showToast({ tone: 'error', message: EMPTY_PAGE_ACTION_MESSAGE })
       return
     }
-    await saveDraftQueue(collectDirtyDrafts([selectedPage.id]), {
-      context: 'save',
-      successMessage: 'Layout saved. Local copy updated.',
+
+    const dirtyDraftQueue = collectDirtyDrafts()
+    if (dirtyDraftQueue.some((entry) => entry.draft.blocks.length === 0)) {
+      showEmptyDraftError(dirtyDraftQueue)
+      return
+    }
+
+    showToast(
+      {
+        tone: 'saving',
+        message:
+          dirtyDraftQueue.length > 0
+            ? `Saving ${dirtyDraftQueue.length} page layout${dirtyDraftQueue.length === 1 ? '' : 's'} before finishing…`
+            : 'Marking page finished…',
+      },
+      false,
+    )
+
+    const savedAllDrafts = await saveDraftQueue(dirtyDraftQueue, {
+      showSavingToast: false,
     })
+    if (!savedAllDrafts) {
+      return
+    }
+
+    try {
+      await pageStatusMutation.mutateAsync({ pageId: selectedPage.id, action: 'mark-segmented' })
+      clearDraftForPage(selectedPage.id)
+      await refreshDocument()
+      showToast({
+        tone: 'success',
+        message: dirtyDraftQueue.length > 0 ? 'All drafts saved. Page finished.' : 'Page finished.',
+      })
+    } catch (error) {
+      showToast({
+        tone: 'error',
+        message: error instanceof Error && error.message ? error.message : 'Failed to finish page.',
+      })
+    }
   }
 
   function discardActiveDraft() {
@@ -594,56 +628,6 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
       showToast({
         tone: 'error',
         message: error instanceof Error && error.message ? error.message : 'Failed to reopen page.',
-      })
-    }
-  }
-
-  async function markActivePageSegmented() {
-    if (!selectedPage || !pageDraft || !canMarkSegmented) {
-      return
-    }
-    if (pageDraft.blocks.length === 0) {
-      showToast({ tone: 'error', message: EMPTY_PAGE_ACTION_MESSAGE })
-      return
-    }
-
-    const dirtyDraftQueue = collectDirtyDrafts()
-    if (dirtyDraftQueue.some((entry) => entry.draft.blocks.length === 0)) {
-      showEmptyDraftError(dirtyDraftQueue, 'finish')
-      return
-    }
-
-    showToast(
-      {
-        tone: 'saving',
-        message:
-          dirtyDraftQueue.length > 0
-            ? `Saving ${dirtyDraftQueue.length} page layout${dirtyDraftQueue.length === 1 ? '' : 's'} before finishing…`
-            : 'Marking page finished…',
-      },
-      false,
-    )
-
-    const savedAllDrafts = await saveDraftQueue(dirtyDraftQueue, {
-      context: 'finish',
-      showSavingToast: false,
-    })
-    if (!savedAllDrafts) {
-      return
-    }
-
-    try {
-      await pageStatusMutation.mutateAsync({ pageId: selectedPage.id, action: 'mark-segmented' })
-      clearDraftForPage(selectedPage.id)
-      await refreshDocument()
-      showToast({
-        tone: 'success',
-        message: dirtyDraftQueue.length > 0 ? 'All drafts saved. Page marked finished.' : 'Page marked finished.',
-      })
-    } catch (error) {
-      showToast({
-        tone: 'error',
-        message: error instanceof Error && error.message ? error.message : 'Failed to mark page finished.',
       })
     }
   }
@@ -753,23 +737,15 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
       const hasModifier = event.metaKey || event.ctrlKey
       if (hasModifier && key === 's') {
         event.preventDefault()
-        if (!pageLocked && !saveLayoutMutation.isPending) {
+        if (canSaveAction) {
           void saveActivePage()
-        }
-        return
-      }
-
-      if (hasModifier && event.key === 'Enter') {
-        event.preventDefault()
-        if (canMarkSegmented) {
-          void markActivePageSegmented()
         }
         return
       }
 
       if (!hasModifier && !event.altKey && key === 's') {
         event.preventDefault()
-        if (!pageLocked && !saveLayoutMutation.isPending) {
+        if (canSaveAction) {
           void saveActivePage()
         }
         return
@@ -860,7 +836,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     }
   }, [
     activeSelectedBlockKeys,
-    canMarkSegmented,
+    canSaveAction,
     pageDraft,
     pageStatusMutation,
     saveLayoutMutation,
@@ -876,11 +852,10 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     isDirty: activePageDirty,
     canGoPrevious: currentPageIndex > 0,
     canGoNext: currentPageIndex < (document?.pages.length ?? 0) - 1,
-    canSave: !activePageLocked && !saveLayoutMutation.isPending && (activePageDirty || allowEmptyPageActionToast),
     canDiscard: activePageDirty || allowEmptyPageActionToast,
     canReview: canReviewAction,
     reviewLabel: reviewActionLabel,
-    canMarkSegmented,
+    canSave: canSaveAction,
     zoomPercent: Math.round((viewportState.zoom / Math.max(viewportState.fitPageZoom, Number.EPSILON)) * 100),
     viewMode: viewportState.mode,
     onPreviousPage: () => selectRelativePage(-1),
@@ -893,7 +868,6 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     onSave: saveActivePage,
     onDiscard: discardActiveDraft,
     onReviewAction: handleReviewAction,
-    onMarkSegmented: markActivePageSegmented,
   }
 
   return {

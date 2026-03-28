@@ -8,13 +8,11 @@ interface DraftActionBarProps {
   discardDisabled: boolean
   reviewDisabled: boolean
   reviewLabel: string | null
-  markSegmentedDisabled: boolean
   isSaving: boolean
   isBusy: boolean
   onSave: () => void
   onDiscard: () => void
   onReviewAction: () => void
-  onMarkSegmented: () => void
 }
 
 export function DraftActionBar({
@@ -27,13 +25,11 @@ export function DraftActionBar({
   discardDisabled,
   reviewDisabled,
   reviewLabel,
-  markSegmentedDisabled,
   isSaving,
   isBusy,
   onSave,
   onDiscard,
   onReviewAction,
-  onMarkSegmented,
 }: DraftActionBarProps) {
   return (
     <section className="panel draft-action-bar">
@@ -51,12 +47,12 @@ export function DraftActionBar({
 
       <div className="draft-action-summary">
         <span>{selectedBlockLabel}</span>
-        <span>{isDirty ? 'Save before marking this page segmented.' : 'Ready for review actions.'}</span>
+        <span>{isDirty ? 'Save to finish this page.' : 'Ready to save and finish this page.'}</span>
       </div>
 
       <div className="draft-action-buttons">
         <button type="button" className="primary-button" disabled={saveDisabled} onClick={onSave}>
-          {isSaving ? 'Saving...' : 'Save Draft'}
+          {isSaving ? 'Saving...' : 'Save'}
         </button>
         <button type="button" className="secondary-button" disabled={discardDisabled} onClick={onDiscard}>
           Discard Draft
@@ -66,9 +62,6 @@ export function DraftActionBar({
             {isBusy ? `${reviewLabel}...` : reviewLabel}
           </button>
         ) : null}
-        <button type="button" className="secondary-button" disabled={markSegmentedDisabled} onClick={onMarkSegmented}>
-          Mark Segmented
-        </button>
       </div>
     </section>
   )
