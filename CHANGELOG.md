@@ -1,5 +1,7 @@
 # Changelog
 
+- Extended the workspace debug panel with live canvas content/page dimensions and made the panel stay open above the workspace until the Debug toggle is clicked again.
+
 - Removed workspace fit-page zoom's dependence on the left/right overlay rail widths so the baseline now comes only from the canvas viewport box and page dimensions.
 
 - Stabilized workspace `fitPageZoom` against manual zoom scrollbars by measuring the canvas viewport from its border box, so the fit-page baseline stays fixed for a given browser layout while zoom buttons change only `viewport.zoom`.

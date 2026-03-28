@@ -22,13 +22,26 @@ type CanvasPoint = { x: number; y: number }
 
 export type CanvasViewMode = 'fit-page' | 'fit-width' | 'manual'
 
+interface CanvasViewportMetrics {
+    contentWidth: number
+    contentHeight: number
+    pageWidth: number
+    pageHeight: number
+}
+
 export interface CanvasViewportState {
     zoom: number
     fitPageZoom: number
     mode: CanvasViewMode
     panX: number
     panY: number
+    contentWidth: number
+    contentHeight: number
+    pageWidth: number
+    pageHeight: number
 }
+
+type CanvasViewportUpdate = Omit<CanvasViewportState, keyof CanvasViewportMetrics>
 
 export interface DocumentCanvasHandle {
     fitPage: () => void
@@ -744,6 +757,10 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
         mode: 'fit-page',
         panX: 0,
         panY: 0,
+        contentWidth: 1,
+        contentHeight: 1,
+        pageWidth: page.width,
+        pageHeight: page.height,
     }
     const viewportRef = useRef<HTMLDivElement | null>(null)
     const surfaceRef = useRef<HTMLDivElement | null>(null)
@@ -783,12 +800,26 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
         setIsPanning(true)
     }
 
-    function commitViewport(nextViewport: CanvasViewportState) {
-        viewportStateRef.current = nextViewport
-        setViewport(nextViewport)
+    function resolveViewportMetrics(): CanvasViewportMetrics {
+        const viewportBox = measureViewportBox()
+        return {
+            contentWidth: viewportBox?.contentWidth ?? viewportStateRef.current.contentWidth,
+            contentHeight: viewportBox?.contentHeight ?? viewportStateRef.current.contentHeight,
+            pageWidth: page.width,
+            pageHeight: page.height,
+        }
     }
 
-    function syncViewport(nextViewport: CanvasViewportState, resetPan = false) {
+    function commitViewport(nextViewport: CanvasViewportUpdate) {
+        const resolvedViewport: CanvasViewportState = {
+            ...nextViewport,
+            ...resolveViewportMetrics(),
+        }
+        viewportStateRef.current = resolvedViewport
+        setViewport(resolvedViewport)
+    }
+
+    function syncViewport(nextViewport: CanvasViewportUpdate, resetPan = false) {
         const viewportElement = viewportRef.current
         if (!viewportElement) {
             commitViewport(nextViewport)
@@ -822,10 +853,6 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
         return {
             contentWidth: Math.max(1, viewportRect.width - borderLeft - borderRight - paddingLeft - paddingRight),
             contentHeight: Math.max(1, viewportRect.height - borderTop - borderBottom - paddingTop - paddingBottom),
-            contentLeft: viewportRect.left + borderLeft + paddingLeft,
-            contentRight: viewportRect.right - borderRight - paddingRight,
-            contentTop: viewportRect.top + borderTop + paddingTop,
-            contentBottom: viewportRect.bottom - borderBottom - paddingBottom,
         }
     }
 
@@ -929,15 +956,21 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
         const observer = new ResizeObserver(() => {
             const current = viewportStateRef.current
             const nextFitPageZoom = computeFitPageZoom()
+            const nextMetrics = resolveViewportMetrics()
+            const metricsChanged =
+                Math.abs(current.contentWidth - nextMetrics.contentWidth) > Number.EPSILON ||
+                Math.abs(current.contentHeight - nextMetrics.contentHeight) > Number.EPSILON ||
+                Math.abs(current.pageWidth - nextMetrics.pageWidth) > Number.EPSILON ||
+                Math.abs(current.pageHeight - nextMetrics.pageHeight) > Number.EPSILON
             if (current.mode === 'manual') {
-                if (Math.abs(current.fitPageZoom - nextFitPageZoom) <= Number.EPSILON) {
+                if (Math.abs(current.fitPageZoom - nextFitPageZoom) <= Number.EPSILON && !metricsChanged) {
                     return
                 }
                 commitViewport({ ...current, fitPageZoom: nextFitPageZoom })
                 return
             }
             const nextZoom = computeFitZoom(current.mode)
-            const nextViewport: CanvasViewportState = {
+            const nextViewport: CanvasViewportUpdate = {
                 zoom: nextZoom,
                 fitPageZoom: nextFitPageZoom,
                 mode: current.mode,

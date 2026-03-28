@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useId, useState } from 'react'
 import { Bug, X } from 'lucide-react'
 
 import type { CanvasViewportState } from './DocumentCanvas'
@@ -19,39 +19,16 @@ function formatSettingValue(value: number) {
   return value.toFixed(4).replace(/0+$/, '').replace(/\.$/, '')
 }
 
+function formatDimensionValue(value: number) {
+  return value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')
+}
+
 export function WorkspaceDebugToolbar({ settings, hoveredBlockLabel, viewportState, onChange, onReset }: WorkspaceDebugToolbarProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const dockRef = useRef<HTMLDivElement | null>(null)
   const panelId = useId()
 
-  useEffect(() => {
-    if (!isOpen) {
-      return undefined
-    }
-
-    function handlePointerDown(event: PointerEvent) {
-      if (!(event.target instanceof Node) || dockRef.current?.contains(event.target)) {
-        return
-      }
-      setIsOpen(false)
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        setIsOpen(false)
-      }
-    }
-
-    window.addEventListener('pointerdown', handlePointerDown)
-    window.addEventListener('keydown', handleKeyDown)
-    return () => {
-      window.removeEventListener('pointerdown', handlePointerDown)
-      window.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [isOpen])
-
   return (
-    <div className="workspace-debug-dock" ref={dockRef}>
+    <div className="workspace-debug-dock">
       {isOpen ? (
         <aside id={panelId} className="workspace-debug-panel" aria-label="Workspace debug controls">
           <div className="workspace-debug-panel-header">
@@ -85,6 +62,22 @@ export function WorkspaceDebugToolbar({ settings, hoveredBlockLabel, viewportSta
               <div className="workspace-debug-indicator-card">
                 <span className="workspace-debug-indicator-label">Fit-page zoom</span>
                 <code>{formatSettingValue(viewportState.fitPageZoom)}</code>
+              </div>
+              <div className="workspace-debug-indicator-card">
+                <span className="workspace-debug-indicator-label">Content width</span>
+                <code>{formatDimensionValue(viewportState.contentWidth)}px</code>
+              </div>
+              <div className="workspace-debug-indicator-card">
+                <span className="workspace-debug-indicator-label">Content height</span>
+                <code>{formatDimensionValue(viewportState.contentHeight)}px</code>
+              </div>
+              <div className="workspace-debug-indicator-card">
+                <span className="workspace-debug-indicator-label">Page width</span>
+                <code>{formatDimensionValue(viewportState.pageWidth)}px</code>
+              </div>
+              <div className="workspace-debug-indicator-card">
+                <span className="workspace-debug-indicator-label">Page height</span>
+                <code>{formatDimensionValue(viewportState.pageHeight)}px</code>
               </div>
             </div>
           </section>

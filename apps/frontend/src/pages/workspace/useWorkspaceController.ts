@@ -126,6 +126,10 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     mode: 'fit-page',
     panX: 0,
     panY: 0,
+    contentWidth: 1,
+    contentHeight: 1,
+    pageWidth: 1,
+    pageHeight: 1,
   })
   const [toast, setToast] = useState<WorkspaceToast | null>(null)
   const [debugSettings, setDebugSettings] = useState<WorkspaceDebugSettings>(() => loadWorkspaceDebugSettings())
