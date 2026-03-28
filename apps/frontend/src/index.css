@@ -669,6 +669,9 @@ button {
 }
 
 .canvas-viewport {
+  display: grid;
+  justify-items: center;
+  align-content: start;
   overflow: auto;
   overscroll-behavior: contain;
   border-radius: 20px;
@@ -685,6 +688,7 @@ button {
 .canvas-frame {
   position: relative;
   overflow: hidden;
+  justify-self: center;
   border-radius: 20px;
   background: var(--canvas-bg);
   border: 1px solid var(--canvas-border);

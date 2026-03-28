@@ -1,5 +1,7 @@
 # Changelog
 
+- Explicitly centered the workspace canvas frame inside its scroll viewport so the page image stays visually centered in the segmentation editor.
+
 - Repositioned the workspace selected-block inspector as a floating canvas card anchored inside the segmentation editor instead of a docked side panel.
 
 - Changed the workspace split so the LaTeX preview panel now uses the same main-column footprint and stretched panel height as the segmentation editor.
