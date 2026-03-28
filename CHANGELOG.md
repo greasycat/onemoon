@@ -1,5 +1,7 @@
 # Changelog
 
+- Kept the selected block cut image visible in the preview rail after conversion whenever no compiled render is available, so the crop stays alongside the block source snippet.
+
 - Changed figure conversion so the LLM now produces a figure description while the backend composes the final `\\includegraphics` plus `\\caption{...}` snippet instead of returning a static placeholder.
 
 - Changed the workspace source rail to show the selected block’s LaTeX snippet instead of the full assembled document, including block-level placeholder snippets before conversion.

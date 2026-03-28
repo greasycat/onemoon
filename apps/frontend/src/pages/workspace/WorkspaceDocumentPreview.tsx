@@ -60,8 +60,7 @@ export function WorkspaceDocumentPreview({ document, selectedBlock = null }: Wor
   const previewUrl = latestArtifact?.pdf_url ? withApiRoot(latestArtifact.pdf_url) : null
   const blockSource = useMemo(() => buildBlockSource(selectedBlock), [selectedBlock])
   const selectedBlockCropUrl = selectedBlock?.crop_url ? withApiRoot(selectedBlock.crop_url) : null
-  const selectedBlockHasOutput = Boolean(selectedBlock?.manual_output?.trim() || selectedBlock?.generated_output?.trim())
-  const placeholderBlock = !previewUrl && selectedBlock && selectedBlockCropUrl && !selectedBlockHasOutput ? selectedBlock : null
+  const previewBlock = !previewUrl && selectedBlock && selectedBlockCropUrl ? selectedBlock : null
 
   return (
     <aside className="workspace-document-preview">
@@ -72,15 +71,15 @@ export function WorkspaceDocumentPreview({ document, selectedBlock = null }: Wor
           </div>
         ) : (
           <div className="workspace-document-preview-empty preview-empty-state">
-            {placeholderBlock ? (
+            {previewBlock ? (
               <div className="crop-preview workspace-document-preview-placeholder">
-                <img src={selectedBlockCropUrl ?? undefined} alt={`Placeholder crop for block ${placeholderBlock.order_index + 1}`} />
+                <img src={selectedBlockCropUrl ?? undefined} alt={`Preview crop for block ${previewBlock.order_index + 1}`} />
               </div>
             ) : null}
             <strong>No compiled preview yet</strong>
             <span>
-              {placeholderBlock
-                ? 'Using the selected block crop as a placeholder until conversion or compilation runs.'
+              {previewBlock
+                ? 'Showing the selected block crop until a compiled render is available.'
                 : 'Compile the document to render a PDF preview. The assembled LaTeX source remains visible below.'}
             </span>
           </div>
