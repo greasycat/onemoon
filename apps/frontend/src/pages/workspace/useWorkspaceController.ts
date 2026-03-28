@@ -708,11 +708,20 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
         typeof completedJob.payload.debug_masked_crop_path === 'string'
           ? completedJob.payload.debug_masked_crop_path
           : null
+      const debugResponsePath =
+        typeof completedJob.payload.debug_response_path === 'string'
+          ? completedJob.payload.debug_response_path
+          : null
+      const debugMessages = [
+        debugMaskedCropPath ? `Masked crop saved to ${debugMaskedCropPath}.` : null,
+        debugResponsePath ? `Response JSON saved to ${debugResponsePath}.` : null,
+      ].filter((message): message is string => Boolean(message))
       showToast({
         tone: 'success',
-        message: debugMaskedCropPath
-          ? `Block #${selectedBlock.order_index + 1} generated. Masked crop saved to ${debugMaskedCropPath}.`
-          : `Block #${selectedBlock.order_index + 1} generated.`,
+        message:
+          debugMessages.length > 0
+            ? `Block #${selectedBlock.order_index + 1} generated. ${debugMessages.join(' ')}`
+            : `Block #${selectedBlock.order_index + 1} generated.`,
       })
       return true
     } catch (error) {

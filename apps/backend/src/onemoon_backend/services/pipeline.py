@@ -241,12 +241,17 @@ def regenerate_block_job(job_id: str, block_id: str, save_masked_crop_debug: boo
             save_crop(block.page, block)
             result = convert_block(block, block.page, save_debug_image=save_masked_crop_debug)
             assemble_document(db, block.page.document_id)
+            debug_payload: dict[str, str] = {}
+            if result.debug_image_path:
+                debug_payload["debug_masked_crop_path"] = result.debug_image_path
+            if result.debug_response_path:
+                debug_payload["debug_response_path"] = result.debug_response_path
             update_job(
                 job,
                 status=JobStatus.completed,
                 progress=1.0,
                 message="Block output updated",
-                payload={"debug_masked_crop_path": result.debug_image_path} if result.debug_image_path else None,
+                payload=debug_payload or None,
             )
             db.commit()
         except Exception as exc:

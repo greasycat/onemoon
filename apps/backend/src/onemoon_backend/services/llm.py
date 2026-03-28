@@ -44,6 +44,7 @@ class ConversionResult:
     raw_output: str
     warnings: list[str]
     debug_image_path: str | None = None
+    debug_response_path: str | None = None
 
 
 @dataclass(slots=True)
@@ -150,17 +151,55 @@ def _read_image_data_url(image_path: Path) -> str:
     return _prepared_image_data_url(_prepare_llm_image(image_path))
 
 
-def _write_debug_image(prepared_image: PreparedLLMImage, *, block_id: str) -> str:
+def _debug_target_dir() -> Path:
+    target_dir = Path(tempfile.gettempdir()) / "onemoon-masked-crops"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    return target_dir
+
+
+def _new_debug_artifact_stem(block_id: str) -> str:
+    safe_block_id = re.sub(r"[^A-Za-z0-9_-]+", "-", block_id).strip("-") or "block"
+    return f"{safe_block_id}-{uuid4().hex[:8]}"
+
+
+def _write_debug_image(prepared_image: PreparedLLMImage, *, artifact_stem: str) -> str:
     suffix = {
         "image/png": ".png",
         "image/jpeg": ".jpg",
         "image/webp": ".webp",
     }.get(prepared_image.mime_type, ".bin")
-    safe_block_id = re.sub(r"[^A-Za-z0-9_-]+", "-", block_id).strip("-") or "block"
-    target_dir = Path(tempfile.gettempdir()) / "onemoon-masked-crops"
-    target_dir.mkdir(parents=True, exist_ok=True)
-    target_path = target_dir / f"{safe_block_id}-{uuid4().hex[:8]}{suffix}"
+    target_path = _debug_target_dir() / f"{artifact_stem}{suffix}"
     target_path.write_bytes(prepared_image.image_bytes)
+    return target_path.as_posix()
+
+
+def _build_debug_response_record(
+    payload: ConversionPayload,
+    *,
+    provider: str,
+    model: str | None,
+    response: Any,
+    normalized_output: str,
+    warnings: list[str],
+) -> dict[str, Any]:
+    record: dict[str, Any] = {
+        "provider": provider,
+        "block_id": payload.block_id,
+        "block_type": payload.block_type.value,
+        "instruction": payload.instruction,
+        "context_summary": payload.context_summary,
+        "normalized_output": normalized_output,
+        "warnings": warnings,
+        "response": response,
+    }
+    if model:
+        record["model"] = model
+    return record
+
+
+def _write_debug_response_json(response_payload: dict[str, Any], *, artifact_stem: str) -> str:
+    target_path = _debug_target_dir() / f"{artifact_stem}.json"
+    target_path.write_text(json.dumps(response_payload, ensure_ascii=True, indent=2), encoding="utf-8")
     return target_path.as_posix()
 
 
@@ -211,8 +250,13 @@ class MockLLMAdapter:
         if self.fallback_reason:
             warnings.append(self.fallback_reason)
         debug_image_path = None
+        debug_response_path = None
+        debug_artifact_stem = _new_debug_artifact_stem(payload.block_id) if payload.save_debug_image else None
         if payload.save_debug_image:
-            debug_image_path = _write_debug_image(_prepare_llm_image(payload.image_path), block_id=payload.block_id)
+            debug_image_path = _write_debug_image(
+                _prepare_llm_image(payload.image_path),
+                artifact_stem=debug_artifact_stem or _new_debug_artifact_stem(payload.block_id),
+            )
 
         if payload.block_type == BlockType.math:
             output = MATH_PLACEHOLDER
@@ -231,11 +275,24 @@ class MockLLMAdapter:
             f"provider={get_settings().llm_provider}; block={payload.block_id};"
             f" type={payload.block_type.value};{instruction} {payload.context_summary}"
         )
+        if debug_artifact_stem:
+            debug_response_path = _write_debug_response_json(
+                _build_debug_response_record(
+                    payload,
+                    provider=get_settings().llm_provider.strip() or "mock",
+                    model=None,
+                    response={"raw_output": raw_output.strip()},
+                    normalized_output=output,
+                    warnings=warnings,
+                ),
+                artifact_stem=debug_artifact_stem,
+            )
         return ConversionResult(
             normalized_output=output,
             raw_output=raw_output.strip(),
             warnings=warnings,
             debug_image_path=debug_image_path,
+            debug_response_path=debug_response_path,
         )
 
 
@@ -323,7 +380,12 @@ class OpenAIResponsesLLMAdapter:
 
     def convert(self, payload: ConversionPayload) -> ConversionResult:
         prepared_image = _prepare_llm_image(payload.image_path)
-        debug_image_path = _write_debug_image(prepared_image, block_id=payload.block_id) if payload.save_debug_image else None
+        debug_artifact_stem = _new_debug_artifact_stem(payload.block_id) if payload.save_debug_image else None
+        debug_image_path = (
+            _write_debug_image(prepared_image, artifact_stem=debug_artifact_stem)
+            if debug_artifact_stem
+            else None
+        )
         response_payload = self._request_response_payload(self._build_request_body(payload, prepared_image))
         output = _extract_response_text(response_payload)
         if payload.block_type == BlockType.figure:
@@ -332,12 +394,28 @@ class OpenAIResponsesLLMAdapter:
             normalized_output = _output_for_block_type(payload.block_type, output)
         if not normalized_output:
             raise RuntimeError("OpenAI response produced an empty conversion.")
+        debug_response_path = (
+            _write_debug_response_json(
+                _build_debug_response_record(
+                    payload,
+                    provider="openai-responses",
+                    model=self.model,
+                    response=response_payload,
+                    normalized_output=normalized_output,
+                    warnings=[],
+                ),
+                artifact_stem=debug_artifact_stem,
+            )
+            if debug_artifact_stem
+            else None
+        )
 
         return ConversionResult(
             normalized_output=normalized_output,
             raw_output=json.dumps(response_payload, ensure_ascii=True),
             warnings=[],
             debug_image_path=debug_image_path,
+            debug_response_path=debug_response_path,
         )
 
 

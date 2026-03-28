@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import importlib
 import sys
 from base64 import b64decode
@@ -164,6 +165,54 @@ def test_openai_adapter_builds_figure_snippet_from_caption_text(tmp_path: Path) 
     assert "Return plain caption text only." in user_content[0]["text"]
 
 
+def test_openai_adapter_saves_response_json_when_debug_requested(tmp_path: Path) -> None:
+    llm_module = importlib.import_module("onemoon_backend.services.llm")
+    adapter = llm_module.OpenAIResponsesLLMAdapter(
+        api_key="test-key",
+        model="gpt-5.4",
+        base_url="https://api.openai.com/v1",
+        timeout_seconds=10,
+    )
+    image_path = tmp_path / "block.png"
+    Image.new("RGB", (12, 12), "white").save(image_path)
+    payload = llm_module.ConversionPayload(
+        block_id="block:json",
+        block_type=BlockType.text,
+        image_path=image_path,
+        instruction="Keep sentences intact.",
+        context_summary="page=1",
+        save_debug_image=True,
+    )
+
+    adapter._request_response_payload = lambda _request_body: {  # type: ignore[method-assign]
+        "status": "completed",
+        "output": [
+            {
+                "type": "message",
+                "content": [
+                    {
+                        "type": "output_text",
+                        "text": "First line.\nSecond line.",
+                    }
+                ],
+            }
+        ],
+    }
+
+    result = adapter.convert(payload)
+
+    assert result.debug_response_path is not None
+    response_path = Path(result.debug_response_path)
+    saved_payload = json.loads(response_path.read_text(encoding="utf-8"))
+    assert saved_payload["provider"] == "openai-responses"
+    assert saved_payload["model"] == "gpt-5.4"
+    assert saved_payload["normalized_output"] == "First line.\nSecond line."
+    assert saved_payload["response"]["status"] == "completed"
+    response_path.unlink()
+    if result.debug_image_path:
+        Path(result.debug_image_path).unlink()
+
+
 def test_read_image_data_url_flattens_transparent_surround_to_white(tmp_path: Path) -> None:
     llm_module = importlib.import_module("onemoon_backend.services.llm")
     image_path = tmp_path / "masked-block.png"
@@ -202,11 +251,20 @@ def test_mock_adapter_saves_prepared_debug_crop_when_requested(tmp_path: Path) -
     result = llm_module.MockLLMAdapter().convert(payload)
 
     assert result.debug_image_path is not None
+    assert result.debug_response_path is not None
     debug_image = Path(result.debug_image_path)
+    response_json = Path(result.debug_response_path)
     assert debug_image.exists()
+    assert response_json.exists()
     assert debug_image.parent.name == "onemoon-masked-crops"
+    assert response_json.parent.name == "onemoon-masked-crops"
 
     flattened = Image.open(debug_image).convert("RGB")
     assert flattened.getpixel((1, 1)) == (255, 255, 255)
     assert flattened.getpixel((12, 10)) == (0, 0, 0)
+    saved_payload = json.loads(response_json.read_text(encoding="utf-8"))
+    assert saved_payload["block_id"] == "block:debug"
+    assert saved_payload["normalized_output"] == llm_module.TEXT_PLACEHOLDER
+    assert saved_payload["response"]["raw_output"].startswith("provider=")
     debug_image.unlink()
+    response_json.unlink()
