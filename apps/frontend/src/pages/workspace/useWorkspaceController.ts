@@ -50,6 +50,7 @@ const TOOL_SHORTCUTS: Record<string, 'select' | 'rect' | 'freeform' | 'cut'> = {
   p: 'select',
   r: 'rect',
 }
+const BLOCK_TYPE_CYCLE: BlockType[] = ['text', 'math', 'figure']
 
 interface WorkspaceToast {
   tone: 'saving' | 'success' | 'error'
@@ -72,6 +73,14 @@ function isEditableTarget(target: EventTarget | null) {
 
 function hasMatchingGeometry(current: BlockGeometry, next: BlockGeometry) {
   return current.x === next.x && current.y === next.y && current.width === next.width && current.height === next.height
+}
+
+function nextBlockType(current: BlockType) {
+  const currentIndex = BLOCK_TYPE_CYCLE.indexOf(current)
+  if (currentIndex < 0) {
+    return BLOCK_TYPE_CYCLE[0]
+  }
+  return BLOCK_TYPE_CYCLE[(currentIndex + 1) % BLOCK_TYPE_CYCLE.length]
 }
 
 const EMPTY_PAGE_ACTION_MESSAGE = 'Nothing is created.'
@@ -675,6 +684,21 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     )
   }
 
+  function cycleBlockType(blockId: string) {
+    if (!selectedPage || !pageDraft || activePageLocked) {
+      return
+    }
+
+    setDraftForPage(
+      selectedPage.id,
+      updateDraftBlock(pageDraft, blockId, (block) => ({
+        ...block,
+        block_type: nextBlockType(block.block_type),
+      })),
+    )
+    selectSingleBlock(blockId)
+  }
+
   function deleteSelectedBlocks() {
     if (!selectedPage || !pageDraft || activeSelectedBlockKeys.length === 0) {
       return
@@ -884,6 +908,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     selectedPage,
     selectPage,
     selectBlock,
+    cycleBlockType,
     setActiveTool,
     setViewportState,
     toast,

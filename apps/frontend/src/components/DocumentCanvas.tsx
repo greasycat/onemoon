@@ -105,6 +105,7 @@ interface DocumentCanvasProps {
   debugSettings: WorkspaceDebugSettings
   onViewportChange: (viewport: CanvasViewportState) => void
   onSelectBlock: (blockId: string | null, mode?: BlockSelectionMode) => void
+  onCycleBlockType: (blockId: string) => void
   onCreateBlock: (payload: {
     shape_type: BlockShapeType
     geometry: BlockGeometry
@@ -731,6 +732,7 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
     debugSettings,
     onViewportChange,
     onSelectBlock,
+    onCycleBlockType,
     onCreateBlock,
     onUpdateBlock,
   },
@@ -1265,6 +1267,10 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
                         initialVertices: polygonVertices,
                       })
                     }}
+                    onDoubleClick={(event) => {
+                      event.stopPropagation()
+                      onCycleBlockType(blockId)
+                    }}
                   >
                     <svg className="region-polygon-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
                       <polygon className="region-polygon-shape" points={polygonPointsToLocalString(block)} />
@@ -1328,6 +1334,10 @@ export const DocumentCanvas = forwardRef<DocumentCanvasHandle, DocumentCanvasPro
                       initialGeometry: block.geometry,
                       initialVertices: null,
                     })
+                  }}
+                  onDoubleClick={(event) => {
+                    event.stopPropagation()
+                    onCycleBlockType(blockId)
                   }}
                 >
                   <span className="region-label">

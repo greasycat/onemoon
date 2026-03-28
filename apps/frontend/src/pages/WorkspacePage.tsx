@@ -22,6 +22,7 @@ export function WorkspacePage() {
     applySelectedBlock,
     blockInspectorBusy,
     canvasRef,
+    cycleBlockType,
     debugSettings,
     deleteSelectedBlock,
     document,
@@ -130,6 +131,7 @@ export function WorkspacePage() {
               isLocked={activePageLocked}
               onViewportChange={setViewportState}
               onSelectBlock={selectBlock}
+              onCycleBlockType={cycleBlockType}
               onCreateBlock={handleCreateBlock}
               onUpdateBlock={handleUpdateBlock}
             />
@@ -146,6 +148,7 @@ export function WorkspacePage() {
             selectedPageLayoutVersion={selectedPage.layout_version}
             viewportState={viewportState}
             onSelectBlock={selectBlock}
+            onCycleBlockType={cycleBlockType}
           />
         </div>
       </section>

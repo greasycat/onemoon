@@ -123,6 +123,7 @@ export function BlockInspector({
             </option>
           ))}
         </select>
+        <p className="selection-hint review-panel-hint">Tip: double-click a block on the page or in the review list to cycle its type faster.</p>
       </label>
 
       <div className="inspector-section">

@@ -13,6 +13,7 @@ interface WorkspaceReviewPanelProps {
   selectedPageLayoutVersion: number
   viewportState: CanvasViewportState
   onSelectBlock: (blockId: string, mode?: BlockSelectionMode) => void
+  onCycleBlockType: (blockId: string) => void
 }
 
 export function WorkspaceReviewPanel({
@@ -24,6 +25,7 @@ export function WorkspaceReviewPanel({
   selectedPageLayoutVersion,
   viewportState,
   onSelectBlock,
+  onCycleBlockType,
 }: WorkspaceReviewPanelProps) {
   function selectionModeForEvent(event: Pick<ReactMouseEvent<HTMLButtonElement>, 'metaKey' | 'ctrlKey' | 'shiftKey'>): BlockSelectionMode {
     if (event.shiftKey) {
@@ -77,6 +79,7 @@ export function WorkspaceReviewPanel({
               className={`block-list-item ${isSelected ? 'block-list-item-active' : ''} ${isPrimarySelected ? 'block-list-item-primary' : ''}`}
               aria-pressed={isSelected}
               onClick={(event) => onSelectBlock(blockKey, selectionModeForEvent(event))}
+              onDoubleClick={() => onCycleBlockType(blockKey)}
             >
               <div>
                 <strong>

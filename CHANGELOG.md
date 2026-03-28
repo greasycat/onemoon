@@ -1,5 +1,7 @@
 # Changelog
 
+- Added workspace block-type cycling on block double-click and surfaced a picker tip so reviewers can change types faster from the page or review list.
+
 - Made workspace block-type changes apply immediately from the inspector select, so review no longer depends on a separate `Apply To Draft` click.
 
 - Made the workspace `FIN` action save every dirty page draft before marking the active page finished, so review completion no longer depends on a separate manual save step.
