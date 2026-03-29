@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 
 import { withApiRoot } from '../../lib/api'
+import { formatBlockOutput, resolveBlockOutput } from '../../lib/documentExport'
 import type { DraftBlock } from '../../lib/segmentation'
 import type { CompileArtifactResponse, DocumentDetailResponse } from '../../lib/types'
 
@@ -16,53 +17,14 @@ function compareArtifacts(left: CompileArtifactResponse, right: CompileArtifactR
   return right.created_at.localeCompare(left.created_at)
 }
 
-function normalizeSnippet(source: string) {
-  return source.trim().replace(/\r\n/g, '\n')
-}
-
-function ensureDisplayMath(source: string) {
-  if (source.startsWith('\\[') && source.endsWith('\\]')) {
-    return source
-  }
-  if (source.startsWith('$$') && source.endsWith('$$')) {
-    return source
-  }
-  if (/^\\begin\{(?:equation\*?|align\*?|gather\*?)\}[\s\S]*\\end\{(?:equation\*?|align\*?|gather\*?)\}$/.test(source)) {
-    return source
-  }
-  if (source.startsWith('\\(') && source.endsWith('\\)')) {
-    source = source.slice(2, -2).trim()
-  } else if (source.startsWith('$') && source.endsWith('$')) {
-    source = source.slice(1, -1).trim()
-  }
-  return `\\[\n${source}\n\\]`
-}
-
-function ensureTextBlock(source: string) {
-  if (/^\\begin\{textblock\}[\s\S]*\\end\{textblock\}$/.test(source)) {
-    return source
-  }
-  return ['\\begin{textblock}', source, '\\end{textblock}'].join('\n')
-}
-
 function buildBlockSource(selectedBlock: DraftBlock | null) {
   if (!selectedBlock) {
     return '% Select a block to inspect its LaTeX snippet.'
   }
 
-  const convertedSource = selectedBlock.manual_output?.trim() || selectedBlock.generated_output?.trim()
+  const convertedSource = resolveBlockOutput(selectedBlock)
   if (convertedSource) {
-    const normalizedSource = normalizeSnippet(convertedSource)
-    if (selectedBlock.block_type === 'math') {
-      return ensureDisplayMath(normalizedSource)
-    }
-    if (selectedBlock.block_type === 'figure') {
-      return ['% Figure block', '\\begin{figure}[h]', '\\centering', normalizedSource, '\\end{figure}'].join('\n')
-    }
-    if (selectedBlock.block_type === 'text') {
-      return ensureTextBlock(normalizedSource)
-    }
-    return normalizedSource
+    return formatBlockOutput(selectedBlock, convertedSource)
   }
 
   if (selectedBlock.crop_url) {

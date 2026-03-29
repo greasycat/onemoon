@@ -1936,10 +1936,15 @@ button {
   align-items: center;
   justify-content: flex-end;
   gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .workspace-toolbar-toggle {
   min-width: 8.5rem;
+}
+
+.workspace-copy-all-button {
+  white-space: nowrap;
 }
 
 .editor-workbench-canvas-layout {

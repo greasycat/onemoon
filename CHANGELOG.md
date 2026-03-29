@@ -1,5 +1,7 @@
 # Changelog
 
+- Added a workspace `Copy all` header action that copies converted output across every page in order and inserts `Block/Page Unconverted Placeholder` anywhere a page or block has no converted content yet.
+
 - Stabilized the workspace canvas height chain so the page 4 canvas on segmented `handwriting_physics_1` no longer slowly shrinks after opening and keeps re-triggering fit-page resizes.
 
 - Updated conversion output formatting so math blocks now return full LaTeX display environments and text blocks are wrapped in a `textblock` environment across mock output, block previews, and assembled document LaTeX.

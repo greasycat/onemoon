@@ -5,6 +5,7 @@ import type { DocumentCanvasHandle, CanvasViewportState } from '../../components
 import type { EditorToolbarProps } from '../../components/EditorToolbar'
 import { api } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
+import { buildDocumentExport } from '../../lib/documentExport'
 import {
   clampGeometry,
   createManualBlock,
@@ -849,6 +850,38 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     }
   }
 
+  async function copyAllConvertedToClipboard() {
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+      showToast({
+        tone: 'error',
+        message: 'Clipboard access is unavailable in this browser.',
+      })
+      return false
+    }
+
+    const exportText = buildDocumentExport(
+      document?.pages.map((page) => ({
+        pageIndex: page.page_index,
+        draft: pageDrafts[page.id] ?? pageToDraft(page),
+      })) ?? [],
+    )
+
+    try {
+      await navigator.clipboard.writeText(exportText)
+      showToast({
+        tone: 'success',
+        message: 'Copied converted output for all pages.',
+      })
+      return true
+    } catch (error) {
+      showToast({
+        tone: 'error',
+        message: error instanceof Error && error.message ? error.message : 'Failed to copy converted output.',
+      })
+      return false
+    }
+  }
+
   function handleCreateBlock(payload: {
     shape_type: BlockShapeType
     geometry: BlockGeometry
@@ -1134,6 +1167,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     selectPage,
     selectBlock,
     cycleBlockType,
+    copyAllConvertedToClipboard,
     convertAllBlocks,
     convertSelectedBlock,
     setHoveredBlock,

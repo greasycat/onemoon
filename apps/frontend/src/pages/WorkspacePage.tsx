@@ -26,6 +26,7 @@ export function WorkspacePage() {
     blockInspectorBusy,
     canvasRef,
     conversionInstruction,
+    copyAllConvertedToClipboard,
     cycleBlockType,
     convertAllBlocks,
     convertSelectedBlock,
@@ -162,6 +163,15 @@ export function WorkspacePage() {
                   <h1>{filenameStem}</h1>
                 </div>
                 <div className="editor-workbench-actions">
+                  <button
+                    type="button"
+                    className="secondary-button workspace-copy-all-button"
+                    onClick={() => {
+                      void copyAllConvertedToClipboard()
+                    }}
+                  >
+                    Copy all
+                  </button>
                   <button
                     type="button"
                     className="secondary-button workspace-toolbar-toggle"
