@@ -1939,8 +1939,119 @@ button {
   flex-wrap: wrap;
 }
 
-.workspace-toolbar-toggle {
-  min-width: 8.5rem;
+.workspace-mode-navigation {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.35rem;
+  border-radius: 1.8rem;
+  border: 1px solid rgba(97, 71, 46, 0.12);
+  background:
+    linear-gradient(180deg, rgba(255, 251, 244, 0.96), rgba(247, 238, 225, 0.92));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    0 18px 36px rgba(98, 74, 44, 0.08);
+}
+
+.workspace-mode-navigation-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.workspace-mode-navigation-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 10.5rem;
+  padding: 0.7rem 0.85rem 0.7rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: 1.35rem;
+  background: transparent;
+  color: var(--workspace-ink);
+  cursor: pointer;
+  transition:
+    transform 140ms ease,
+    background 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.workspace-mode-navigation-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(153, 94, 61, 0.18);
+  background: rgba(255, 252, 246, 0.84);
+}
+
+.workspace-mode-navigation-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-color: var(--accent-strong);
+  box-shadow: 0 0 0 4px var(--accent-ring);
+}
+
+.workspace-mode-navigation-button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.workspace-mode-navigation-button-active {
+  border-color: rgba(189, 92, 56, 0.24);
+  background:
+    linear-gradient(135deg, rgba(204, 113, 79, 0.16), rgba(255, 246, 237, 0.92));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 10px 18px rgba(189, 92, 56, 0.12);
+}
+
+.workspace-mode-navigation-button-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 999px;
+  background: rgba(255, 252, 246, 0.92);
+  color: rgba(128, 76, 44, 0.92);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+.workspace-mode-navigation-button-active .workspace-mode-navigation-button-icon {
+  background: linear-gradient(135deg, rgba(205, 101, 62, 0.94), rgba(175, 74, 45, 0.9));
+  color: #fff6ef;
+}
+
+.workspace-mode-navigation-button-icon svg,
+.workspace-mode-navigation-separator svg {
+  width: 1rem;
+  height: 1rem;
+  stroke-width: 2.1;
+}
+
+.workspace-mode-navigation-button-copy {
+  display: grid;
+  gap: 0.1rem;
+  text-align: left;
+}
+
+.workspace-mode-navigation-button-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.workspace-mode-navigation-button-hint {
+  color: var(--workspace-muted);
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.workspace-mode-navigation-separator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(133, 102, 74, 0.72);
 }
 
 .editor-workbench-canvas-layout {
@@ -3018,6 +3129,28 @@ button {
     gap: 0.25rem;
   }
 
+  .workspace-mode-navigation {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .workspace-mode-navigation-item {
+    flex: 1 1 0;
+  }
+
+  .workspace-mode-navigation-button {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .workspace-mode-navigation-button-copy {
+    min-width: 0;
+  }
+
+  .workspace-mode-navigation-button-hint {
+    letter-spacing: 0.05em;
+  }
+
   .projects-dashboard-create-bar {
     grid-template-columns: 1fr;
   }
@@ -3124,6 +3257,19 @@ button {
 }
 
 @media (max-width: 560px) {
+  .workspace-mode-navigation {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .workspace-mode-navigation-item {
+    gap: 0;
+  }
+
+  .workspace-mode-navigation-separator {
+    display: none;
+  }
+
   .workspace-shell .canvas-stage {
     display: grid;
     gap: 0.55rem;

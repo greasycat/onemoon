@@ -4,6 +4,7 @@ import { useLocation, useParams } from 'react-router-dom'
 import { BlockInspector } from '../components/BlockInspector'
 import { ConversionModeToolbar } from '../components/ConversionModeToolbar'
 import { DocumentCanvas } from '../components/DocumentCanvas'
+import { WorkspaceModeNavigation, type WorkspaceMode } from '../components/WorkspaceModeNavigation'
 import { WorkspaceDebugToolbar } from '../components/WorkspaceDebugToolbar'
 import { FRONTEND_DEBUG } from '../lib/debug'
 import { WorkspaceBlockSourcePanel, WorkspaceDocumentPreview, WorkspaceSourcePreviewPanel } from './workspace/WorkspaceDocumentPreview'
@@ -11,8 +12,6 @@ import { WorkspaceMergedCodePanel } from './workspace/WorkspaceMergedCodePanel'
 import { WorkspacePageSidebar } from './workspace/WorkspacePageSidebar'
 import { WorkspaceReviewPanel } from './workspace/WorkspaceReviewPanel'
 import { useWorkspaceController } from './workspace/useWorkspaceController'
-
-type WorkspaceMode = 'review' | 'conversion' | 'merging'
 
 export function WorkspacePage() {
   const { documentId = '' } = useParams()
@@ -177,28 +176,13 @@ export function WorkspacePage() {
                   <h1>{filenameStem}</h1>
                 </div>
                 <div className="editor-workbench-actions">
-                  <button
-                    type="button"
-                    className="secondary-button workspace-toolbar-toggle"
-                    aria-pressed={isConversionMode}
+                  <WorkspaceModeNavigation
+                    activeMode={workspaceMode}
                     disabled={isWorkspaceModePending}
-                    onClick={() => {
-                      void handleWorkspaceModeChange(isConversionMode ? 'review' : 'conversion')
+                    onChangeMode={(nextMode) => {
+                      void handleWorkspaceModeChange(nextMode)
                     }}
-                  >
-                    {isConversionMode ? 'Exit conversion mode' : 'Enter conversion mode'}
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary-button workspace-toolbar-toggle"
-                    aria-pressed={isMergingMode}
-                    disabled={isWorkspaceModePending}
-                    onClick={() => {
-                      void handleWorkspaceModeChange(isMergingMode ? 'review' : 'merging')
-                    }}
-                  >
-                    {isMergingMode ? 'Exit merging mode' : 'Enter merging mode'}
-                  </button>
+                  />
                 </div>
               </div>
               <div

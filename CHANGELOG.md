@@ -1,5 +1,7 @@
 # Changelog
 
+- Replaced the workspace header’s mode toggles with a single navigation-style step control that shows `Segment`, `Conversion`, and `Merging` as a connected flow with arrow separators.
+
 - Added a merging-mode control panel with optional LLM guidance, a panel-local copy action, and a direct `/documents/{document_id}/merge` API that keeps mock-provider merges usable while compiling the persisted merged body correctly.
 
 - Added a dedicated merging mode that switches the workspace into a two-column merge review layout with the canvas plus preview stack on one side and a merged-code panel on the other.
