@@ -14,6 +14,29 @@ export function normalizeSnippet(source: string) {
   return source.trim().replace(/\r\n/g, '\n')
 }
 
+export function extractDocumentBody(source: string | null | undefined) {
+  if (!source) {
+    return null
+  }
+
+  const normalized = normalizeSnippet(source)
+  if (!normalized) {
+    return null
+  }
+
+  const beginDocumentIndex = normalized.indexOf('\\begin{document}')
+  const endDocumentIndex = normalized.lastIndexOf('\\end{document}')
+  if (beginDocumentIndex < 0 || endDocumentIndex <= beginDocumentIndex) {
+    return normalized
+  }
+
+  let body = normalized.slice(beginDocumentIndex + '\\begin{document}'.length, endDocumentIndex).trim()
+  if (body.startsWith('\\maketitle')) {
+    body = body.slice('\\maketitle'.length).trim()
+  }
+  return body || null
+}
+
 export function resolveBlockOutput(block: Pick<DraftBlock, 'manual_output' | 'generated_output'>) {
   for (const candidate of [block.manual_output, block.generated_output]) {
     if (!candidate) {
