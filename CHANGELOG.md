@@ -1,5 +1,7 @@
 # Changelog
 
+- Removed the remaining inset ring from the workspace mode-navigation icon pills so the step icons render without a visible border.
+
 - Replaced the workspace header’s mode toggles with a single navigation-style step control that shows `Segment`, `Conversion`, and `Merging` as a connected flow with arrow separators.
 
 - Added a merging-mode control panel with optional LLM guidance, a panel-local copy action, and a direct `/documents/{document_id}/merge` API that keeps mock-provider merges usable while compiling the persisted merged body correctly.
