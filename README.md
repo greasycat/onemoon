@@ -1,72 +1,78 @@
 # OneMoon
 
-OneMoon is a full-stack web app for turning handwritten notes, screenshots, and PDFs into reviewable LaTeX. The current scaffold includes:
+OneMoon is a human-in-the-loop note-to-LaTeX workspace. It takes handwritten notes, screenshots, or PDFs through upload, page review, block conversion, and final LaTeX packaging in one flow.
 
-- A `React + TypeScript + Vite` frontend with login, project management, document upload, page-first manual segmentation, block editing, and draft save/discard workflow.
-- A `FastAPI + SQLAlchemy` backend with PDF/image ingestion, page rendering, atomic page-layout persistence, and the later-phase segmentation/conversion pipeline scaffolding.
+## What It Does
 
-## Repo Layout
+- Upload a document into a workspace and review pages in a browser-based editor.
+- Segment handwritten content into text, math, and figure blocks.
+- Convert blocks with a configured LLM provider or keep using the built-in mock provider for local development.
+- Merge the assembled output into LaTeX and download a package that includes the source plus a relative `figures/` folder.
 
-- `apps/frontend`: browser client
-- `apps/backend`: Python API and processing pipeline
-- `data/`: runtime storage for uploads, rendered pages, crops, and artifacts
+## Screenshots
 
-## Local Development
+<p>
+  <img src="docs/screenshots/dashboard.png" alt="OneMoon dashboard with workspaces and uploads" width="32%" />
+  <img src="docs/screenshots/workspace-review.png" alt="OneMoon page review workspace with block list and canvas" width="32%" />
+  <img src="docs/screenshots/workspace-merge.png" alt="OneMoon merge view with merged code and package actions" width="32%" />
+</p>
 
-### Both Services
+## Core Flow
+
+1. Create or open a workspace.
+2. Upload a PDF or image document.
+3. Review each page and adjust block segmentation where needed.
+4. Convert blocks in `Conversion` mode.
+5. Merge the assembled source in `Merging` mode and download the resulting package.
+
+## Stack
+
+- Frontend: React, TypeScript, Vite
+- Backend: FastAPI, SQLAlchemy, Python processing pipeline
+- Storage: local `data/` directory for uploads, rendered pages, crops, and generated artifacts
+
+## Run Locally
+
+Start both apps from the repo root:
 
 ```bash
 npm install
 npm run dev
 ```
 
-This starts the frontend on `http://localhost:5173` and the backend on `http://localhost:8000` together.
+- Frontend: `http://localhost:5173`
+- Backend: `http://localhost:8000`
 
-For inspection from another machine on the same LAN, open the frontend using the dev machine's IP, for example `http://192.168.1.10:5173`. By default the frontend will target `http://<same-host>:8000/api`, and the backend accepts common private-network frontend origins.
-
-For background management from the repo root:
-
-```bash
-npm run dev:start:bg
-npm run dev:status
-npm run dev:logs
-npm run dev:stop
-```
-
-### Backend
+Run the apps separately when needed:
 
 ```bash
 cd apps/backend
-cp .env.example .env
 uv sync --dev
 uv run onemoon-backend
 ```
 
-The API runs on `http://localhost:8000` and serves artifacts under `/storage`.
-For actual LLM-backed block conversion, either set `LLM_PROVIDER=openai` and `LLM_API_KEY` or `OPENAI_API_KEY` in `apps/backend/.env`, or keep credentials in the repo-root `.env` with `ONEMOON_LLM_PROVIDER`, `ONEMOON_LLM_MODEL`, and `ONEMOON_API_KEY`. If no real provider is configured, the backend falls back to mock text/math placeholders so the workflow still runs locally.
-
-### Frontend
-
 ```bash
 cd apps/frontend
-cp .env.example .env
 npm install
 npm run dev
 ```
 
-The frontend runs on `http://localhost:5173`.
-
-## Default Credentials
+## Default Login
 
 - Username: `admin`
 - Password: `onemoon`
 
-Override them in `apps/backend/.env` before deploying anywhere outside local development.
+## LLM Configuration
+
+OneMoon stays usable without an external model. If no real provider is configured, the backend falls back to the mock provider so the upload-to-review workflow still runs locally.
+
+To enable a real provider, configure `apps/backend/.env` or the repo-root `.env` with your `ONEMOON_*` / provider-specific LLM settings before starting the backend.
 
 ## Verification
 
 ```bash
 cd apps/backend && uv run pytest
-cd apps/backend && uv run python -m compileall src
 cd apps/frontend && npm run build
 ```
+
+More detailed app-specific notes live in [apps/frontend/README.md](apps/frontend/README.md) and [apps/backend/README.md](apps/backend/README.md).

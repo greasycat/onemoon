@@ -1,5 +1,7 @@
 # Changelog
 
+- Added a concise root README with current product screenshots covering the dashboard, page-review workspace, and merged-code packaging flow.
+
 - Switched figure conversion and merged-source packaging to use relative `figures/...` asset paths, staged those figures for compile/package output, and added a merge-panel download action that bundles the LaTeX files with the figure folder.
 
 - Removed the remaining inset ring from the workspace mode-navigation icon pills so the step icons render without a visible border.
