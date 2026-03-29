@@ -1,5 +1,7 @@
 # Changelog
 
+- Fixed the conversion-mode left rail so long block lists stay scrollable within the available column height and no longer clip the conversion inspector below them.
+
 - Added a workspace `Copy all` header action that copies converted output across every page in order and inserts `Block/Page Unconverted Placeholder` anywhere a page or block has no converted content yet.
 
 - Stabilized the workspace canvas height chain so the page 4 canvas on segmented `handwriting_physics_1` no longer slowly shrinks after opening and keeps re-triggering fit-page resizes.

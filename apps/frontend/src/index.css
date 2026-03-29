@@ -1986,12 +1986,23 @@ button {
 .editor-workbench-canvas-column {
   display: grid;
   align-content: start;
+  min-height: 0;
 }
 
 .editor-workbench-canvas-side-stack {
   display: grid;
   gap: 0.9rem;
   align-content: start;
+  min-height: 0;
+}
+
+.editor-workbench-canvas-side-stack-conversion {
+  height: 100%;
+  max-height: 100%;
+  align-content: stretch;
+  grid-template-rows: minmax(0, 2fr) minmax(0, 1fr);
+  overflow: hidden;
+  padding-right: 0.15rem;
 }
 
 .workspace-shell .editor-workbench-canvas-column .workspace-review-panel {
@@ -2003,9 +2014,39 @@ button {
   max-height: min(44vh, 28rem);
 }
 
+.workspace-shell .editor-workbench-canvas-column .editor-workbench-canvas-side-stack-conversion .workspace-review-panel,
+.workspace-shell .editor-workbench-canvas-column .editor-workbench-canvas-side-stack-conversion .inspector-panel {
+  height: 100%;
+  min-height: 0;
+}
+
+.workspace-shell .editor-workbench-canvas-column .editor-workbench-canvas-side-stack-conversion .workspace-review-panel {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.workspace-shell .editor-workbench-canvas-column .editor-workbench-canvas-side-stack-conversion .workspace-review-panel-body {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workspace-shell .editor-workbench-canvas-column .editor-workbench-canvas-side-stack-conversion .workspace-review-panel-body-conversion {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.workspace-shell .editor-workbench-canvas-column .editor-workbench-canvas-side-stack-conversion .workspace-review-panel .block-list {
+  min-height: 0;
+  max-height: none;
+}
+
+.workspace-shell .editor-workbench-canvas-column .editor-workbench-canvas-side-stack-conversion .inspector-panel {
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
 .workspace-shell .editor-workbench-canvas-column-list {
   position: sticky;
   top: 0;
+  min-height: 0;
 }
 
 .workspace-shell .editor-workbench-canvas-column .inspector-panel {

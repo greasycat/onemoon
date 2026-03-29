@@ -187,7 +187,9 @@ export function WorkspacePage() {
               </div>
               <div className={`editor-workbench-canvas-layout ${isConversionMode ? 'editor-workbench-canvas-layout-conversion' : ''}`}>
                 <div className="editor-workbench-canvas-column editor-workbench-canvas-column-list">
-                  <div className="editor-workbench-canvas-side-stack">
+                  <div
+                    className={`editor-workbench-canvas-side-stack ${isConversionMode ? 'editor-workbench-canvas-side-stack-conversion' : ''}`}
+                  >
                     {blockListPanel}
                     {blockInfoPanel}
                   </div>

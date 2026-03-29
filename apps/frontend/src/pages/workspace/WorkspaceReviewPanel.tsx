@@ -40,6 +40,7 @@ export function WorkspaceReviewPanel({
   }
 
   const ToggleIcon = isCollapsed ? ChevronRight : ChevronDown
+  const selectionHint = 'Shift-click for a range. Cmd/Ctrl-click to toggle blocks. Delete removes the selection.'
 
   return (
     <aside className={`workspace-review-panel ${isCollapsed ? 'workspace-review-panel-collapsed' : ''}`} aria-label="Block list">
@@ -59,10 +60,15 @@ export function WorkspaceReviewPanel({
           </div>
         </div>
       </div>
-      <div className="workspace-review-panel-body" aria-hidden={isCollapsed}>
-        <div>
-          <p className="selection-hint">Shift-click for a range. Cmd/Ctrl-click to toggle blocks. Delete removes the selection.</p>
-        </div>
+      <div
+        className={`workspace-review-panel-body ${isConversionMode ? 'workspace-review-panel-body-conversion' : ''}`}
+        aria-hidden={isCollapsed}
+      >
+        {!isConversionMode ? (
+          <div>
+            <p className="selection-hint">{selectionHint}</p>
+          </div>
+        ) : null}
         {isConversionMode ? (
           <div className="workspace-review-panel-actions">
             <button type="button" className="secondary-button" disabled={!canConvertAll || isConvertingAll} onClick={onConvertAll}>
