@@ -51,6 +51,11 @@ type ApiOptions = Omit<RequestInit, 'body'> & {
   isFormData?: boolean
 }
 
+type BlobDownloadResponse = {
+  blob: Blob
+  filename: string | null
+}
+
 function formatApiDetail(detail: unknown): string | null {
   if (typeof detail === 'string' && detail.trim()) {
     return detail
@@ -128,6 +133,59 @@ async function request<T>(
   return (text ? text : undefined) as T
 }
 
+function parseContentDispositionFilename(contentDisposition: string | null): string | null {
+  if (!contentDisposition) {
+    return null
+  }
+
+  const encodedMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
+  if (encodedMatch?.[1]) {
+    try {
+      return decodeURIComponent(encodedMatch[1].replace(/^"|"$/g, ''))
+    } catch {
+      return encodedMatch[1].replace(/^"|"$/g, '')
+    }
+  }
+
+  const simpleMatch = contentDisposition.match(/filename="?([^"]+)"?/i)
+  return simpleMatch?.[1] ?? null
+}
+
+async function requestBlob(path: string, options: ApiOptions = {}): Promise<BlobDownloadResponse> {
+  const headers = new Headers(options.headers)
+  if (options.token) {
+    headers.set('Authorization', `Bearer ${options.token}`)
+  }
+
+  let body = options.body
+  if (body && !options.isFormData && !(body instanceof FormData)) {
+    headers.set('Content-Type', 'application/json')
+    body = JSON.stringify(body)
+  }
+
+  const response = await fetch(`${API_ROOT}${path}`, {
+    ...options,
+    headers,
+    body: body as BodyInit | null | undefined,
+  })
+
+  if (!response.ok) {
+    let message = response.statusText
+    try {
+      const payload = (await response.json()) as { detail?: unknown }
+      message = formatApiDetail(payload.detail) ?? message
+    } catch {
+      message = response.statusText
+    }
+    throw new Error(message)
+  }
+
+  return {
+    blob: await response.blob(),
+    filename: parseContentDispositionFilename(response.headers.get('Content-Disposition')),
+  }
+}
+
 export const api = {
   login: (username: string, password: string) =>
     request<LoginResponse>('/auth/login', {
@@ -198,6 +256,18 @@ export const api = {
     },
   ) =>
     request<DocumentMergeResponse>(`/documents/${documentId}/merge`, {
+      method: 'POST',
+      token,
+      body: payload,
+    }),
+  downloadDocumentPackage: (
+    token: string,
+    documentId: string,
+    payload: {
+      source: string
+    },
+  ) =>
+    requestBlob(`/documents/${documentId}/package`, {
       method: 'POST',
       token,
       body: payload,

@@ -26,6 +26,11 @@ from ..models import (
     PageReviewStatus,
 )
 from ..storage import absolute_path, artifact_dir, crop_path, ensure_storage_layout, log_dir, relative_path, render_path
+from ..services.figure_assets import (
+    build_figure_asset_path,
+    normalize_document_figure_paths,
+    stage_document_figure_assets,
+)
 from ..services.latex import build_document_body, build_document_from_body, compile_latex
 from ..services.llm import ConversionPayload, ConversionResult, DocumentMergePayload, DocumentMergeResult, get_llm_adapter
 from ..services.segmentation import ProposedBlock, segment_page
@@ -102,6 +107,11 @@ def convert_block(block: Block, page: Page, *, save_debug_image: bool = False) -
             block_id=block.id,
             block_type=BlockType(block.block_type),
             image_path=absolute_path(block.crop_path) if block.crop_path else absolute_path(page.image_path),
+            figure_output_path=(
+                build_figure_asset_path(block_id=block.id, page_index=page.page_index)
+                if BlockType(block.block_type) == BlockType.figure
+                else None
+            ),
             instruction=block.user_instruction,
             context_summary=f"page={page.page_index + 1}",
             save_debug_image=save_debug_image,
@@ -126,7 +136,7 @@ def assemble_document(db: Session, document_id: str) -> str:
     for page in sorted(document.pages, key=lambda item: item.page_index):
         ordered_blocks.extend(sorted(page.blocks, key=lambda item: item.order_index))
 
-    merged_source = build_document_body(ordered_blocks)
+    merged_source = normalize_document_figure_paths(build_document_body(ordered_blocks), document)
     document.assembled_latex = merged_source
     document.updated_at = datetime.now(UTC)
     return merged_source
@@ -134,15 +144,16 @@ def assemble_document(db: Session, document_id: str) -> str:
 
 def merge_document_content(document: Document, *, source: str, suggestion: str | None = None) -> DocumentMergeResult:
     adapter = get_llm_adapter()
+    normalized_source = normalize_document_figure_paths(source, document)
     result = adapter.merge_document(
         DocumentMergePayload(
             document_id=document.id,
             title=document.title,
-            source=source,
+            source=normalized_source,
             suggestion=suggestion,
         )
     )
-    document.assembled_latex = result.merged_source
+    document.assembled_latex = normalize_document_figure_paths(result.merged_source, document)
     document.updated_at = datetime.now(UTC)
     return result
 
@@ -292,13 +303,16 @@ def compile_document_job(job_id: str, document_id: str) -> None:
             db.commit()
 
             merged_source = document.assembled_latex or assemble_document(db, document.id)
-            latex_source = build_document_from_body(document.title, merged_source)
+            merged_source = normalize_document_figure_paths(merged_source, document)
             out_dir = artifact_dir(document.id)
             logs = log_dir(document.id)
             version = len(document.compile_artifacts) + 1
+            stage_document_figure_assets(document, out_dir)
+            latex_source = build_document_from_body(document.title, merged_source)
             tex_path = out_dir / f"document-v{version}.tex"
             log_path = logs / f"compile-v{version}.log"
             tex_path.write_text(latex_source, encoding="utf-8")
+            document.assembled_latex = merged_source
 
             update_job(job, status=JobStatus.running, progress=0.6, message="Compiling preview")
             db.commit()

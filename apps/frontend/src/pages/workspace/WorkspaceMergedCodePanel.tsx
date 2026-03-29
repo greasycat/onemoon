@@ -1,16 +1,20 @@
-import { Copy } from 'lucide-react'
+import { Copy, Download } from 'lucide-react'
 import { useState } from 'react'
 
 interface WorkspaceMergedCodePanelProps {
   mergedSource: string
+  isDownloadingPackage: boolean
   isMerging: boolean
+  onDownload: () => void
   onCopy: () => void
   onMerge: (suggestion: string) => void
 }
 
 export function WorkspaceMergedCodePanel({
   mergedSource,
+  isDownloadingPackage,
   isMerging,
+  onDownload,
   onCopy,
   onMerge,
 }: WorkspaceMergedCodePanelProps) {
@@ -59,15 +63,27 @@ export function WorkspaceMergedCodePanel({
               <p className="eyebrow">Merged code</p>
               <h2>Latest output</h2>
             </div>
-            <button
-              type="button"
-              className="secondary-button workspace-merged-code-copy-button"
-              aria-label="Copy merged code"
-              title="Copy merged code"
-              onClick={onCopy}
-            >
-              <Copy aria-hidden="true" />
-            </button>
+            <div className="workspace-merged-code-actions">
+              <button
+                type="button"
+                className="secondary-button workspace-merged-code-copy-button"
+                aria-label="Download merged package"
+                title="Download merged package"
+                disabled={isDownloadingPackage}
+                onClick={onDownload}
+              >
+                <Download aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="secondary-button workspace-merged-code-copy-button"
+                aria-label="Copy merged code"
+                title="Copy merged code"
+                onClick={onCopy}
+              >
+                <Copy aria-hidden="true" />
+              </button>
+            </div>
           </div>
           <div className="generated-output workspace-merged-code-source">
             <pre>{mergedSource}</pre>

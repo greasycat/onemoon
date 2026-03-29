@@ -40,6 +40,7 @@ class ConversionPayload:
     block_id: str
     block_type: BlockType
     image_path: Path
+    figure_output_path: str | None
     instruction: str | None
     context_summary: str
     save_debug_image: bool = False
@@ -153,11 +154,11 @@ def _escape_latex_text(value: str) -> str:
     return escaped
 
 
-def _build_figure_snippet(image_path: Path, description: str) -> str:
+def _build_figure_snippet(image_path: str, description: str) -> str:
     caption = _escape_latex_text(_normalize_text_output(description) or FIGURE_DESCRIPTION_PLACEHOLDER)
     return "\n".join(
         [
-            f"\\includegraphics[width=0.9\\linewidth]{{{image_path.as_posix()}}}",
+            f"\\includegraphics[width=0.9\\linewidth]{{{image_path}}}",
             f"\\caption{{{caption}}}",
         ]
     )
@@ -242,6 +243,8 @@ def _build_debug_response_record(
         "warnings": warnings,
         "response": response,
     }
+    if payload.figure_output_path:
+        record["figure_output_path"] = payload.figure_output_path
     if model:
         record["model"] = model
     return record
@@ -312,7 +315,7 @@ class MockLLMAdapter:
             output = MATH_PLACEHOLDER
             warnings.append("Mock conversion generated placeholder math output.")
         elif payload.block_type == BlockType.figure:
-            output = _build_figure_snippet(payload.image_path, FIGURE_DESCRIPTION_PLACEHOLDER)
+            output = _build_figure_snippet(payload.figure_output_path or payload.image_path.as_posix(), FIGURE_DESCRIPTION_PLACEHOLDER)
             warnings.append("Mock conversion generated a placeholder figure caption.")
         elif payload.block_type == BlockType.text:
             output = TEXT_PLACEHOLDER
@@ -382,6 +385,10 @@ class OpenAIResponsesLLMAdapter:
         ]
         if payload.instruction:
             shared.append(f"User instruction: {payload.instruction.strip()}.")
+        if payload.block_type == BlockType.figure and payload.figure_output_path:
+            shared.append(
+                f"Reference the packaged figure asset with the relative LaTeX path {payload.figure_output_path}."
+            )
 
         if payload.block_type == BlockType.math:
             shared.extend(
@@ -487,7 +494,7 @@ class OpenAIResponsesLLMAdapter:
         response_payload = self._request_response_payload(self._build_request_body(payload, prepared_image))
         output = _extract_response_text(response_payload)
         if payload.block_type == BlockType.figure:
-            normalized_output = _build_figure_snippet(payload.image_path, output)
+            normalized_output = _build_figure_snippet(payload.figure_output_path or payload.image_path.as_posix(), output)
         else:
             normalized_output = _output_for_block_type(payload.block_type, output)
         if not normalized_output:

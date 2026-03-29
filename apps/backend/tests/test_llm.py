@@ -30,6 +30,7 @@ def _make_payload(llm_module, tmp_path: Path, block_type: BlockType):
         block_id="block-1",
         block_type=block_type,
         image_path=image_path,
+        figure_output_path="figures/page-001-block-1.png" if block_type == BlockType.figure else None,
         instruction="Keep symbols exact" if block_type == BlockType.math else "Preserve paragraph breaks",
         context_summary="page=1",
     )
@@ -196,13 +197,14 @@ def test_openai_adapter_builds_figure_snippet_from_caption_text(tmp_path: Path) 
     result = adapter.convert(payload)
 
     assert "\\includegraphics[width=0.9\\linewidth]" in result.normalized_output
-    assert payload.image_path.as_posix() in result.normalized_output
+    assert payload.figure_output_path in result.normalized_output
     assert "\\caption{Free-body diagram of a block on an inclined plane.}" in result.normalized_output
     input_items = captured_request["input"]
     assert isinstance(input_items, list)
     user_content = input_items[0]["content"]
     assert "Block type: figure." in user_content[0]["text"]
     assert "Return plain caption text only." in user_content[0]["text"]
+    assert payload.figure_output_path in user_content[0]["text"]
 
 
 def test_openai_adapter_saves_response_json_when_debug_requested(tmp_path: Path) -> None:
@@ -219,6 +221,7 @@ def test_openai_adapter_saves_response_json_when_debug_requested(tmp_path: Path)
         block_id="block:json",
         block_type=BlockType.text,
         image_path=image_path,
+        figure_output_path=None,
         instruction="Keep sentences intact.",
         context_summary="page=1",
         save_debug_image=True,
@@ -300,6 +303,7 @@ def test_mock_adapter_saves_prepared_debug_crop_when_requested(tmp_path: Path) -
         block_id="block:debug",
         block_type=BlockType.text,
         image_path=image_path,
+        figure_output_path=None,
         instruction=None,
         context_summary="page=1",
         save_debug_image=True,

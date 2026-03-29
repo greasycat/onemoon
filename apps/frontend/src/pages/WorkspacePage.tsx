@@ -33,6 +33,7 @@ export function WorkspacePage() {
     convertAllBlocks,
     convertSelectedBlock,
     debugSettings,
+    downloadMergedPackage,
     document,
     documentQuery,
     activeCutCeilingPath,
@@ -40,6 +41,7 @@ export function WorkspacePage() {
     handleCreateBlock,
     handleUpdateBlock,
     isBulkConverting,
+    isDownloadingMergedPackage,
     pageDraft,
     pageEntries,
     projectName,
@@ -232,7 +234,11 @@ export function WorkspacePage() {
                     <div className="editor-workbench-canvas-column editor-workbench-canvas-column-preview">
                       <WorkspaceMergedCodePanel
                         mergedSource={mergedDocumentSource}
+                        isDownloadingPackage={isDownloadingMergedPackage}
                         isMerging={isMergingDocument}
+                        onDownload={() => {
+                          void downloadMergedPackage()
+                        }}
                         onCopy={() => {
                           void copyMergedCodeToClipboard()
                         }}

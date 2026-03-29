@@ -3014,6 +3014,12 @@ button {
   align-items: center;
 }
 
+.workspace-merged-code-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .workspace-merged-code-controls .review-panel-hint {
   margin: 0;
 }

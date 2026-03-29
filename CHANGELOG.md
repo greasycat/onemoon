@@ -1,5 +1,7 @@
 # Changelog
 
+- Switched figure conversion and merged-source packaging to use relative `figures/...` asset paths, staged those figures for compile/package output, and added a merge-panel download action that bundles the LaTeX files with the figure folder.
+
 - Removed the remaining inset ring from the workspace mode-navigation icon pills so the step icons render without a visible border.
 
 - Replaced the workspace header’s mode toggles with a single navigation-style step control that shows `Segment`, `Conversion`, and `Merging` as a connected flow with arrow separators.

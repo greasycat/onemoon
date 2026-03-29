@@ -104,6 +104,10 @@ class MergeDocumentRequest(BaseModel):
     suggestion: str | None = None
 
 
+class PackageDocumentRequest(BaseModel):
+    source: str | None = None
+
+
 class MergeDocumentResponse(BaseModel):
     assembled_latex: str
     warnings: list[str] = Field(default_factory=list)

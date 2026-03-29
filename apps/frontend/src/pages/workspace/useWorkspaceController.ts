@@ -531,6 +531,12 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
         suggestion,
       }),
   })
+  const downloadDocumentPackageMutation = useMutation({
+    mutationFn: ({ source }: { source: string }) =>
+      api.downloadDocumentPackage(token!, documentId, {
+        source,
+      }),
+  })
 
   const activePageDirty = selectedPage ? Boolean(pageDrafts[selectedPage.id]) : false
   const activePageLocked = selectedPage?.review_status === 'segmented'
@@ -929,6 +935,51 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     }
   }
 
+  async function downloadMergedPackage() {
+    if (typeof window === 'undefined' || typeof window.URL?.createObjectURL !== 'function') {
+      showToast({
+        tone: 'error',
+        message: 'File downloads are unavailable in this browser.',
+      })
+      return false
+    }
+
+    showToast(
+      {
+        tone: 'saving',
+        message: 'Packaging merged document…',
+      },
+      false,
+    )
+
+    try {
+      const { blob, filename } = await downloadDocumentPackageMutation.mutateAsync({
+        source: mergedDocumentSource,
+      })
+      const objectUrl = window.URL.createObjectURL(blob)
+      const downloadLink = window.document.createElement('a')
+      downloadLink.href = objectUrl
+      downloadLink.download = filename ?? 'document-package.zip'
+      window.document.body.appendChild(downloadLink)
+      downloadLink.click()
+      downloadLink.remove()
+      window.setTimeout(() => {
+        window.URL.revokeObjectURL(objectUrl)
+      }, 0)
+      showToast({
+        tone: 'success',
+        message: 'Downloaded merged package.',
+      })
+      return true
+    } catch (error) {
+      showToast({
+        tone: 'error',
+        message: error instanceof Error && error.message ? error.message : 'Failed to download merged package.',
+      })
+      return false
+    }
+  }
+
   function handleCreateBlock(payload: {
     shape_type: BlockShapeType
     geometry: BlockGeometry
@@ -1216,6 +1267,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     selectBlock,
     cycleBlockType,
     copyMergedCodeToClipboard,
+    downloadMergedPackage,
     convertAllBlocks,
     convertSelectedBlock,
     setHoveredBlock,
@@ -1229,6 +1281,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     deleteSelectedBlock,
     deleteSelectedBlocks,
     duplicateSelectedBlock,
+    isDownloadingMergedPackage: downloadDocumentPackageMutation.isPending,
     isMergingDocument: mergeDocumentMutation.isPending,
     mergeDocument,
     updateSelectedBlockInstruction,

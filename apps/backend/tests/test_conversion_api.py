@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import importlib
 import sys
+import zipfile
+from io import BytesIO
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -88,6 +90,76 @@ def _seed_document_with_block(db, models, storage):
             "document_id": document.id,
             "page_id": page.id,
             "block_id": block.id,
+        }
+
+
+def _seed_document_with_figure_block(db, models, storage):
+    with db.SessionLocal() as session:
+        project = models.Project(name="Figure Project")
+        session.add(project)
+        session.flush()
+
+        document = models.Document(
+            project_id=project.id,
+            title="Figure Document",
+            filename="figure-note.png",
+            source_kind="image",
+            original_file_path="uploads/figure-note.png",
+        )
+        session.add(document)
+        session.flush()
+
+        image_path = storage.render_path(document.id, 0)
+        Image.new("RGB", (600, 400), "white").save(image_path)
+        page = models.Page(
+            document_id=document.id,
+            page_index=0,
+            image_path=storage.relative_path(image_path),
+            width=600,
+            height=400,
+        )
+        session.add(page)
+        session.flush()
+
+        block = models.Block(
+            page_id=page.id,
+            order_index=0,
+            block_type=models.BlockType.figure,
+            approval=models.BlockApproval.approved,
+            source=models.BlockSource.manual,
+            x=0.1,
+            y=0.1,
+            width=0.4,
+            height=0.4,
+            confidence=1.0,
+            is_user_corrected=True,
+            warnings=[],
+        )
+        session.add(block)
+        session.flush()
+
+        crop_file = storage.crop_path(document.id, 0, block.id)
+        Image.new("RGB", (200, 120), "white").save(crop_file)
+        block.crop_path = storage.relative_path(crop_file)
+        absolute_crop_path = storage.absolute_path(block.crop_path).as_posix()
+        block.generated_output = "\n".join(
+            [
+                f"\\includegraphics[width=0.9\\linewidth]{{{absolute_crop_path}}}",
+                "\\caption{Original absolute-path caption.}",
+            ]
+        )
+        document.assembled_latex = (
+            "\\begin{figure}[h]\n"
+            "\\centering\n"
+            f"{block.generated_output}\n"
+            "\\end{figure}"
+        )
+        session.commit()
+        return {
+            "document_id": document.id,
+            "page_id": page.id,
+            "block_id": block.id,
+            "absolute_crop_path": absolute_crop_path,
         }
 
 
@@ -202,3 +274,83 @@ def test_compile_document_uses_persisted_assembled_latex_body(tmp_path: Path, mo
         assert "\\documentclass" in tex_source
         assert "Merged reviewer copy." in tex_source
         assert "Generated note text." not in tex_source
+
+
+def test_compile_document_stages_figure_assets_with_relative_paths(tmp_path: Path, monkeypatch) -> None:
+    client, models, db, storage = _load_test_client(tmp_path, monkeypatch)
+    with client:
+        headers = _login(client)
+        seeded = _seed_document_with_figure_block(db, models, storage)
+
+        compile_response = client.post(f"/api/documents/{seeded['document_id']}/compile", headers=headers)
+        assert compile_response.status_code == 200
+
+        tex_source = (storage.artifact_dir(seeded["document_id"]) / "document-v1.tex").read_text(encoding="utf-8")
+        assert "figures/page-001-" in tex_source
+        staged_assets = list((storage.artifact_dir(seeded["document_id"]) / "figures").glob("*.png"))
+        assert len(staged_assets) == 1
+
+
+def test_get_document_normalizes_absolute_figure_asset_paths(tmp_path: Path, monkeypatch) -> None:
+    client, models, db, storage = _load_test_client(tmp_path, monkeypatch)
+    with client:
+        headers = _login(client)
+        seeded = _seed_document_with_figure_block(db, models, storage)
+
+        with db.SessionLocal() as session:
+            document = session.get(models.Document, seeded["document_id"])
+            assert document is not None
+            absolute_packaged_figure_path = storage.absolute_path(f"figures/page-001-{seeded['block_id']}.png").as_posix()
+            document.assembled_latex = (document.assembled_latex or "").replace(
+                seeded["absolute_crop_path"],
+                absolute_packaged_figure_path,
+            )
+            session.commit()
+
+        response = client.get(f"/api/documents/{seeded['document_id']}", headers=headers)
+
+        assert response.status_code == 200
+        assembled_latex = response.json()["assembled_latex"]
+        assert "figures/page-001-" in assembled_latex
+        assert "/data/figures/" not in assembled_latex
+
+
+def test_package_document_download_includes_relative_figures_folder(tmp_path: Path, monkeypatch) -> None:
+    client, models, db, storage = _load_test_client(tmp_path, monkeypatch)
+    with client:
+        headers = _login(client)
+        seeded = _seed_document_with_figure_block(db, models, storage)
+
+        response = client.post(
+            f"/api/documents/{seeded['document_id']}/package",
+            json={
+                "source": (
+                    "\\begin{figure}[h]\n"
+                    "\\centering\n"
+                    f"\\includegraphics[width=0.9\\linewidth]{{{seeded['absolute_crop_path']}}}\n"
+                    "\\caption{Packaged.}\n"
+                    "\\end{figure}"
+                )
+            },
+            headers=headers,
+        )
+
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "application/zip"
+        assert "attachment;" in response.headers["content-disposition"]
+
+        archive = zipfile.ZipFile(BytesIO(response.content))
+        members = archive.namelist()
+        tex_members = [member for member in members if member.endswith(".tex") and not member.endswith("-body.tex")]
+        body_members = [member for member in members if member.endswith("-body.tex")]
+        figure_members = [member for member in members if member.startswith("figures/") and member.endswith(".png")]
+
+        assert "figures/" in members
+        assert len(tex_members) == 1
+        assert len(body_members) == 1
+        assert len(figure_members) == 1
+
+        packaged_body = archive.read(body_members[0]).decode("utf-8")
+        packaged_tex = archive.read(tex_members[0]).decode("utf-8")
+        assert "figures/page-001-" in packaged_body
+        assert "figures/page-001-" in packaged_tex

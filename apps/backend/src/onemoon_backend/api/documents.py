@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 from datetime import UTC, datetime
+from io import BytesIO
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Response, UploadFile, status
@@ -39,6 +40,7 @@ from ..schemas import (
     JobResponse,
     MergeDocumentResponse,
     MergeDocumentRequest,
+    PackageDocumentRequest,
     PageLayoutBlockPayload,
     PageLayoutPayload,
     PageResponse,
@@ -54,6 +56,7 @@ from ..services.pipeline import (
     resegment_page_job,
     save_crop,
 )
+from ..services.figure_assets import build_document_package_archive, normalize_document_figure_paths
 from ..storage import public_url, relative_path, sanitize_filename, upload_path
 
 router = APIRouter(tags=["documents"])
@@ -276,7 +279,7 @@ def get_document(
         filename=document.filename,
         source_kind=document.source_kind,
         status=document.status,
-        assembled_latex=document.assembled_latex,
+        assembled_latex=normalize_document_figure_paths(document.assembled_latex, document) if document.assembled_latex else None,
         latest_compile_status=document.latest_compile_status,
         pages=[serialize_page(page) for page in sorted(document.pages, key=lambda item: item.page_index)],
         compile_artifacts=[serialize_artifact(artifact) for artifact in document.compile_artifacts],
@@ -380,6 +383,26 @@ def merge_document(
     result = merge_document_content(document, source=source, suggestion=suggestion)
     db.commit()
     return MergeDocumentResponse(assembled_latex=document.assembled_latex or source, warnings=result.warnings)
+
+
+@router.post("/documents/{document_id}/package")
+def package_document(
+    document_id: str,
+    payload: PackageDocumentRequest,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> StreamingResponse:
+    document = load_document(db, document_id)
+    requested_source = payload.source.strip() if payload.source and payload.source.strip() else None
+    if not requested_source:
+        requested_source = document.assembled_latex or assemble_document(db, document.id)
+
+    archive_bytes, archive_filename, _normalized_body = build_document_package_archive(document, requested_source)
+    return StreamingResponse(
+        BytesIO(archive_bytes),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{archive_filename}"'},
+    )
 
 
 @router.delete(
