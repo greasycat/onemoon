@@ -99,6 +99,16 @@ class RegenerateBlockRequest(BaseModel):
     save_masked_crop_debug: bool = False
 
 
+class MergeDocumentRequest(BaseModel):
+    source: str
+    suggestion: str | None = None
+
+
+class MergeDocumentResponse(BaseModel):
+    assembled_latex: str
+    warnings: list[str] = Field(default_factory=list)
+
+
 class DocumentPatch(BaseModel):
     assembled_latex: str | None = None
     title: str | None = None

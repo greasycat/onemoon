@@ -37,6 +37,8 @@ from ..schemas import (
     DocumentDetailResponse,
     DocumentPatch,
     JobResponse,
+    MergeDocumentResponse,
+    MergeDocumentRequest,
     PageLayoutBlockPayload,
     PageLayoutPayload,
     PageResponse,
@@ -47,6 +49,7 @@ from ..services.pipeline import (
     compile_document_job,
     create_job,
     ingest_document_job,
+    merge_document_content,
     regenerate_block_job,
     resegment_page_job,
     save_crop,
@@ -362,6 +365,21 @@ def update_document(
     db.commit()
     db.refresh(document)
     return get_document(document_id, db, _)
+
+
+@router.post("/documents/{document_id}/merge", response_model=MergeDocumentResponse)
+def merge_document(
+    document_id: str,
+    payload: MergeDocumentRequest,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> MergeDocumentResponse:
+    document = load_document(db, document_id)
+    source = payload.source.strip() or "% No approved blocks yet."
+    suggestion = payload.suggestion.strip() if payload.suggestion and payload.suggestion.strip() else None
+    result = merge_document_content(document, source=source, suggestion=suggestion)
+    db.commit()
+    return MergeDocumentResponse(assembled_latex=document.assembled_latex or source, warnings=result.warnings)
 
 
 @router.delete(

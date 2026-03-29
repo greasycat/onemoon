@@ -11,6 +11,7 @@ from ..storage import absolute_path
 
 MATH_ENV_PATTERN = re.compile(r"^\\begin\{(?P<name>equation\*?|align\*?|gather\*?)\}\s*.*\s*\\end\{(?P=name)\}$", re.DOTALL)
 TEXT_BLOCK_PATTERN = re.compile(r"^\\begin\{textblock\}\s*.*\s*\\end\{textblock\}$", re.DOTALL)
+DOCUMENT_BODY_PATTERN = re.compile(r"\\begin\{document\}(?P<body>[\s\S]*?)\\end\{document\}", re.DOTALL)
 
 
 def _normalize_text(output: str) -> str:
@@ -88,9 +89,19 @@ def block_to_latex(block: Block) -> str:
     return _ensure_text_block(content)
 
 
-def build_document_latex(title: str, ordered_blocks: list[Block]) -> str:
+def build_document_body(ordered_blocks: list[Block]) -> str:
     body = "\n\n".join(block_to_latex(block) for block in ordered_blocks if block.approval != BlockApproval.rejected)
-    body = body or "% No approved blocks yet."
+    return body or "% No approved blocks yet."
+
+
+def build_document_from_body(title: str, body: str) -> str:
+    normalized_body = body.strip()
+    wrapper_match = DOCUMENT_BODY_PATTERN.search(normalized_body)
+    if wrapper_match:
+        normalized_body = wrapper_match.group("body").strip()
+    if normalized_body.startswith(r"\maketitle"):
+        normalized_body = normalized_body[len(r"\maketitle") :].strip()
+    normalized_body = normalized_body or "% No approved blocks yet."
     return (
         "\\documentclass[11pt]{article}\n"
         "\\usepackage[margin=1in]{geometry}\n"
@@ -103,9 +114,13 @@ def build_document_latex(title: str, ordered_blocks: list[Block]) -> str:
         "\\date{}\n"
         "\\begin{document}\n"
         "\\maketitle\n\n"
-        f"{body}\n\n"
+        f"{normalized_body}\n\n"
         "\\end{document}\n"
     )
+
+
+def build_document_latex(title: str, ordered_blocks: list[Block]) -> str:
+    return build_document_from_body(title, build_document_body(ordered_blocks))
 
 
 @dataclass(slots=True)

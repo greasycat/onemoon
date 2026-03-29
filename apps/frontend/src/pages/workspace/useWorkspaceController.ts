@@ -5,7 +5,7 @@ import type { DocumentCanvasHandle, CanvasViewportState } from '../../components
 import type { EditorToolbarProps } from '../../components/EditorToolbar'
 import { api } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
-import { buildDocumentExport } from '../../lib/documentExport'
+import { buildDocumentExport, extractDocumentBody } from '../../lib/documentExport'
 import {
   clampGeometry,
   createManualBlock,
@@ -230,7 +230,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
       }) ?? []
     )
   }, [document, pageDrafts])
-  const mergedDocumentSource = useMemo(
+  const assembledDocumentSource = useMemo(
     () =>
       buildDocumentExport(
         document?.pages.map((page) => ({
@@ -239,6 +239,10 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
         })) ?? [],
       ),
     [document, pageDrafts],
+  )
+  const mergedDocumentSource = useMemo(
+    () => extractDocumentBody(document?.assembled_latex) ?? assembledDocumentSource,
+    [assembledDocumentSource, document?.assembled_latex],
   )
 
   const activeSelectedBlockKeys = useMemo(
@@ -519,6 +523,13 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
       }
       throw new Error('Timed out while converting block.')
     },
+  })
+  const mergeDocumentMutation = useMutation({
+    mutationFn: ({ source, suggestion }: { source: string; suggestion: string }) =>
+      api.mergeDocument(token!, documentId, {
+        source,
+        suggestion,
+      }),
   })
 
   const activePageDirty = selectedPage ? Boolean(pageDrafts[selectedPage.id]) : false
@@ -860,7 +871,40 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     }
   }
 
-  async function copyAllConvertedToClipboard() {
+  async function mergeDocument(suggestion: string) {
+    const normalizedSuggestion = suggestion.trim()
+
+    showToast(
+      {
+        tone: 'saving',
+        message: normalizedSuggestion ? 'Merging document with LLM guidance…' : 'Merging document…',
+      },
+      false,
+    )
+
+    try {
+      const response = await mergeDocumentMutation.mutateAsync({
+        source: assembledDocumentSource,
+        suggestion: normalizedSuggestion,
+      })
+      await refreshDocument()
+      const warnings = response.warnings.filter((warning) => warning.trim().length > 0)
+      const warningsSuffix = warnings.length > 0 ? ` ${warnings.join(' ')}` : ''
+      showToast({
+        tone: 'success',
+        message: `Merged document.${warningsSuffix}`,
+      })
+      return true
+    } catch (error) {
+      showToast({
+        tone: 'error',
+        message: error instanceof Error && error.message ? error.message : 'Failed to merge document output.',
+      })
+      return false
+    }
+  }
+
+  async function copyMergedCodeToClipboard() {
     if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
       showToast({
         tone: 'error',
@@ -873,13 +917,13 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
       await navigator.clipboard.writeText(mergedDocumentSource)
       showToast({
         tone: 'success',
-        message: 'Copied converted output for all pages.',
+        message: 'Copied merged code.',
       })
       return true
     } catch (error) {
       showToast({
         tone: 'error',
-        message: error instanceof Error && error.message ? error.message : 'Failed to copy converted output.',
+        message: error instanceof Error && error.message ? error.message : 'Failed to copy merged code.',
       })
       return false
     }
@@ -1171,7 +1215,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     selectPage,
     selectBlock,
     cycleBlockType,
-    copyAllConvertedToClipboard,
+    copyMergedCodeToClipboard,
     convertAllBlocks,
     convertSelectedBlock,
     setHoveredBlock,
@@ -1185,6 +1229,8 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     deleteSelectedBlock,
     deleteSelectedBlocks,
     duplicateSelectedBlock,
+    isMergingDocument: mergeDocumentMutation.isPending,
+    mergeDocument,
     updateSelectedBlockInstruction,
   }
 }

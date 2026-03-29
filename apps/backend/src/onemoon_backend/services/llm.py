@@ -55,6 +55,21 @@ class ConversionResult:
 
 
 @dataclass(slots=True)
+class DocumentMergePayload:
+    document_id: str
+    title: str
+    source: str
+    suggestion: str | None
+
+
+@dataclass(slots=True)
+class DocumentMergeResult:
+    merged_source: str
+    raw_output: str
+    warnings: list[str]
+
+
+@dataclass(slots=True)
 class PreparedLLMImage:
     mime_type: str
     image_bytes: bytes
@@ -62,6 +77,9 @@ class PreparedLLMImage:
 
 class LLMAdapter(Protocol):
     def convert(self, payload: ConversionPayload) -> ConversionResult:
+        ...
+
+    def merge_document(self, payload: DocumentMergePayload) -> DocumentMergeResult:
         ...
 
 
@@ -100,6 +118,21 @@ def _normalize_text_block_output(value: str) -> str:
     if TEXT_BLOCK_PATTERN.match(cleaned):
         return cleaned
     return "\n".join([r"\begin{textblock}", cleaned, r"\end{textblock}"])
+
+
+def _normalize_document_merge_output(value: str) -> str:
+    cleaned = _normalize_text_output(value)
+    if not cleaned:
+        return cleaned
+
+    begin_document = cleaned.find(r"\begin{document}")
+    end_document = cleaned.rfind(r"\end{document}")
+    if begin_document >= 0 and end_document > begin_document:
+        cleaned = cleaned[begin_document + len(r"\begin{document}") : end_document].strip()
+
+    if cleaned.startswith(r"\maketitle"):
+        cleaned = cleaned[len(r"\maketitle") :].strip()
+    return cleaned
 
 
 def _escape_latex_text(value: str) -> str:
@@ -312,6 +345,22 @@ class MockLLMAdapter:
             debug_response_path=debug_response_path,
         )
 
+    def merge_document(self, payload: DocumentMergePayload) -> DocumentMergeResult:
+        warnings: list[str] = []
+        if self.fallback_reason:
+            warnings.append(self.fallback_reason)
+        raw_output = (
+            f"provider={get_settings().llm_provider}; document={payload.document_id};"
+            f" suggestion={payload.suggestion.strip() if payload.suggestion else ''}"
+        )
+        if payload.suggestion:
+            warnings.append("Mock merge reused the current merged output without applying the suggestion.")
+        return DocumentMergeResult(
+            merged_source=payload.source.strip() or "% No approved blocks yet.",
+            raw_output=raw_output.strip(),
+            warnings=warnings,
+        )
+
 
 class OpenAIResponsesLLMAdapter:
     def __init__(self, *, api_key: str, model: str, base_url: str, timeout_seconds: float) -> None:
@@ -377,6 +426,36 @@ class OpenAIResponsesLLMAdapter:
             ],
         }
 
+    def _build_document_merge_prompt(self, payload: DocumentMergePayload) -> str:
+        lines = [
+            "You are merging reviewed LaTeX snippets from a note extraction workflow into a coherent LaTeX document body.",
+            "Return only the final LaTeX document body.",
+            "Do not return \\documentclass, package declarations, \\begin{document}, \\end{document}, or \\maketitle.",
+            "Preserve all factual content from the source unless the reviewer suggestion explicitly requests a change.",
+            "Keep the output valid LaTeX and preserve math environments and figure environments when they already exist.",
+            "Do not add markdown fences or commentary.",
+            f"Document title: {payload.title}.",
+        ]
+        if payload.suggestion:
+            lines.append(f"Reviewer suggestion: {payload.suggestion.strip()}.")
+        else:
+            lines.append("Reviewer suggestion: none.")
+        return "\n".join(lines)
+
+    def _build_document_merge_request_body(self, payload: DocumentMergePayload) -> dict[str, Any]:
+        return {
+            "model": self.model,
+            "input": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "input_text", "text": self._build_document_merge_prompt(payload)},
+                        {"type": "input_text", "text": payload.source},
+                    ],
+                }
+            ],
+        }
+
     def _request_response_payload(self, request_body: dict[str, Any]) -> dict[str, Any]:
         http_request = request.Request(
             self.responses_url,
@@ -435,6 +514,17 @@ class OpenAIResponsesLLMAdapter:
             warnings=[],
             debug_image_path=debug_image_path,
             debug_response_path=debug_response_path,
+        )
+
+    def merge_document(self, payload: DocumentMergePayload) -> DocumentMergeResult:
+        response_payload = self._request_response_payload(self._build_document_merge_request_body(payload))
+        merged_source = _normalize_document_merge_output(_extract_response_text(response_payload))
+        if not merged_source:
+            raise RuntimeError("OpenAI response produced an empty merged document.")
+        return DocumentMergeResult(
+            merged_source=merged_source,
+            raw_output=json.dumps(response_payload, ensure_ascii=True),
+            warnings=[],
         )
 
 

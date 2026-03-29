@@ -325,3 +325,53 @@ def test_mock_adapter_saves_prepared_debug_crop_when_requested(tmp_path: Path) -
     assert saved_payload["response"]["raw_output"].startswith("provider=")
     debug_image.unlink()
     response_json.unlink()
+
+
+def test_mock_adapter_document_merge_reuses_source_and_warns_when_suggestion_is_present() -> None:
+    llm_module = importlib.import_module("onemoon_backend.services.llm")
+    payload = llm_module.DocumentMergePayload(
+        document_id="doc-1",
+        title="Notebook",
+        source="\\begin{textblock}\nMerged reviewer copy.\n\\end{textblock}",
+        suggestion="Tighten repeated prose.",
+    )
+
+    result = llm_module.MockLLMAdapter().merge_document(payload)
+
+    assert result.merged_source == payload.source
+    assert any("without applying the suggestion" in warning for warning in result.warnings)
+
+
+def test_openai_adapter_document_merge_strips_document_wrapper() -> None:
+    llm_module = importlib.import_module("onemoon_backend.services.llm")
+    adapter = llm_module.OpenAIResponsesLLMAdapter(
+        api_key="test-key",
+        model="gpt-5.4",
+        base_url="https://api.openai.com/v1",
+        timeout_seconds=10,
+    )
+    payload = llm_module.DocumentMergePayload(
+        document_id="doc-1",
+        title="Notebook",
+        source="\\begin{textblock}\nOriginal body.\n\\end{textblock}",
+        suggestion="Preserve ordering.",
+    )
+
+    adapter._request_response_payload = lambda _request_body: {  # type: ignore[method-assign]
+        "status": "completed",
+        "output": [
+            {
+                "type": "message",
+                "content": [
+                    {
+                        "type": "output_text",
+                        "text": "\\documentclass{article}\n\\begin{document}\n\\maketitle\n\\begin{textblock}\nMerged body.\n\\end{textblock}\n\\end{document}",
+                    }
+                ],
+            }
+        ],
+    }
+
+    result = adapter.merge_document(payload)
+
+    assert result.merged_source == "\\begin{textblock}\nMerged body.\n\\end{textblock}"

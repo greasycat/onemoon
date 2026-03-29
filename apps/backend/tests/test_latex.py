@@ -1,5 +1,5 @@
 from onemoon_backend.models import Block, BlockApproval, BlockType
-from onemoon_backend.services.latex import block_to_latex, build_document_latex
+from onemoon_backend.services.latex import block_to_latex, build_document_body, build_document_from_body, build_document_latex
 
 
 def make_block(
@@ -49,6 +49,28 @@ def test_document_builder_includes_text_and_math_blocks() -> None:
     assert "\\newenvironment{textblock}" in source
     assert "This is a note." in source
     assert "\\[" in source
+
+
+def test_document_builder_can_wrap_a_premerged_body() -> None:
+    source = build_document_from_body("Notebook", "\\begin{textblock}\nMerged body.\n\\end{textblock}")
+    assert "\\documentclass" in source
+    assert "Merged body." in source
+
+
+def test_document_builder_strips_an_existing_document_wrapper() -> None:
+    source = build_document_from_body(
+        "Notebook",
+        "\\documentclass{article}\n\\begin{document}\n\\maketitle\n\\begin{textblock}\nMerged body.\n\\end{textblock}\n\\end{document}",
+    )
+    assert source.count("\\documentclass") == 1
+    assert source.count("\\begin{document}") == 1
+    assert "Merged body." in source
+
+
+def test_document_body_builder_returns_only_block_content() -> None:
+    body = build_document_body([make_block(BlockType.text, "This is a note.")])
+    assert "\\documentclass" not in body
+    assert "This is a note." in body
 
 
 def test_unconverted_block_uses_crop_placeholder_image() -> None:

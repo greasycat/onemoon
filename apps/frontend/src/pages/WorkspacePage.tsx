@@ -29,7 +29,7 @@ export function WorkspacePage() {
     blockInspectorBusy,
     canvasRef,
     conversionInstruction,
-    copyAllConvertedToClipboard,
+    copyMergedCodeToClipboard,
     cycleBlockType,
     convertAllBlocks,
     convertSelectedBlock,
@@ -45,6 +45,8 @@ export function WorkspacePage() {
     pageEntries,
     projectName,
     mergedDocumentSource,
+    isMergingDocument,
+    mergeDocument,
     reopenActivePage,
     resetDebugSettings,
     reviewCounts,
@@ -177,15 +179,6 @@ export function WorkspacePage() {
                 <div className="editor-workbench-actions">
                   <button
                     type="button"
-                    className="secondary-button workspace-copy-all-button"
-                    onClick={() => {
-                      void copyAllConvertedToClipboard()
-                    }}
-                  >
-                    Copy all
-                  </button>
-                  <button
-                    type="button"
                     className="secondary-button workspace-toolbar-toggle"
                     aria-pressed={isConversionMode}
                     disabled={isWorkspaceModePending}
@@ -253,7 +246,16 @@ export function WorkspacePage() {
                       </div>
                     </div>
                     <div className="editor-workbench-canvas-column editor-workbench-canvas-column-preview">
-                      <WorkspaceMergedCodePanel mergedSource={mergedDocumentSource} />
+                      <WorkspaceMergedCodePanel
+                        mergedSource={mergedDocumentSource}
+                        isMerging={isMergingDocument}
+                        onCopy={() => {
+                          void copyMergedCodeToClipboard()
+                        }}
+                        onMerge={(suggestion) => {
+                          void mergeDocument(suggestion)
+                        }}
+                      />
                     </div>
                   </>
                 ) : (

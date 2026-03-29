@@ -15,6 +15,10 @@ def _load_test_client(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("DATA_DIR", str(data_dir))
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{database_path}")
     monkeypatch.setenv("LLM_PROVIDER", "mock")
+    monkeypatch.setenv("ONEMOON_LLM_PROVIDER", "mock")
+    monkeypatch.setenv("LLM_API_KEY", "")
+    monkeypatch.setenv("ONEMOON_API_KEY", "")
+    monkeypatch.setenv("OPENAI_API_KEY", "")
 
     for module_name in list(sys.modules):
         if module_name == "onemoon_backend" or module_name.startswith("onemoon_backend."):
@@ -148,3 +152,53 @@ def test_saving_page_layout_clears_stale_conversion_fields(tmp_path: Path, monke
         assembled_latex = document_response.json()["assembled_latex"]
         assert "\\includegraphics" in assembled_latex
         assert seeded["block_id"] in assembled_latex
+
+
+def test_document_merge_updates_assembled_latex_with_mock_provider(tmp_path: Path, monkeypatch) -> None:
+    client, models, db, storage = _load_test_client(tmp_path, monkeypatch)
+    with client:
+        headers = _login(client)
+        seeded = _seed_document_with_block(db, models, storage)
+        requested_source = "\\begin{textblock}\nMerged reviewer copy.\n\\end{textblock}"
+
+        response = client.post(
+            f"/api/documents/{seeded['document_id']}/merge",
+            json={
+                "source": requested_source,
+                "suggestion": "Tighten the prose and keep the math intact.",
+            },
+            headers=headers,
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["assembled_latex"] == requested_source
+        assert any("Mock merge reused" in warning for warning in payload["warnings"])
+
+        document_response = client.get(f"/api/documents/{seeded['document_id']}", headers=headers)
+        assert document_response.status_code == 200
+        assembled_latex = document_response.json()["assembled_latex"]
+        assert assembled_latex == requested_source
+
+
+def test_compile_document_uses_persisted_assembled_latex_body(tmp_path: Path, monkeypatch) -> None:
+    client, models, db, storage = _load_test_client(tmp_path, monkeypatch)
+    with client:
+        headers = _login(client)
+        seeded = _seed_document_with_block(db, models, storage)
+        merged_body = "\\begin{textblock}\nMerged reviewer copy.\n\\end{textblock}"
+
+        patch_response = client.patch(
+            f"/api/documents/{seeded['document_id']}",
+            json={"assembled_latex": merged_body},
+            headers=headers,
+        )
+        assert patch_response.status_code == 200
+
+        compile_response = client.post(f"/api/documents/{seeded['document_id']}/compile", headers=headers)
+        assert compile_response.status_code == 200
+
+        tex_source = (storage.artifact_dir(seeded["document_id"]) / "document-v1.tex").read_text(encoding="utf-8")
+        assert "\\documentclass" in tex_source
+        assert "Merged reviewer copy." in tex_source
+        assert "Generated note text." not in tex_source

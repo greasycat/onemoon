@@ -1943,10 +1943,6 @@ button {
   min-width: 8.5rem;
 }
 
-.workspace-copy-all-button {
-  white-space: nowrap;
-}
-
 .editor-workbench-canvas-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
@@ -2882,12 +2878,68 @@ button {
 
 .workspace-merged-code-panel {
   display: grid;
+  gap: 0.9rem;
   min-height: 100%;
+  grid-template-rows: auto minmax(0, 1fr);
   padding-top: 0.35rem;
+}
+
+.workspace-merged-code-panel .workspace-document-preview-section {
+  min-height: 0;
 }
 
 .workspace-merged-code-panel .workspace-document-source {
   height: 100%;
+}
+
+.workspace-merged-code-controls,
+.workspace-merged-code-card {
+  padding: 1rem;
+}
+
+.workspace-merged-code-controls {
+  align-content: start;
+}
+
+.workspace-merged-code-heading {
+  margin-bottom: 0;
+}
+
+.workspace-merged-code-heading h2 {
+  font-size: 1.15rem;
+}
+
+.workspace-merged-code-heading-actions {
+  align-items: center;
+}
+
+.workspace-merged-code-controls .review-panel-hint {
+  margin: 0;
+}
+
+.workspace-merged-code-controls .button-grid {
+  margin-top: 0.15rem;
+}
+
+.workspace-merged-code-merge-button {
+  justify-content: center;
+}
+
+.workspace-merged-code-copy-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  padding: 0;
+  border-radius: 999px;
+}
+
+.workspace-merged-code-copy-button svg {
+  width: 1rem;
+  height: 1rem;
+  stroke-width: 2;
 }
 
 .workspace-merged-code-source {

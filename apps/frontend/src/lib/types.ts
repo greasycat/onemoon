@@ -103,6 +103,11 @@ export interface DocumentDetailResponse {
   updated_at: string
 }
 
+export interface DocumentMergeResponse {
+  assembled_latex: string
+  warnings: string[]
+}
+
 export interface JobResponse {
   id: string
   job_type: string

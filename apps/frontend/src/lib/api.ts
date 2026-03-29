@@ -3,6 +3,7 @@ import type {
   BlockResponse,
   CompileArtifactResponse,
   DocumentDetailResponse,
+  DocumentMergeResponse,
   JobResponse,
   LoginResponse,
   PageLayoutBlockPayload,
@@ -185,6 +186,19 @@ export const api = {
   updateDocument: (token: string, documentId: string, payload: { title?: string; assembled_latex?: string }) =>
     request<DocumentDetailResponse>(`/documents/${documentId}`, {
       method: 'PATCH',
+      token,
+      body: payload,
+    }),
+  mergeDocument: (
+    token: string,
+    documentId: string,
+    payload: {
+      source: string
+      suggestion: string
+    },
+  ) =>
+    request<DocumentMergeResponse>(`/documents/${documentId}/merge`, {
+      method: 'POST',
       token,
       body: payload,
     }),

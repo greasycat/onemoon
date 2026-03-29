@@ -1,5 +1,7 @@
 # Changelog
 
+- Added a merging-mode control panel with optional LLM guidance, a panel-local copy action, and a direct `/documents/{document_id}/merge` API that keeps mock-provider merges usable while compiling the persisted merged body correctly.
+
 - Added a dedicated merging mode that switches the workspace into a two-column merge review layout with the canvas plus preview stack on one side and a merged-code panel on the other.
 
 - Fixed the conversion-mode left rail so long block lists stay scrollable within the available column height and no longer clip the conversion inspector below them.

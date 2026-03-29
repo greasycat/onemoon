@@ -26,8 +26,8 @@ from ..models import (
     PageReviewStatus,
 )
 from ..storage import absolute_path, artifact_dir, crop_path, ensure_storage_layout, log_dir, relative_path, render_path
-from ..services.latex import build_document_latex, compile_latex
-from ..services.llm import ConversionPayload, ConversionResult, get_llm_adapter
+from ..services.latex import build_document_body, build_document_from_body, compile_latex
+from ..services.llm import ConversionPayload, ConversionResult, DocumentMergePayload, DocumentMergeResult, get_llm_adapter
 from ..services.segmentation import ProposedBlock, segment_page
 
 settings = get_settings()
@@ -126,10 +126,25 @@ def assemble_document(db: Session, document_id: str) -> str:
     for page in sorted(document.pages, key=lambda item: item.page_index):
         ordered_blocks.extend(sorted(page.blocks, key=lambda item: item.order_index))
 
-    latex_source = build_document_latex(document.title, ordered_blocks)
-    document.assembled_latex = latex_source
+    merged_source = build_document_body(ordered_blocks)
+    document.assembled_latex = merged_source
     document.updated_at = datetime.now(UTC)
-    return latex_source
+    return merged_source
+
+
+def merge_document_content(document: Document, *, source: str, suggestion: str | None = None) -> DocumentMergeResult:
+    adapter = get_llm_adapter()
+    result = adapter.merge_document(
+        DocumentMergePayload(
+            document_id=document.id,
+            title=document.title,
+            source=source,
+            suggestion=suggestion,
+        )
+    )
+    document.assembled_latex = result.merged_source
+    document.updated_at = datetime.now(UTC)
+    return result
 
 
 def _replace_page_blocks(db: Session, page: Page, proposed_blocks: list[ProposedBlock]) -> None:
@@ -276,7 +291,8 @@ def compile_document_job(job_id: str, document_id: str) -> None:
             document.status = DocumentStatus.compiling
             db.commit()
 
-            latex_source = assemble_document(db, document.id)
+            merged_source = document.assembled_latex or assemble_document(db, document.id)
+            latex_source = build_document_from_body(document.title, merged_source)
             out_dir = artifact_dir(document.id)
             logs = log_dir(document.id)
             version = len(document.compile_artifacts) + 1
