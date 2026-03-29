@@ -230,6 +230,16 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
       }) ?? []
     )
   }, [document, pageDrafts])
+  const mergedDocumentSource = useMemo(
+    () =>
+      buildDocumentExport(
+        document?.pages.map((page) => ({
+          pageIndex: page.page_index,
+          draft: pageDrafts[page.id] ?? pageToDraft(page),
+        })) ?? [],
+      ),
+    [document, pageDrafts],
+  )
 
   const activeSelectedBlockKeys = useMemo(
     () => normalizeSelectedBlockKeys(pageDraft, selectedBlockKeys),
@@ -859,15 +869,8 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
       return false
     }
 
-    const exportText = buildDocumentExport(
-      document?.pages.map((page) => ({
-        pageIndex: page.page_index,
-        draft: pageDrafts[page.id] ?? pageToDraft(page),
-      })) ?? [],
-    )
-
     try {
-      await navigator.clipboard.writeText(exportText)
+      await navigator.clipboard.writeText(mergedDocumentSource)
       showToast({
         tone: 'success',
         message: 'Copied converted output for all pages.',
@@ -1153,6 +1156,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     pageDraft,
     pageEntries,
     projectName,
+    mergedDocumentSource,
     reopenActivePage,
     resetDebugSettings,
     reviewCounts,

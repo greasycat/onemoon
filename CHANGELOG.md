@@ -1,5 +1,7 @@
 # Changelog
 
+- Added a dedicated merging mode that switches the workspace into a two-column merge review layout with the canvas plus preview stack on one side and a merged-code panel on the other.
+
 - Fixed the conversion-mode left rail so long block lists stay scrollable within the available column height and no longer clip the conversion inspector below them.
 
 - Added a workspace `Copy all` header action that copies converted output across every page in order and inserts `Block/Page Unconverted Placeholder` anywhere a page or block has no converted content yet.

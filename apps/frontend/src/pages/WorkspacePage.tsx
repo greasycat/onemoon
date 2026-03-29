@@ -6,16 +6,19 @@ import { ConversionModeToolbar } from '../components/ConversionModeToolbar'
 import { DocumentCanvas } from '../components/DocumentCanvas'
 import { WorkspaceDebugToolbar } from '../components/WorkspaceDebugToolbar'
 import { FRONTEND_DEBUG } from '../lib/debug'
-import { WorkspaceDocumentPreview } from './workspace/WorkspaceDocumentPreview'
+import { WorkspaceBlockSourcePanel, WorkspaceDocumentPreview, WorkspaceSourcePreviewPanel } from './workspace/WorkspaceDocumentPreview'
+import { WorkspaceMergedCodePanel } from './workspace/WorkspaceMergedCodePanel'
 import { WorkspacePageSidebar } from './workspace/WorkspacePageSidebar'
 import { WorkspaceReviewPanel } from './workspace/WorkspaceReviewPanel'
 import { useWorkspaceController } from './workspace/useWorkspaceController'
 
+type WorkspaceMode = 'review' | 'conversion' | 'merging'
+
 export function WorkspacePage() {
   const { documentId = '' } = useParams()
   const location = useLocation()
-  const [isConversionMode, setIsConversionMode] = useState(false)
-  const [isConversionModePending, setIsConversionModePending] = useState(false)
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('review')
+  const [isWorkspaceModePending, setIsWorkspaceModePending] = useState(false)
   const pendingUploadJobId =
     location.state && typeof location.state === 'object' && 'pendingUploadJobId' in location.state && typeof location.state.pendingUploadJobId === 'string'
       ? location.state.pendingUploadJobId
@@ -41,6 +44,7 @@ export function WorkspacePage() {
     pageDraft,
     pageEntries,
     projectName,
+    mergedDocumentSource,
     reopenActivePage,
     resetDebugSettings,
     reviewCounts,
@@ -71,6 +75,9 @@ export function WorkspacePage() {
     const extensionIndex = document.filename.lastIndexOf('.')
     return extensionIndex > 0 ? document.filename.slice(0, extensionIndex) : document.filename
   }, [document?.filename])
+  const isConversionMode = workspaceMode === 'conversion'
+  const isMergingMode = workspaceMode === 'merging'
+  const isFocusedWorkspaceMode = workspaceMode !== 'review'
 
   if (documentQuery.isLoading || isResolvingDocumentCreation || isWorkspaceInitializing) {
     return (
@@ -120,27 +127,32 @@ export function WorkspacePage() {
     />
   )
 
-  async function handleConversionModeToggle() {
-    if (isConversionModePending) {
+  async function handleWorkspaceModeChange(nextMode: WorkspaceMode) {
+    if (isWorkspaceModePending || nextMode === workspaceMode) {
       return
     }
 
-    setIsConversionModePending(true)
+    setIsWorkspaceModePending(true)
     try {
-      if (isConversionMode) {
+      if (nextMode === 'review') {
         const reopened = activePageLocked ? await reopenActivePage() : true
         if (reopened) {
-          setIsConversionMode(false)
+          setWorkspaceMode('review')
         }
+        return
+      }
+
+      if (workspaceMode !== 'review') {
+        setWorkspaceMode(nextMode)
         return
       }
 
       const saved = activePageLocked ? true : await saveActivePage()
       if (saved) {
-        setIsConversionMode(true)
+        setWorkspaceMode(nextMode)
       }
     } finally {
-      setIsConversionModePending(false)
+      setIsWorkspaceModePending(false)
     }
   }
 
@@ -176,64 +188,126 @@ export function WorkspacePage() {
                     type="button"
                     className="secondary-button workspace-toolbar-toggle"
                     aria-pressed={isConversionMode}
-                    disabled={isConversionModePending}
+                    disabled={isWorkspaceModePending}
                     onClick={() => {
-                      void handleConversionModeToggle()
+                      void handleWorkspaceModeChange(isConversionMode ? 'review' : 'conversion')
                     }}
                   >
                     {isConversionMode ? 'Exit conversion mode' : 'Enter conversion mode'}
                   </button>
+                  <button
+                    type="button"
+                    className="secondary-button workspace-toolbar-toggle"
+                    aria-pressed={isMergingMode}
+                    disabled={isWorkspaceModePending}
+                    onClick={() => {
+                      void handleWorkspaceModeChange(isMergingMode ? 'review' : 'merging')
+                    }}
+                  >
+                    {isMergingMode ? 'Exit merging mode' : 'Enter merging mode'}
+                  </button>
                 </div>
               </div>
-              <div className={`editor-workbench-canvas-layout ${isConversionMode ? 'editor-workbench-canvas-layout-conversion' : ''}`}>
-                <div className="editor-workbench-canvas-column editor-workbench-canvas-column-list">
-                  <div
-                    className={`editor-workbench-canvas-side-stack ${isConversionMode ? 'editor-workbench-canvas-side-stack-conversion' : ''}`}
-                  >
-                    {blockListPanel}
-                    {blockInfoPanel}
-                  </div>
-                </div>
-                <div className="editor-workbench-canvas-shell">
-                  <DocumentCanvas
-                    ref={canvasRef}
-                    page={selectedPage}
-                    blocks={pageDraft.blocks}
-                    cutCeilingPath={activeCutCeilingPath}
-                    debugSettings={debugSettings}
-                    toolbar={isConversionMode ? null : toolbar}
-                    overlayToolbar={
-                      isConversionMode ? (
-                        <ConversionModeToolbar
-                          zoomPercent={toolbar.zoomPercent}
-                          onZoomOut={toolbar.onZoomOut}
-                          onZoomIn={toolbar.onZoomIn}
-                          onFitPage={toolbar.onFitPage}
-                          onResetZoom={toolbar.onResetZoom}
-                        />
-                      ) : null
-                    }
-                    disableBlockMovement={isConversionMode}
-                    blockListPanel={undefined}
-                    blockInfoPanel={undefined}
-                    toast={toast}
-                    selectedBlockIds={selectedBlockIds}
-                    activeBlockId={selectedBlockKey}
-                    activeTool={activeTool}
-                    isLocked={activePageLocked}
-                    onViewportChange={setViewportState}
-                    onSelectBlock={selectBlock}
-                    onCycleBlockType={cycleBlockType}
-                    onHoveredBlockChange={setHoveredBlock}
-                    onCreateBlock={handleCreateBlock}
-                    onUpdateBlock={handleUpdateBlock}
-                  />
-                </div>
-                {isConversionMode ? (
-                  <div className="editor-workbench-canvas-column editor-workbench-canvas-column-preview">
-                    <WorkspaceDocumentPreview document={document} selectedBlock={selectedBlock} />
-                  </div>
-                ) : null}
+              <div
+                className={`editor-workbench-canvas-layout ${isConversionMode ? 'editor-workbench-canvas-layout-conversion' : ''} ${isMergingMode ? 'editor-workbench-canvas-layout-merging' : ''}`}
+              >
+                {isMergingMode ? (
+                  <>
+                    <div className="editor-workbench-canvas-column editor-workbench-merging-column">
+                      <div className="editor-workbench-merging-stack">
+                        <div className="editor-workbench-canvas-shell">
+                          <DocumentCanvas
+                            ref={canvasRef}
+                            page={selectedPage}
+                            blocks={pageDraft.blocks}
+                            cutCeilingPath={activeCutCeilingPath}
+                            debugSettings={debugSettings}
+                            toolbar={null}
+                            overlayToolbar={
+                              <ConversionModeToolbar
+                                zoomPercent={toolbar.zoomPercent}
+                                onZoomOut={toolbar.onZoomOut}
+                                onZoomIn={toolbar.onZoomIn}
+                                onFitPage={toolbar.onFitPage}
+                                onResetZoom={toolbar.onResetZoom}
+                              />
+                            }
+                            disableBlockMovement
+                            blockListPanel={undefined}
+                            blockInfoPanel={undefined}
+                            toast={toast}
+                            selectedBlockIds={selectedBlockIds}
+                            activeBlockId={selectedBlockKey}
+                            activeTool={activeTool}
+                            isLocked={activePageLocked}
+                            onViewportChange={setViewportState}
+                            onSelectBlock={selectBlock}
+                            onCycleBlockType={cycleBlockType}
+                            onHoveredBlockChange={setHoveredBlock}
+                            onCreateBlock={handleCreateBlock}
+                            onUpdateBlock={handleUpdateBlock}
+                          />
+                        </div>
+                        <WorkspaceSourcePreviewPanel document={document} selectedBlock={selectedBlock} className="workspace-source-preview-panel" />
+                        <WorkspaceBlockSourcePanel selectedBlock={selectedBlock} className="workspace-block-source-panel" />
+                      </div>
+                    </div>
+                    <div className="editor-workbench-canvas-column editor-workbench-canvas-column-preview">
+                      <WorkspaceMergedCodePanel mergedSource={mergedDocumentSource} />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="editor-workbench-canvas-column editor-workbench-canvas-column-list">
+                      <div
+                        className={`editor-workbench-canvas-side-stack ${isConversionMode ? 'editor-workbench-canvas-side-stack-conversion' : ''}`}
+                      >
+                        {blockListPanel}
+                        {blockInfoPanel}
+                      </div>
+                    </div>
+                    <div className="editor-workbench-canvas-shell">
+                      <DocumentCanvas
+                        ref={canvasRef}
+                        page={selectedPage}
+                        blocks={pageDraft.blocks}
+                        cutCeilingPath={activeCutCeilingPath}
+                        debugSettings={debugSettings}
+                        toolbar={isFocusedWorkspaceMode ? null : toolbar}
+                        overlayToolbar={
+                          isFocusedWorkspaceMode ? (
+                            <ConversionModeToolbar
+                              zoomPercent={toolbar.zoomPercent}
+                              onZoomOut={toolbar.onZoomOut}
+                              onZoomIn={toolbar.onZoomIn}
+                              onFitPage={toolbar.onFitPage}
+                              onResetZoom={toolbar.onResetZoom}
+                            />
+                          ) : null
+                        }
+                        disableBlockMovement={isFocusedWorkspaceMode}
+                        blockListPanel={undefined}
+                        blockInfoPanel={undefined}
+                        toast={toast}
+                        selectedBlockIds={selectedBlockIds}
+                        activeBlockId={selectedBlockKey}
+                        activeTool={activeTool}
+                        isLocked={activePageLocked}
+                        onViewportChange={setViewportState}
+                        onSelectBlock={selectBlock}
+                        onCycleBlockType={cycleBlockType}
+                        onHoveredBlockChange={setHoveredBlock}
+                        onCreateBlock={handleCreateBlock}
+                        onUpdateBlock={handleUpdateBlock}
+                      />
+                    </div>
+                    {isConversionMode ? (
+                      <div className="editor-workbench-canvas-column editor-workbench-canvas-column-preview">
+                        <WorkspaceDocumentPreview document={document} selectedBlock={selectedBlock} />
+                      </div>
+                    ) : null}
+                  </>
+                )}
               </div>
             </section>
           </div>

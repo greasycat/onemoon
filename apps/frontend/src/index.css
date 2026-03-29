@@ -1970,6 +1970,10 @@ button {
   align-items: stretch;
 }
 
+.editor-workbench-canvas-layout-merging {
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+}
+
 .editor-workbench-canvas-shell,
 .editor-workbench-canvas-column {
   height: 100%;
@@ -1981,6 +1985,20 @@ button {
 
 .editor-workbench-canvas-shell {
   display: grid;
+}
+
+.editor-workbench-merging-column {
+  display: grid;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.15rem;
+}
+
+.editor-workbench-merging-stack {
+  display: grid;
+  gap: 0.9rem;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1.8fr) minmax(14rem, 0.95fr) minmax(14rem, 1.05fr);
 }
 
 .editor-workbench-canvas-column {
@@ -2754,6 +2772,31 @@ button {
   z-index: 1;
 }
 
+.editor-workbench-merging-stack .workspace-document-preview {
+  min-height: 0;
+  padding-top: 0;
+}
+
+.workspace-source-preview-panel,
+.workspace-block-source-panel {
+  min-height: 0;
+}
+
+.workspace-source-preview-panel .workspace-document-preview-frame,
+.workspace-source-preview-panel .workspace-document-preview-empty,
+.workspace-block-source-panel .generated-output {
+  height: 100%;
+}
+
+.workspace-source-preview-panel .workspace-document-preview-frame iframe {
+  height: 100%;
+  min-height: 0;
+}
+
+.workspace-block-source-panel .generated-output {
+  overflow: auto;
+}
+
 .workspace-document-preview-section + .workspace-document-preview-section {
   padding-top: 1rem;
   border-top: 1px solid var(--workspace-line);
@@ -2837,6 +2880,22 @@ button {
   padding-top: 0;
 }
 
+.workspace-merged-code-panel {
+  display: grid;
+  min-height: 100%;
+  padding-top: 0.35rem;
+}
+
+.workspace-merged-code-panel .workspace-document-source {
+  height: 100%;
+}
+
+.workspace-merged-code-source {
+  display: grid;
+  min-height: 0;
+  overflow: auto;
+}
+
 @media (max-width: 1200px) {
   .workspace-grid {
     grid-template-columns: 1fr;
@@ -2845,6 +2904,7 @@ button {
   .workspace-main-layout,
   .editor-workbench-canvas-layout,
   .editor-workbench-canvas-layout-conversion,
+  .editor-workbench-canvas-layout-merging,
   .projects-dashboard-layout,
   .artifact-grid,
   .two-column-layout,
@@ -2976,6 +3036,10 @@ button {
 
   .workspace-document-preview {
     grid-template-rows: auto auto auto auto minmax(14rem, 1fr);
+  }
+
+  .editor-workbench-merging-stack {
+    grid-template-rows: minmax(22rem, 1.5fr) auto auto;
   }
 
   .workspace-debug-dock {
