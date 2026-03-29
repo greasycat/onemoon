@@ -57,10 +57,7 @@ export function WorkspaceModeNavigation({ activeMode, disabled = false, onChange
               <span className="workspace-mode-navigation-button-icon" aria-hidden="true">
                 <Icon />
               </span>
-              <span className="workspace-mode-navigation-button-copy">
-                <span className="workspace-mode-navigation-button-label">{step.label}</span>
-                <span className="workspace-mode-navigation-button-hint">{step.hint}</span>
-              </span>
+              <span className="workspace-mode-navigation-button-label">{step.label}</span>
             </button>
             {index < WORKSPACE_MODE_STEPS.length - 1 ? (
               <span className="workspace-mode-navigation-separator" aria-hidden="true">

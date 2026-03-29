@@ -1942,6 +1942,9 @@ button {
 .workspace-mode-navigation {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 100%;
   gap: 0.55rem;
   padding: 0.35rem;
   border-radius: 1.8rem;
@@ -1957,13 +1960,14 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
+  min-width: 0;
 }
 
 .workspace-mode-navigation-button {
   display: inline-flex;
   align-items: center;
   gap: 0.75rem;
-  min-width: 10.5rem;
+  min-width: 0;
   padding: 0.7rem 0.85rem 0.7rem 0.75rem;
   border: 1px solid transparent;
   border-radius: 1.35rem;
@@ -2028,23 +2032,10 @@ button {
   stroke-width: 2.1;
 }
 
-.workspace-mode-navigation-button-copy {
-  display: grid;
-  gap: 0.1rem;
-  text-align: left;
-}
-
 .workspace-mode-navigation-button-label {
   font-size: 0.85rem;
   font-weight: 700;
   letter-spacing: 0.02em;
-}
-
-.workspace-mode-navigation-button-hint {
-  color: var(--workspace-muted);
-  font-size: 0.66rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .workspace-mode-navigation-separator {
@@ -3139,16 +3130,7 @@ button {
   }
 
   .workspace-mode-navigation-button {
-    min-width: 0;
     width: 100%;
-  }
-
-  .workspace-mode-navigation-button-copy {
-    min-width: 0;
-  }
-
-  .workspace-mode-navigation-button-hint {
-    letter-spacing: 0.05em;
   }
 
   .projects-dashboard-create-bar {
