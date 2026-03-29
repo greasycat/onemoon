@@ -1,0 +1,86 @@
+from onemoon_backend.models import Block, BlockApproval, BlockType
+from onemoon_backend.services.latex import block_to_latex, build_document_body, build_document_from_body, build_document_latex
+
+
+def make_block(
+    block_type: BlockType,
+    output: str | None,
+    approval: BlockApproval = BlockApproval.approved,
+    crop_path: str | None = None,
+) -> Block:
+    return Block(
+        id="block",
+        page_id="page",
+        order_index=0,
+        block_type=block_type,
+        approval=approval,
+        x=0.1,
+        y=0.1,
+        width=0.4,
+        height=0.2,
+        confidence=1.0,
+        crop_path=crop_path,
+        generated_output=output,
+        warnings=[],
+    )
+
+
+def test_math_blocks_preserve_full_display_math_environment() -> None:
+    latex = block_to_latex(make_block(BlockType.math, "\\begin{equation*}\na^2 + b^2 = c^2\n\\end{equation*}"))
+    assert latex.startswith("\\begin{equation*}")
+    assert "a^2 + b^2 = c^2" in latex
+
+
+def test_text_blocks_are_wrapped_in_textblock_environment() -> None:
+    latex = block_to_latex(make_block(BlockType.text, "This is a note."))
+    assert latex.startswith("\\begin{textblock}")
+    assert "This is a note." in latex
+
+
+def test_document_builder_includes_text_and_math_blocks() -> None:
+    source = build_document_latex(
+        "Notebook",
+        [
+            make_block(BlockType.text, "This is a note."),
+            make_block(BlockType.math, "x + y = z"),
+        ],
+    )
+    assert "\\documentclass" in source
+    assert "\\newenvironment{textblock}" in source
+    assert "This is a note." in source
+    assert "\\[" in source
+
+
+def test_document_builder_can_wrap_a_premerged_body() -> None:
+    source = build_document_from_body("Notebook", "\\begin{textblock}\nMerged body.\n\\end{textblock}")
+    assert "\\documentclass" in source
+    assert "Merged body." in source
+
+
+def test_document_builder_strips_an_existing_document_wrapper() -> None:
+    source = build_document_from_body(
+        "Notebook",
+        "\\documentclass{article}\n\\begin{document}\n\\maketitle\n\\begin{textblock}\nMerged body.\n\\end{textblock}\n\\end{document}",
+    )
+    assert source.count("\\documentclass") == 1
+    assert source.count("\\begin{document}") == 1
+    assert "Merged body." in source
+
+
+def test_document_body_builder_returns_only_block_content() -> None:
+    body = build_document_body([make_block(BlockType.text, "This is a note.")])
+    assert "\\documentclass" not in body
+    assert "This is a note." in body
+
+
+def test_unconverted_block_uses_crop_placeholder_image() -> None:
+    latex = block_to_latex(
+        make_block(
+            BlockType.text,
+            None,
+            approval=BlockApproval.pending,
+            crop_path="crops/doc/page-001/block.png",
+        )
+    )
+    assert "\\includegraphics" in latex
+    assert "crops/doc/page-001/block.png" in latex

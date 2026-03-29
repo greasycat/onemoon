@@ -1,0 +1,258 @@
+# Changelog
+
+- Added a concise root README with current product screenshots covering the dashboard, page-review workspace, and merged-code packaging flow.
+
+- Switched figure conversion and merged-source packaging to use relative `figures/...` asset paths, staged those figures for compile/package output, and added a merge-panel download action that bundles the LaTeX files with the figure folder.
+
+- Removed the remaining inset ring from the workspace mode-navigation icon pills so the step icons render without a visible border.
+
+- Replaced the workspace header’s mode toggles with a single navigation-style step control that shows `Segment`, `Conversion`, and `Merging` as a connected flow with arrow separators.
+
+- Added a merging-mode control panel with optional LLM guidance, a panel-local copy action, and a direct `/documents/{document_id}/merge` API that keeps mock-provider merges usable while compiling the persisted merged body correctly.
+
+- Added a dedicated merging mode that switches the workspace into a two-column merge review layout with the canvas plus preview stack on one side and a merged-code panel on the other.
+
+- Fixed the conversion-mode left rail so long block lists stay scrollable within the available column height and no longer clip the conversion inspector below them.
+
+- Added a workspace `Copy all` header action that copies converted output across every page in order and inserts `Block/Page Unconverted Placeholder` anywhere a page or block has no converted content yet.
+
+- Stabilized the workspace canvas height chain so the page 4 canvas on segmented `handwriting_physics_1` no longer slowly shrinks after opening and keeps re-triggering fit-page resizes.
+
+- Updated conversion output formatting so math blocks now return full LaTeX display environments and text blocks are wrapped in a `textblock` environment across mock output, block previews, and assembled document LaTeX.
+
+- Added a conversion-mode `Convert all` action above the block list and removed the block-count / selection-count summary cards from that panel.
+
+- Fixed polygon conversion crops so any transparent pixels inside a full-size masked bounding box are still flattened onto white for the LLM request image, and synced the converted block payload back into the workspace so the block-source panel refreshes immediately after `Convert`.
+
+- Saved conversion response payloads as JSON alongside the masked crop debug artifacts in `/tmp/onemoon-masked-crops` when the workspace debug flag is enabled.
+
+- Added a workspace debug toggle that saves the exact white-filled masked crop sent to the LLM into `/tmp/onemoon-masked-crops` during conversion for inspection.
+
+- Flattened transparent polygon crop surrounds onto white before sending block images to the LLM, while keeping the saved crop itself polygon-masked.
+
+- Kept the selected block cut image visible in the preview rail after conversion whenever no compiled render is available, so the crop stays alongside the block source snippet.
+
+- Changed figure conversion so the LLM now produces a figure description while the backend composes the final `\\includegraphics` plus `\\caption{...}` snippet instead of returning a static placeholder.
+
+- Changed the workspace source rail to show the selected block’s LaTeX snippet instead of the full assembled document, including block-level placeholder snippets before conversion.
+
+- Fixed the workspace cut-image placeholder sizing so the selected block crop now fits the preview frame at full width and height before conversion.
+
+- Added pre-conversion block-crop placeholders to the workspace preview rail and assembled LaTeX so a selected block shows its cut image before conversion runs.
+
+- Removed the workspace’s block-review controls and the selected-block block-type selector so the conversion rail now shows only block conversion plus the document source preview.
+
+- Moved converted LaTeX display out of the selected-block inspector and made the right-side document source panel the only visible conversion output target in workspace conversion mode.
+
+- Made repo-root `ONEMOON_*` LLM settings override backend-local defaults so the live app can use `.env` for real OpenAI-backed conversion while still falling back to mock output when no provider is configured.
+
+- Added env-configured LLM-backed text/math block generation plus conversion-mode review controls for saving manual output and approval state while keeping the mock provider as the local default.
+
+- Replaced the conversion-mode selected-block `Structure` controls with a real `Convert` button that runs block regeneration and refreshes the document.
+
+- Wired the conversion-mode toggle to auto-save-and-finish on entry and auto-reopen on exit, and removed the standalone workspace `Reopen` action.
+
+- Merged the workspace `Save` and `FIN` actions into a single `Save` control that saves dirty drafts and marks the active page finished in one step.
+
+- Disabled canvas block dragging in conversion mode so reviewers can still select blocks there without accidentally moving them.
+
+- Added a conversion-mode zoom toolbar overlay on the canvas so zoom controls stay available in conversion mode without bringing back the full review toolbar, and kept that toolbar background transparent.
+
+- Docked the workspace block list and selected-block inspector in normal review mode too, so both modes use the side stack instead of floating those panels over the canvas.
+
+- Locked the workspace canvas viewport to the editor row height so zooming no longer makes the viewport itself grow and feed back into `fitPageZoom`.
+
+- Extended the workspace debug panel with live canvas content/page dimensions and made the panel stay open above the workspace until the Debug toggle is clicked again.
+
+- Removed workspace fit-page zoom's dependence on the left/right overlay rail widths so the baseline now comes only from the canvas viewport box and page dimensions.
+
+- Stabilized workspace `fitPageZoom` against manual zoom scrollbars by measuring the canvas viewport from its border box, so the fit-page baseline stays fixed for a given browser layout while zoom buttons change only `viewport.zoom`.
+
+- Added raw `viewport.zoom` and `fitPageZoom` readouts to the workspace debug panel so canvas zoom state can be inspected without digging through the DOM.
+
+- Lowered the workspace canvas minimum zoom floor from `0.35` to `0.05` so `Zoom out` can step below the old clamp after a `100%` reset.
+
+- Fixed workspace zoom-state updates so manual zoom changes no longer get lost behind stale canvas viewport state, and the toolbar percent now tracks real zoom again instead of flattening back to `100%`.
+
+- Fixed workspace `100%` / fit-page zoom so it measures the unobscured canvas area between the floating overlay rails instead of the raw viewport box, keeping the full page visible again after the layout changes.
+
+- Switched the workspace conversion grid to a `1 / 2 / 2` column ratio and removed the extra canvas-shell shrink so sizing now comes from the layout columns instead of a fixed shell cap.
+
+- Rebalanced the workspace conversion layout so the block list and selected-block panel stack on the left, the document preview stays on the right, and the canvas shell renders smaller in conversion mode.
+
+- Rebased workspace zoom percentages on the fit-page view so `100%` now means the whole page is visible, and the `100%` action resets to that full-page baseline instead of literal image scale `1`.
+
+- Removed the non-conversion canvas wheel fallback so workspace scrolling is native-browser-only again instead of rerouting unmoved wheel input through JavaScript.
+
+- Restored more natural non-conversion canvas wheel feel by letting the browser handle vertical scrolling first and only falling back to manual workspace scroll routing when native scrolling does not move anything.
+
+- Fixed non-conversion workspace canvas wheel scrolling by routing mouse-wheel input to the nearest scrollable workspace container instead of the document root, so zoomed canvases scroll again under the cursor.
+
+- Routed wheel scrolling on the non-conversion canvas surface back to the page scroll so the review workspace scrolls even when the cursor is over the image instead of only over floating overlays.
+
+- Restored non-conversion workspace scrolling by removing the vertical overflow clamp from the editor workbench while keeping horizontal clipping for the canvas layout.
+
+- Hid the workspace LaTeX preview outside conversion mode so the normal review editor stays canvas-only and the preview rail only appears during conversion.
+
+- Constrained the workspace editor canvas layout to its parent workbench width and let conversion side rails shrink instead of forcing the canvas row to overflow.
+
+- Docked the workspace LaTeX preview rail into the layout by removing its floating outer card treatment and switching its inner preview surfaces to flat inline sections.
+
+- Turned the workspace header toggle into a dedicated conversion-mode switch that hides the floating toolbar, docks the block list and selected-block panel beside the image, and stacks the LaTeX preview below the editor.
+
+- Removed the asymmetric workspace canvas side padding so the page frame now centers against the visible editor viewport instead of a right-heavy inner gutter.
+
+- Explicitly centered the workspace canvas frame inside its scroll viewport so the page image stays visually centered in the segmentation editor.
+
+- Repositioned the workspace selected-block inspector as a floating canvas card anchored inside the segmentation editor instead of a docked side panel.
+
+- Changed the workspace split so the LaTeX preview panel now uses the same main-column footprint and stretched panel height as the segmentation editor.
+
+- Trimmed the workspace conversion rail so it only shows the rendered preview block and LaTeX code block, removing the extra description, stats, and section headings.
+
+- Added a workspace conversion rail with a right-side LaTeX document preview and a header toggle to hide or restore the embedded editor toolbar.
+
+- Constrained the protected app shell to the viewport and made workspace/page containers fill the remaining row under the top bar, fixing the oversized workspace height.
+
+- Made the workspace grid and editor workbench stretch to fill the available viewport height instead of stopping at content height.
+
+- Changed the workspace block-list collapse to shrink the panel vertically while keeping its full width, instead of collapsing it into a narrow side bar.
+
+- Fixed the workspace block-list collapse so the overlay column itself now narrows to a slim rounded panel instead of only hiding the inner text.
+
+- Removed the workspace canvas helper tooltip section so the embedded block list sits directly beside the toolbar.
+
+- Added a collapse toggle ahead of the workspace block-list title and made collapsing preserve the panel's rounded-rectangle height instead of reflowing the canvas.
+
+- Moved the workspace block list into the review canvas as an embedded overlay and removed the dedicated right-side panel so the canvas has more room.
+
+- Renamed the workspace page-review side panel heading to `Block List`.
+
+- Removed the workspace page-review summary cards for zoom level, layout version, and view mode so the side panel stays focused on block counts and the review list.
+
+- Removed the block inspector source, shape, and confidence metadata cards so the panel stays focused on type and structure edits.
+
+- Fixed polygon block double-click type changes to respect the real polygon hit area instead of the bounding box, so empty bbox space now targets the actual block under the cursor.
+
+- Added a workspace debug hover indicator that shows which block the cursor is currently over inside the edit canvas.
+
+- Added workspace block-type cycling on block double-click and surfaced a picker tip so reviewers can change types faster from the page or review list.
+
+- Made workspace block-type changes apply immediately from the inspector select, so review no longer depends on a separate `Apply To Draft` click.
+
+- Made the workspace `FIN` action save every dirty page draft before marking the active page finished, so review completion no longer depends on a separate manual save step.
+
+- Centered the workspace loading state and added an animated spinner so large uploads show clear progress feedback while the review workspace initializes.
+
+- Kept newly-uploaded workspace routes in a loading state while the backend creates the document and renders its first pages, instead of falling through to `Document not found.` during large uploads.
+
+- Removed the dashboard upload side panel and moved upload actions into each workspace row so files can be sent to review directly beside the folder name.
+
+- Moved the workspace top-bar `Back to projects` link below the app name so the brand stack reads title-first.
+
+- Fixed frontend delete mutations by treating empty `204/205` API responses as successful, so document and project removals update the dashboard without a manual refresh.
+
+- Fixed backend startup by making project/document delete routes explicit empty `204 No Content` responses that FastAPI accepts at import time.
+
+- Rebuilt the projects dashboard into a tighter command-center layout with a modern hero, compact stats, clearer workspace selection, and an upload rail that still routes directly into the review workspace.
+
+- Fixed the projects dashboard foreground/background contrast by scoping workspace-style warm surfaces, controls, and status colors to the dashboard without changing the workspace view.
+
+- Documented the repo rule that each completed round of work should land in its own conventional commit.
+
+- Tightened the workspace gap under the shared top bar and added a top-bar back link to return to the projects view.
+
+- Prevented page overscroll chaining with contained workspace scrollers plus a document-level wheel/touch fallback, so hitting the end of a page no longer leaks into extra browser or parent-page scrolling.
+
+- Merged the document editor header into a single top bar that only shows the project name and the source filename without its extension.
+
+- Removed block-inspector merge/split actions and the manual approval pill buttons, and changed new/default block types to `text` instead of `unknown`.
+
+- Moved the selected-block inspector into a canvas-right overlay so block information stays attached to the work surface while the side column focuses on page review.
+
+- Removed the inspector panel bounding-box editor so block review focuses on type/approval and structural actions while geometry stays canvas-driven.
+
+- Added a shared frontend debug flag so workspace debug controls now default to Vite dev mode and can be overridden with `VITE_FRONTEND_DEBUG=true|false`.
+
+- Added review-workspace keyboard shortcuts for `Pick`, `Rect`, `Free`, `Cut`, `Save`, and `FIN`, plus modifier/range multi-selection with bulk block deletion.
+
+- Fixed overlapping polygon hit-testing so a lower cut block's bounding box no longer steals pick clicks from the real polygon above it.
+
+- Made pick-mode polygon selection respect the actual polygon shape instead of its bounding box, so clicks in the empty bbox area no longer select cut/free-form blocks.
+
+- Made empty-page `Discard`, `Save`, and `FIN` toolbar clicks show a `Nothing is created.` toast instead of staying disabled with no feedback.
+
+- Renamed the workspace segmented-action toolbar button from `Seg` to `FIN`.
+
+- Reconstructed saved cut polygons into reusable cut ceilings on load so cut mode still stacks correctly after saving and refreshing the page.
+
+- Fixed cut-mode deletion so removing the just-created cut block restores the previous remembered cut ceiling instead of leaving cut creation stuck on stale path state.
+
+- Replaced the workspace glyph-based controls with `lucide-react` icons for the toolbar, theme toggle, debug launcher, and workspace back link.
+
+- Kept the active draw tool selected after creating a block instead of auto-switching back to `Pick`.
+
+- Remembered each page's last `Cut` stroke as the next cut ceiling, so consecutive cuts stack against the previous cut path instead of the page boundary.
+
+- Lowered the default `Vertex merge tolerance` workspace debug setting from `0.003` to `0.002`.
+
+- Changed `Cut` endpoint interpolation to use the raw deduped stroke instead of post-merge vertices when projecting to page boundaries.
+
+- Removed the projected outline from the `Cut` tool preview so drawing only shows the raw stroke plus the filled upper region.
+
+- Added a `Cut` canvas tool that turns an open stroke into a polygon block by extending its sampled endpoints to the page boundary and selecting the region above the cut.
+
+- Regrouped the workspace canvas toolbar into page, block, zoom, and save sections with inline labels so the control rail scans more clearly.
+
+- Fixed the workspace page sidebar so the selected page card keeps a visible active border and highlight state.
+
+- Prevented the mobile canvas toolbar and helper tooltip from overflowing the review canvas by collapsing the overlay stack above the viewport on very small screens.
+
+- Fixed the small-screen workspace layout so the review sidebar/canvas can shrink and the overlaid canvas toolbar wraps inside the canvas instead of overflowing it.
+- Refactored the workspace page into a page-local state hook and tightened frontend form/focus accessibility so the upload-to-review flow is easier to maintain.
+- Added a workspace-only floating debug toolbar with persisted free-form drawing thresholds and placeholder LLM controls for future request overrides.
+- Refactored the workspace frontend so `WorkspacePage` delegates draft state and panel rendering to a page-specific controller hook and local side-panel components.
+- Tightened the default free-form vertex merge tolerance in the workspace debug controls from `0.005` to `0.003`.
+- Added the initial OneMoon full-stack scaffold with interactive block review, LaTeX assembly, and a Python ingestion pipeline.
+- Added the Phase 1 manual-segmentation workflow with page drafts, atomic layout save, and page review state.
+- Added a root dev runner so frontend and backend can be started together with one command.
+- Added root scripts to start, inspect, tail logs for, restart, and stop the background dev stack.
+- Fixed LAN development defaults so the frontend targets the current host and backend CORS accepts common private-network origins.
+- Added a batchable Python script to index `assets/documents` into a two-column TSV manifest with placeholder descriptions.
+- Fixed document upload so the frontend submits the active project correctly and the backend accepts `project_id` from multipart form data.
+- Added a persisted light theme and theme switcher for the frontend login, project, and workspace flows.
+- Expanded document editing mode with an editor toolbar, sticky draft actions, review progress summary, block preview card, and zoomable canvas viewport.
+- Redesigned the document editor into a canvas-first workspace with a unified sticky control rail, lighter editorial styling, and less duplicated review chrome.
+- Fixed document editor draw mode so dragging on the page image reaches the canvas and can start a new block.
+- Tightened the editor toolbar into a compact floating control tray so the workbench stays canvas-first.
+- Moved the editor toolbar into a true top-left canvas overlay so it belongs to the review surface and preserves canvas interactions.
+- Reworked the canvas toolbar into a slim vertical icon rail to reduce visual weight over the page.
+- Split the canvas guidance copy out of the toolbar into a separate top-left floating tooltip so the icon rail stays compact.
+- Added short labels and larger icons to the canvas toolbar buttons so the vertical rail scans faster.
+- Loaded the workspace fonts from a third-party CDN so the editor typography is consistent across machines.
+- Switched the workspace document title to a CDN-loaded monospace face for a cleaner editorial header.
+- Returned the workspace document title to the Space Grotesk sans stack and removed the unused monospace CDN font.
+- Switched the workspace `h2` headings to the same Space Grotesk sans stack as the document title.
+- Removed the redundant page-count and workbench title headings from the review progress and editor panels.
+- Removed the review-progress jump button so the sidebar summary is read-only.
+- Tightened the review-progress stat cards so their labels wrap cleanly inside the sidebar without overflowing.
+- Added a dedicated top inset in the canvas viewport so the floating tooltip no longer covers the page image.
+- Increased region label contrast so the block-type badge text reads clearly against its chip background.
+- Renamed the canvas draw-mode toolbar label to `Rect` to match the current rectangular drawing behavior.
+- Removed the separate toolbar width control and switched the remaining page-fit button to a left-right arrow icon.
+- Updated the toolbar button copy to the current short labels used in the canvas rail.
+- Lowered the editor frame slightly by increasing the canvas top inset under the floating overlay.
+- Disabled the native right-click context menu on the canvas surface.
+- Fixed the active canvas tool styling so the selected toolbar button updates with a strong border and foreground state.
+- Added save toasts in the workspace so the Save action now shows saving, success, and error feedback.
+- Moved save toasts into the canvas top-right corner and disabled Save when a page has no blocks.
+- Lowered the canvas toast so it no longer sits on top of the nearby status badges.
+- Removed the block preview panel from the workspace side column.
+- Removed the redundant `Layout Draft` heading from the page review panel.
+- Added consistent internal spacing to the inspector panel so its sections are separated more clearly.
+- Saved a browser-side localStorage backup on each layout save in addition to the backend request.
+- Replaced the Pick icon with a cursor glyph and made empty-canvas clicks clear the current block selection.
+- Fixed pick-mode viewport gutter clicks so empty space around the page also clears the current block selection.
+- Added polygon-backed free-form block selection with self-intersection rejection, masked backend crops, and polygon-aware review editing.
+- Increased free-form capture density while still merging nearly straight vertices after the stroke is complete.
+- Reduced free-form merge aggressiveness slightly so completed strokes retain a few more vertices.
