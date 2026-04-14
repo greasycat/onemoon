@@ -364,10 +364,6 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     })
   }
 
-  function instructionForBlock(block: DraftBlock) {
-    return conversionInstructions[draftBlockKey(block)] ?? block.user_instruction ?? ''
-  }
-
   function debugMessagesForJob(completedJob: JobResponse) {
     const debugMaskedCropPath =
       typeof completedJob.payload.debug_masked_crop_path === 'string'
@@ -913,7 +909,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
 
     try {
       const response = await mergeDocumentMutation.mutateAsync({
-        source: assembledDocumentSource,
+        source: mergedDocumentSource,
         suggestion: normalizedSuggestion,
       })
       await refreshDocument()

@@ -2,16 +2,19 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useState, type MouseEvent as ReactMouseEvent } from 'react'
 
 import { draftBlockKey, type DraftPageLayout } from '../../lib/segmentation'
-import type { BlockSelectionMode } from '../../lib/types'
+import type { BlockSelectionMode, OutputFormat } from '../../lib/types'
 
 interface WorkspaceReviewPanelProps {
   activeBlockId: string | null
   canConvertAll?: boolean
   isConvertingAll?: boolean
   isConversionMode?: boolean
+  outputFormat?: OutputFormat
+  isUpdatingFormat?: boolean
   pageDraft: DraftPageLayout
   selectedBlockIds: string[]
   onConvertAll?: () => void
+  onFormatChange?: (format: OutputFormat) => void
   onSelectBlock: (blockId: string, mode?: BlockSelectionMode) => void
   onCycleBlockType: (blockId: string) => void
 }
@@ -21,9 +24,12 @@ export function WorkspaceReviewPanel({
   canConvertAll = false,
   isConvertingAll = false,
   isConversionMode = false,
+  outputFormat = 'latex',
+  isUpdatingFormat = false,
   pageDraft,
   selectedBlockIds,
   onConvertAll,
+  onFormatChange,
   onSelectBlock,
   onCycleBlockType,
 }: WorkspaceReviewPanelProps) {
@@ -71,6 +77,26 @@ export function WorkspaceReviewPanel({
         ) : null}
         {isConversionMode ? (
           <div className="workspace-review-panel-actions">
+            {onFormatChange ? (
+              <div className="button-grid">
+                <button
+                  type="button"
+                  className={outputFormat === 'latex' ? 'primary-button' : 'secondary-button'}
+                  disabled={isUpdatingFormat || outputFormat === 'latex'}
+                  onClick={() => onFormatChange('latex')}
+                >
+                  LaTeX
+                </button>
+                <button
+                  type="button"
+                  className={outputFormat === 'typst' ? 'primary-button' : 'secondary-button'}
+                  disabled={isUpdatingFormat || outputFormat === 'typst'}
+                  onClick={() => onFormatChange('typst')}
+                >
+                  Typst
+                </button>
+              </div>
+            ) : null}
             <button type="button" className="secondary-button" disabled={!canConvertAll || isConvertingAll} onClick={onConvertAll}>
               {isConvertingAll ? 'Converting all...' : 'Convert all'}
             </button>

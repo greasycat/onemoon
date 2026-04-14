@@ -124,10 +124,15 @@ export function WorkspacePage() {
       canConvertAll={pageDraft.blocks.length > 0 && !blockInspectorBusy}
       isConvertingAll={isBulkConverting}
       isConversionMode={isConversionMode}
+      outputFormat={document.output_format ?? 'latex'}
+      isUpdatingFormat={isUpdatingOutputFormat}
       pageDraft={pageDraft}
       selectedBlockIds={selectedBlockIds}
       onConvertAll={() => {
         void convertAllBlocks()
+      }}
+      onFormatChange={(format) => {
+        void updateOutputFormat(format)
       }}
       onSelectBlock={selectBlock}
       onCycleBlockType={cycleBlockType}
