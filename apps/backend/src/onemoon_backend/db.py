@@ -45,8 +45,11 @@ def _apply_development_schema_compatibility() -> None:
     inspector = inspect(engine)
     page_columns = {column["name"] for column in inspector.get_columns("pages")} if inspector.has_table("pages") else set()
     block_columns = {column["name"] for column in inspector.get_columns("blocks")} if inspector.has_table("blocks") else set()
+    document_columns = {column["name"] for column in inspector.get_columns("documents")} if inspector.has_table("documents") else set()
 
     statements: list[str] = []
+    if "output_format" not in document_columns:
+        statements.append("ALTER TABLE documents ADD COLUMN output_format VARCHAR(32) DEFAULT 'latex'")
     if "review_status" not in page_columns:
         statements.append("ALTER TABLE pages ADD COLUMN review_status VARCHAR(32) DEFAULT 'unreviewed'")
     if "review_started_at" not in page_columns:

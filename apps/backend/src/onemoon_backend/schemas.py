@@ -187,7 +187,7 @@ class DocumentDetailResponse(BaseModel):
     filename: str
     source_kind: str
     status: DocumentStatus
-    output_format: OutputFormat = OutputFormat.latex
+    output_format: OutputFormat
     assembled_latex: str | None
     latest_compile_status: CompileStatus | None
     pages: list[PageResponse]

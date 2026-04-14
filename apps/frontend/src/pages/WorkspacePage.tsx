@@ -33,8 +33,6 @@ export function WorkspacePage() {
     convertAllBlocks,
     convertSelectedBlock,
     debugSettings,
-    compilePdfState,
-    compileAndDownloadPdf,
     downloadMergedPackage,
     document,
     documentQuery,
@@ -49,7 +47,11 @@ export function WorkspacePage() {
     projectName,
     mergedDocumentSource,
     isMergingDocument,
+    isCompilingDocument,
+    isUpdatingOutputFormat,
+    updateOutputFormat,
     mergeDocument,
+    compileAndDownloadPDF,
     reopenActivePage,
     resetDebugSettings,
     reviewCounts,
@@ -71,8 +73,6 @@ export function WorkspacePage() {
     viewportState,
     isResolvingDocumentCreation,
     isWorkspaceInitializing,
-    outputFormat,
-    changeOutputFormat,
   } = useWorkspaceController(documentId, pendingUploadJobId)
 
   const filenameStem = useMemo(() => {
@@ -238,9 +238,11 @@ export function WorkspacePage() {
                     <div className="editor-workbench-canvas-column editor-workbench-canvas-column-preview">
                       <WorkspaceMergedCodePanel
                         mergedSource={mergedDocumentSource}
+                        outputFormat={document.output_format ?? 'latex'}
                         isDownloadingPackage={isDownloadingMergedPackage}
+                        isCompiling={isCompilingDocument}
                         isMerging={isMergingDocument}
-                        outputFormat={outputFormat}
+                        isUpdatingFormat={isUpdatingOutputFormat}
                         onDownload={() => {
                           void downloadMergedPackage()
                         }}
@@ -250,12 +252,11 @@ export function WorkspacePage() {
                         onMerge={(suggestion) => {
                           void mergeDocument(suggestion)
                         }}
-                        onOutputFormatChange={(format) => {
-                          void changeOutputFormat(format)
+                        onCompileAndDownloadPDF={() => {
+                          void compileAndDownloadPDF()
                         }}
-                        compilePdfState={compilePdfState}
-                        onCompilePdf={() => {
-                          void compileAndDownloadPdf()
+                        onFormatChange={(format) => {
+                          void updateOutputFormat(format)
                         }}
                       />
                     </div>

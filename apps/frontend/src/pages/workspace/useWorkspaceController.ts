@@ -37,13 +37,6 @@ import type {
   JobResponse,
   PageReviewStatus,
 } from '../../lib/types'
-
-export type CompilePdfState =
-  | { status: 'idle' }
-  | { status: 'compiling' }
-  | { status: 'success' }
-  | { status: 'skipped' }
-  | { status: 'failed'; log: string }
 import {
   DEFAULT_WORKSPACE_DEBUG_SETTINGS,
   WORKSPACE_DEBUG_STORAGE_KEY,
@@ -149,7 +142,6 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
   const [hoveredBlockKey, setHoveredBlockKey] = useState<string | null>(null)
   const [conversionInstructions, setConversionInstructions] = useState<Record<string, string>>({})
   const [isBulkConverting, setIsBulkConverting] = useState(false)
-  const [compilePdfState, setCompilePdfState] = useState<CompilePdfState>({ status: 'idle' })
   const canvasRef = useRef<DocumentCanvasHandle | null>(null)
   const toastTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
 
@@ -547,14 +539,6 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
       }),
   })
 
-  const updateDocumentFormatMutation = useMutation({
-    mutationFn: ({ outputFormat }: { outputFormat: string }) =>
-      api.updateDocument(token!, documentId, { output_format: outputFormat }),
-    onSuccess: (updatedDocument) => {
-      queryClient.setQueryData(['document', token, documentId], updatedDocument)
-    },
-  })
-
   const compileDocumentMutation = useMutation({
     mutationFn: async () => {
       const job = await api.compileDocument(token!, documentId)
@@ -566,6 +550,14 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
         await sleep(1000)
       }
       throw new Error('Timed out waiting for compilation.')
+    },
+  })
+
+  const updateDocumentMutation = useMutation({
+    mutationFn: (payload: { output_format?: string }) =>
+      api.updateDocument(token!, documentId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['document', token, documentId] })
     },
   })
 
@@ -1011,56 +1003,6 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     }
   }
 
-  async function compileAndDownloadPdf() {
-    if (!token) return
-    setCompilePdfState({ status: 'compiling' })
-    try {
-      const job = await api.compileDocument(token, documentId)
-      let finalJob: JobResponse = job
-      for (let attempt = 0; attempt < 60; attempt += 1) {
-        finalJob = await api.getJob(token, job.id)
-        if (finalJob.status === 'completed' || finalJob.status === 'failed') break
-        await sleep(1000)
-      }
-      if (finalJob.status === 'failed') {
-        throw new Error(finalJob.message || 'Compilation job failed.')
-      }
-      const artifacts = await api.getArtifacts(token, documentId)
-      const latest = artifacts.sort((a, b) => b.version - a.version)[0]
-      if (!latest) throw new Error('No compile artifact found.')
-      if (latest.status === 'skipped') {
-        setCompilePdfState({ status: 'skipped' })
-        showToast({ tone: 'error', message: 'Compilation skipped: tectonic is not installed.' })
-        return
-      }
-      if (latest.status === 'failed') {
-        const log = latest.log_url ? await api.fetchStorageText(latest.log_url) : 'No log available.'
-        setCompilePdfState({ status: 'failed', log })
-        showToast({ tone: 'error', message: 'Compilation failed. See log for details.' })
-        return
-      }
-      if (latest.status === 'completed' && latest.pdf_url) {
-        const pdfUrl = withApiRoot(latest.pdf_url)
-        if (pdfUrl) {
-          const a = window.document.createElement('a')
-          a.href = pdfUrl
-          a.download = 'document.pdf'
-          window.document.body.appendChild(a)
-          a.click()
-          a.remove()
-        }
-        setCompilePdfState({ status: 'success' })
-        showToast({ tone: 'success', message: 'PDF downloaded.' })
-        return
-      }
-      throw new Error('Unexpected artifact status.')
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Compilation failed.'
-      setCompilePdfState({ status: 'failed', log: message })
-      showToast({ tone: 'error', message })
-    }
-  }
-
   async function compileAndDownloadPDF() {
     if (typeof window === 'undefined' || typeof window.URL?.createObjectURL !== 'function') {
       showToast({
@@ -1126,6 +1068,18 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
 
     showToast({ tone: 'success', message: 'PDF downloaded.' })
     return true
+  }
+
+  async function updateOutputFormat(format: 'latex' | 'typst') {
+    try {
+      await updateDocumentMutation.mutateAsync({ output_format: format })
+      showToast({ tone: 'success', message: `Output format set to ${format === 'typst' ? 'Typst' : 'LaTeX'}.` })
+    } catch (error) {
+      showToast({
+        tone: 'error',
+        message: error instanceof Error && error.message ? error.message : 'Failed to update output format.',
+      })
+    }
   }
 
   function handleCreateBlock(payload: {
@@ -1373,17 +1327,6 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     onDiscard: discardActiveDraft,
   }
 
-  async function changeOutputFormat(outputFormat: 'latex' | 'typst') {
-    try {
-      await updateDocumentFormatMutation.mutateAsync({ outputFormat })
-    } catch (error) {
-      showToast({
-        tone: 'error',
-        message: error instanceof Error && error.message ? error.message : 'Failed to update output format.',
-      })
-    }
-  }
-
   return {
     activePageDirty,
     activePageLocked,
@@ -1443,12 +1386,11 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     isDownloadingMergedPackage: downloadDocumentPackageMutation.isPending,
     isCompilingDocument: compileDocumentMutation.isPending,
     isMergingDocument: mergeDocumentMutation.isPending,
+    isUpdatingOutputFormat: updateDocumentMutation.isPending,
     mergeDocument,
     compileAndDownloadPDF,
+    updateOutputFormat,
     updateSelectedBlockInstruction,
-    compilePdfState,
-    compileAndDownloadPdf,
     outputFormat: (document?.output_format ?? 'latex') as 'latex' | 'typst',
-    changeOutputFormat,
   }
 }
