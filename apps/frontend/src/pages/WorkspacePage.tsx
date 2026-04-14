@@ -33,6 +33,8 @@ export function WorkspacePage() {
     convertAllBlocks,
     convertSelectedBlock,
     debugSettings,
+    compilePdfState,
+    compileAndDownloadPdf,
     downloadMergedPackage,
     document,
     documentQuery,
@@ -244,6 +246,10 @@ export function WorkspacePage() {
                         }}
                         onMerge={(suggestion) => {
                           void mergeDocument(suggestion)
+                        }}
+                        compilePdfState={compilePdfState}
+                        onCompilePdf={() => {
+                          void compileAndDownloadPdf()
                         }}
                       />
                     </div>

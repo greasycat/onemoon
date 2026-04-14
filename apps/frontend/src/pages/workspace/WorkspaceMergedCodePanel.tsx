@@ -1,6 +1,8 @@
 import { Copy, Download } from 'lucide-react'
 import { useState } from 'react'
 
+import type { CompilePdfState } from './useWorkspaceController'
+
 interface WorkspaceMergedCodePanelProps {
   mergedSource: string
   isDownloadingPackage: boolean
@@ -8,6 +10,8 @@ interface WorkspaceMergedCodePanelProps {
   onDownload: () => void
   onCopy: () => void
   onMerge: (suggestion: string) => void
+  compilePdfState: CompilePdfState
+  onCompilePdf: () => void
 }
 
 export function WorkspaceMergedCodePanel({
@@ -17,8 +21,11 @@ export function WorkspaceMergedCodePanel({
   onDownload,
   onCopy,
   onMerge,
+  compilePdfState,
+  onCompilePdf,
 }: WorkspaceMergedCodePanelProps) {
   const [mergeSuggestion, setMergeSuggestion] = useState('')
+  const [showCompileLog, setShowCompileLog] = useState(false)
 
   return (
     <aside className="workspace-merged-code-panel">
@@ -52,7 +59,34 @@ export function WorkspaceMergedCodePanel({
             >
               {isMerging ? 'Merging...' : 'Merge'}
             </button>
+            <button
+              type="button"
+              className="secondary-button workspace-merged-code-compile-button"
+              disabled={compilePdfState.status === 'compiling'}
+              onClick={onCompilePdf}
+            >
+              {compilePdfState.status === 'compiling' ? 'Compiling...' : 'Compile & Download PDF'}
+            </button>
           </div>
+          {compilePdfState.status === 'skipped' && (
+            <p className="selection-hint review-panel-hint">
+              Compilation skipped: tectonic is not installed on the server.
+            </p>
+          )}
+          {compilePdfState.status === 'failed' && (
+            <div className="workspace-compile-error">
+              <button
+                type="button"
+                className="workspace-compile-log-toggle"
+                onClick={() => setShowCompileLog((v) => !v)}
+              >
+                {showCompileLog ? 'Hide compile log' : 'Show compile log'}
+              </button>
+              {showCompileLog && (
+                <pre className="workspace-compile-log">{compilePdfState.log}</pre>
+              )}
+            </div>
+          )}
         </div>
       </section>
 

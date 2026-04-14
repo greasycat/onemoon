@@ -26,6 +26,7 @@ import {
   type DraftBlock,
   type DraftPageLayout,
 } from '../../lib/segmentation'
+import { withApiRoot } from '../../lib/api'
 import type {
   BlockGeometry,
   BlockSelectionMode,
@@ -36,6 +37,13 @@ import type {
   JobResponse,
   PageReviewStatus,
 } from '../../lib/types'
+
+export type CompilePdfState =
+  | { status: 'idle' }
+  | { status: 'compiling' }
+  | { status: 'success' }
+  | { status: 'skipped' }
+  | { status: 'failed'; log: string }
 import {
   DEFAULT_WORKSPACE_DEBUG_SETTINGS,
   WORKSPACE_DEBUG_STORAGE_KEY,
@@ -141,6 +149,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
   const [hoveredBlockKey, setHoveredBlockKey] = useState<string | null>(null)
   const [conversionInstructions, setConversionInstructions] = useState<Record<string, string>>({})
   const [isBulkConverting, setIsBulkConverting] = useState(false)
+  const [compilePdfState, setCompilePdfState] = useState<CompilePdfState>({ status: 'idle' })
   const canvasRef = useRef<DocumentCanvasHandle | null>(null)
   const toastTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
 
@@ -846,31 +855,38 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     )
     setIsBulkConverting(true)
 
-    let convertedCount = 0
-    let debugArtifactCount = 0
     try {
-      for (const block of pageDraft.blocks) {
-        const { debugMessages } = await convertBlock(block, instructionForBlock(block), selectedPage.id)
-        convertedCount += 1
-        debugArtifactCount += debugMessages.length
+      const jobs = await api.convertAllBlocks(token!, selectedPage.id)
+      if (jobs.length === 0) {
+        showToast({ tone: 'success', message: 'All blocks already converted.' })
+        return true
       }
+
+      async function pollJob(jobId: string): Promise<void> {
+        for (let attempt = 0; attempt < 60; attempt += 1) {
+          const job = await api.getJob(token!, jobId)
+          if (job.status === 'completed') {
+            return
+          }
+          if (job.status === 'failed') {
+            throw new Error(job.message || 'Failed to convert block.')
+          }
+          await sleep(1000)
+        }
+        throw new Error('Timed out while converting block.')
+      }
+
+      await Promise.all(jobs.map((job) => pollJob(job.id)))
+      await refreshDocument()
+      const convertedCount = jobs.length
       showToast({
         tone: 'success',
-        message:
-          debugArtifactCount > 0
-            ? `${convertedCount} block${convertedCount === 1 ? '' : 's'} generated. ${debugArtifactCount} debug artifact${debugArtifactCount === 1 ? '' : 's'} saved.`
-            : `${convertedCount} block${convertedCount === 1 ? '' : 's'} generated.`,
+        message: `${convertedCount} block${convertedCount === 1 ? '' : 's'} generated.`,
       })
       return true
     } catch (error) {
       const baseMessage = error instanceof Error && error.message ? error.message : 'Failed to generate block output.'
-      showToast({
-        tone: 'error',
-        message:
-          convertedCount > 0
-            ? `${convertedCount} block${convertedCount === 1 ? '' : 's'} generated before convert all failed. ${baseMessage}`
-            : baseMessage,
-      })
+      showToast({ tone: 'error', message: baseMessage })
       return false
     } finally {
       setIsBulkConverting(false)
@@ -977,6 +993,56 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
         message: error instanceof Error && error.message ? error.message : 'Failed to download merged package.',
       })
       return false
+    }
+  }
+
+  async function compileAndDownloadPdf() {
+    if (!token) return
+    setCompilePdfState({ status: 'compiling' })
+    try {
+      const job = await api.compileDocument(token, documentId)
+      let finalJob: JobResponse = job
+      for (let attempt = 0; attempt < 60; attempt += 1) {
+        finalJob = await api.getJob(token, job.id)
+        if (finalJob.status === 'completed' || finalJob.status === 'failed') break
+        await sleep(1000)
+      }
+      if (finalJob.status === 'failed') {
+        throw new Error(finalJob.message || 'Compilation job failed.')
+      }
+      const artifacts = await api.getArtifacts(token, documentId)
+      const latest = artifacts.sort((a, b) => b.version - a.version)[0]
+      if (!latest) throw new Error('No compile artifact found.')
+      if (latest.status === 'skipped') {
+        setCompilePdfState({ status: 'skipped' })
+        showToast({ tone: 'error', message: 'Compilation skipped: tectonic is not installed.' })
+        return
+      }
+      if (latest.status === 'failed') {
+        const log = latest.log_url ? await api.fetchStorageText(latest.log_url) : 'No log available.'
+        setCompilePdfState({ status: 'failed', log })
+        showToast({ tone: 'error', message: 'Compilation failed. See log for details.' })
+        return
+      }
+      if (latest.status === 'completed' && latest.pdf_url) {
+        const pdfUrl = withApiRoot(latest.pdf_url)
+        if (pdfUrl) {
+          const a = window.document.createElement('a')
+          a.href = pdfUrl
+          a.download = 'document.pdf'
+          window.document.body.appendChild(a)
+          a.click()
+          a.remove()
+        }
+        setCompilePdfState({ status: 'success' })
+        showToast({ tone: 'success', message: 'PDF downloaded.' })
+        return
+      }
+      throw new Error('Unexpected artifact status.')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Compilation failed.'
+      setCompilePdfState({ status: 'failed', log: message })
+      showToast({ tone: 'error', message })
     }
   }
 
@@ -1285,5 +1351,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     isMergingDocument: mergeDocumentMutation.isPending,
     mergeDocument,
     updateSelectedBlockInstruction,
+    compilePdfState,
+    compileAndDownloadPdf,
   }
 }

@@ -323,6 +323,11 @@ export const api = {
         save_masked_crop_debug: payload.saveMaskedCropDebug,
       },
     }),
+  convertAllBlocks: (token: string, pageId: string) =>
+    request<JobResponse[]>(`/pages/${pageId}/convert-all`, {
+      method: 'POST',
+      token,
+    }),
   getJob: (token: string, jobId: string) =>
     request<JobResponse>(`/jobs/${jobId}`, {
       token,
@@ -337,6 +342,13 @@ export const api = {
       method: 'DELETE',
       token,
     }),
+  fetchStorageText: async (storagePath: string): Promise<string> => {
+    const url = withApiRoot(storagePath)
+    if (!url) throw new Error('Invalid storage path')
+    const response = await fetch(url)
+    if (!response.ok) throw new Error(response.statusText)
+    return response.text()
+  },
 }
 
 export function withApiRoot(path: string | null | undefined): string | null {
