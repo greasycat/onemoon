@@ -207,3 +207,7 @@ class JobResponse(BaseModel):
     payload: dict
     created_at: datetime
     updated_at: datetime
+
+
+class ConvertAllResponse(BaseModel):
+    job_ids: list[str]

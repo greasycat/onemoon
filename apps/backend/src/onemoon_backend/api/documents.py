@@ -35,6 +35,7 @@ from ..schemas import (
     BlockResponse,
     BlockVertex,
     CompileArtifactResponse,
+    ConvertAllResponse,
     DocumentDetailResponse,
     DocumentPatch,
     JobResponse,
@@ -48,6 +49,7 @@ from ..schemas import (
 )
 from ..services.pipeline import (
     assemble_document,
+    batch_convert_blocks_job,
     compile_document_job,
     create_job,
     ingest_document_job,
@@ -457,6 +459,27 @@ def compile_document(
     job = create_job(db, "compile_document", "document", document_id, message="Queued compilation")
     background_tasks.add_task(compile_document_job, job.id, document_id)
     return JobResponse.model_validate(job, from_attributes=True)
+
+
+@router.post("/documents/{document_id}/convert-all", response_model=ConvertAllResponse)
+def convert_all_document_blocks(
+    document_id: str,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> ConvertAllResponse:
+    document = load_document(db, document_id)
+    unconverted_block_ids = [
+        block.id
+        for page in document.pages
+        for block in page.blocks
+        if block.generated_output is None
+    ]
+    if not unconverted_block_ids:
+        return ConvertAllResponse(job_ids=[])
+    job = create_job(db, "batch_convert_blocks", "document", document_id, message="Queued batch block conversion")
+    background_tasks.add_task(batch_convert_blocks_job, job.id, unconverted_block_ids)
+    return ConvertAllResponse(job_ids=[job.id])
 
 
 @router.post("/pages/{page_id}/resegment", response_model=JobResponse)

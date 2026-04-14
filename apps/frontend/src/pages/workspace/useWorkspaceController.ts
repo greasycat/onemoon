@@ -555,6 +555,20 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     },
   })
 
+  const compileDocumentMutation = useMutation({
+    mutationFn: async () => {
+      const job = await api.compileDocument(token!, documentId)
+      for (let attempt = 0; attempt < 60; attempt += 1) {
+        const nextJob = await api.getJob(token!, job.id)
+        if (nextJob.status === 'completed' || nextJob.status === 'failed') {
+          return nextJob
+        }
+        await sleep(1000)
+      }
+      throw new Error('Timed out waiting for compilation.')
+    },
+  })
+
   const activePageDirty = selectedPage ? Boolean(pageDrafts[selectedPage.id]) : false
   const activePageLocked = selectedPage?.review_status === 'segmented'
   const activeReviewStatus = pageDraft?.review_status ?? selectedPage?.review_status ?? 'unreviewed'
@@ -864,34 +878,27 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     setIsBulkConverting(true)
 
     try {
-      const jobs = await api.convertAllBlocks(token!, selectedPage.id)
-      if (jobs.length === 0) {
+      const { job_ids } = await api.convertAllBlocks(token!, documentId)
+      if (job_ids.length === 0) {
         showToast({ tone: 'success', message: 'All blocks already converted.' })
         return true
       }
 
-      async function pollJob(jobId: string): Promise<void> {
-        for (let attempt = 0; attempt < 60; attempt += 1) {
-          const job = await api.getJob(token!, jobId)
-          if (job.status === 'completed') {
-            return
-          }
-          if (job.status === 'failed') {
-            throw new Error(job.message || 'Failed to convert block.')
-          }
-          await sleep(1000)
+      // Poll the batch job until complete
+      const batchJobId = job_ids[0]
+      for (let attempt = 0; attempt < 120; attempt += 1) {
+        const job = await api.getJob(token!, batchJobId)
+        if (job.status === 'completed') {
+          await refreshDocument()
+          showToast({ tone: 'success', message: job.message })
+          return true
         }
-        throw new Error('Timed out while converting block.')
+        if (job.status === 'failed') {
+          throw new Error(job.message || 'Batch conversion failed.')
+        }
+        await sleep(1000)
       }
-
-      await Promise.all(jobs.map((job) => pollJob(job.id)))
-      await refreshDocument()
-      const convertedCount = jobs.length
-      showToast({
-        tone: 'success',
-        message: `${convertedCount} block${convertedCount === 1 ? '' : 's'} generated.`,
-      })
-      return true
+      throw new Error('Timed out waiting for batch conversion.')
     } catch (error) {
       const baseMessage = error instanceof Error && error.message ? error.message : 'Failed to generate block output.'
       showToast({ tone: 'error', message: baseMessage })
@@ -1052,6 +1059,73 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
       setCompilePdfState({ status: 'failed', log: message })
       showToast({ tone: 'error', message })
     }
+  }
+
+  async function compileAndDownloadPDF() {
+    if (typeof window === 'undefined' || typeof window.URL?.createObjectURL !== 'function') {
+      showToast({
+        tone: 'error',
+        message: 'File downloads are unavailable in this browser.',
+      })
+      return false
+    }
+
+    showToast({ tone: 'saving', message: 'Compiling document…' }, false)
+
+    let job: JobResponse
+    try {
+      job = await compileDocumentMutation.mutateAsync()
+    } catch (error) {
+      showToast({
+        tone: 'error',
+        message: error instanceof Error && error.message ? error.message : 'Compilation failed.',
+      })
+      return false
+    }
+
+    if (job.status === 'failed') {
+      showToast({ tone: 'error', message: job.message || 'Compilation failed.' })
+      return false
+    }
+
+    const artifacts = await api.getArtifacts(token!, documentId)
+    const latest = artifacts.sort((a, b) => b.version - a.version)[0]
+
+    if (!latest) {
+      showToast({ tone: 'error', message: 'No compile artifact found.' })
+      return false
+    }
+
+    if (latest.status === 'skipped') {
+      showToast({ tone: 'error', message: 'Compilation skipped — tectonic may not be installed on the server.' })
+      return false
+    }
+
+    if (latest.status === 'failed' || !latest.pdf_url) {
+      const logUrl = latest.log_url ? withApiRoot(latest.log_url) : null
+      showToast({
+        tone: 'error',
+        message: logUrl ? `Compilation failed. Log: ${logUrl}` : 'Compilation failed. No PDF produced.',
+      })
+      return false
+    }
+
+    const pdfUrl = withApiRoot(latest.pdf_url)!
+    const response = await fetch(pdfUrl)
+    const blob = await response.blob()
+    const objectUrl = window.URL.createObjectURL(blob)
+    const downloadLink = window.document.createElement('a')
+    downloadLink.href = objectUrl
+    downloadLink.download = `${documentId}.pdf`
+    window.document.body.appendChild(downloadLink)
+    downloadLink.click()
+    downloadLink.remove()
+    window.setTimeout(() => {
+      window.URL.revokeObjectURL(objectUrl)
+    }, 0)
+
+    showToast({ tone: 'success', message: 'PDF downloaded.' })
+    return true
   }
 
   function handleCreateBlock(payload: {
@@ -1367,8 +1441,10 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     deleteSelectedBlocks,
     duplicateSelectedBlock,
     isDownloadingMergedPackage: downloadDocumentPackageMutation.isPending,
+    isCompilingDocument: compileDocumentMutation.isPending,
     isMergingDocument: mergeDocumentMutation.isPending,
     mergeDocument,
+    compileAndDownloadPDF,
     updateSelectedBlockInstruction,
     compilePdfState,
     compileAndDownloadPdf,
