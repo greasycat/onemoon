@@ -2,6 +2,7 @@ import type {
   BlockPatchPayload,
   BlockResponse,
   CompileArtifactResponse,
+  ConvertAllResponse,
   DocumentDetailResponse,
   DocumentMergeResponse,
   JobResponse,
@@ -323,8 +324,8 @@ export const api = {
         save_masked_crop_debug: payload.saveMaskedCropDebug,
       },
     }),
-  convertAllBlocks: (token: string, pageId: string) =>
-    request<JobResponse[]>(`/pages/${pageId}/convert-all`, {
+  convertAllBlocks: (token: string, documentId: string) =>
+    request<ConvertAllResponse>(`/documents/${documentId}/convert-all`, {
       method: 'POST',
       token,
     }),

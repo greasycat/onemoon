@@ -124,6 +124,10 @@ export interface JobResponse {
   updated_at: string
 }
 
+export interface ConvertAllResponse {
+  job_ids: string[]
+}
+
 export interface LoginResponse {
   access_token: string
   token_type: 'bearer'

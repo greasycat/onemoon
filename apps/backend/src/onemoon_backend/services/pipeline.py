@@ -219,8 +219,8 @@ def ingest_document_job(job_id: str, document_id: str) -> None:
                 page_records.append(page_record)
             db.commit()
 
+            update_job(job, status=JobStatus.running, progress=0.4, message="Segmenting pages")
             document.status = DocumentStatus.segmenting
-            update_job(job, status=JobStatus.running, progress=0.3, message="Segmenting pages")
             db.commit()
 
             for i, page_record in enumerate(page_records):
@@ -229,7 +229,7 @@ def ingest_document_job(job_id: str, document_id: str) -> None:
                 page_record.review_status = PageReviewStatus.in_review
                 page_record.review_started_at = datetime.now(UTC)
                 page_record.layout_version += 1
-                progress = 0.3 + 0.7 * (i + 1) / len(page_records)
+                progress = 0.4 + 0.55 * (i + 1) / len(page_records)
                 update_job(job, status=JobStatus.running, progress=progress, message=f"Segmented page {i + 1}/{len(page_records)}")
                 db.commit()
 
@@ -311,6 +311,57 @@ def regenerate_block_job(job_id: str, block_id: str, save_masked_crop_debug: boo
             update_job(job, status=JobStatus.failed, progress=1.0, message=str(exc))
             db.commit()
             raise
+
+
+def batch_convert_blocks_job(job_id: str, block_ids: list[str]) -> None:
+    """Fan out regenerate_block_job for each block, running them concurrently."""
+    import concurrent.futures
+
+    with SessionLocal() as db:
+        job = db.get(Job, job_id)
+        if job is None:
+            return
+        update_job(job, status=JobStatus.running, progress=0.0, message=f"Converting {len(block_ids)} blocks")
+        db.commit()
+
+    completed = 0
+    errors: list[str] = []
+
+    def run_one(block_id: str) -> str | None:
+        with SessionLocal() as db:
+            child_job = create_job(db, "regenerate_block", "block", block_id, message="Queued (batch)")
+        try:
+            regenerate_block_job(child_job.id, block_id)
+            return None
+        except Exception as exc:
+            return str(exc)
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = {executor.submit(run_one, bid): bid for bid in block_ids}
+        for future in concurrent.futures.as_completed(futures):
+            completed += 1
+            err = future.result()
+            if err:
+                errors.append(err)
+            with SessionLocal() as db:
+                job = db.get(Job, job_id)
+                if job is not None:
+                    update_job(
+                        job,
+                        status=JobStatus.running,
+                        progress=completed / len(block_ids),
+                        message=f"Converted {completed}/{len(block_ids)} blocks",
+                    )
+                    db.commit()
+
+    with SessionLocal() as db:
+        job = db.get(Job, job_id)
+        if job is not None:
+            if errors:
+                update_job(job, status=JobStatus.failed, progress=1.0, message=f"{len(errors)} block(s) failed: {errors[0]}")
+            else:
+                update_job(job, status=JobStatus.completed, progress=1.0, message=f"All {len(block_ids)} blocks converted")
+            db.commit()
 
 
 def compile_document_job(job_id: str, document_id: str) -> None:
