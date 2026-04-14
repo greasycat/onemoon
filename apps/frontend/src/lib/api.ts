@@ -241,7 +241,7 @@ export const api = {
       method: 'POST',
       token,
     }),
-  updateDocument: (token: string, documentId: string, payload: { title?: string; assembled_latex?: string }) =>
+  updateDocument: (token: string, documentId: string, payload: { title?: string; assembled_latex?: string; output_format?: string }) =>
     request<DocumentDetailResponse>(`/documents/${documentId}`, {
       method: 'PATCH',
       token,

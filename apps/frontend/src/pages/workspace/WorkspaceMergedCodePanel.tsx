@@ -1,15 +1,18 @@
 import { Copy, Download } from 'lucide-react'
 import { useState } from 'react'
 
+import type { OutputFormat } from '../../lib/types'
 import type { CompilePdfState } from './useWorkspaceController'
 
 interface WorkspaceMergedCodePanelProps {
   mergedSource: string
   isDownloadingPackage: boolean
   isMerging: boolean
+  outputFormat: OutputFormat
   onDownload: () => void
   onCopy: () => void
   onMerge: (suggestion: string) => void
+  onOutputFormatChange: (format: OutputFormat) => void
   compilePdfState: CompilePdfState
   onCompilePdf: () => void
 }
@@ -18,9 +21,11 @@ export function WorkspaceMergedCodePanel({
   mergedSource,
   isDownloadingPackage,
   isMerging,
+  outputFormat,
   onDownload,
   onCopy,
   onMerge,
+  onOutputFormatChange,
   compilePdfState,
   onCompilePdf,
 }: WorkspaceMergedCodePanelProps) {
@@ -35,6 +40,25 @@ export function WorkspaceMergedCodePanel({
             <div>
               <p className="eyebrow">Merge review</p>
               <h2>Build merged code</h2>
+            </div>
+          </div>
+          <div className="field">
+            <span className="field-label">Output format</span>
+            <div className="button-grid">
+              <button
+                type="button"
+                className={outputFormat === 'latex' ? 'primary-button' : 'secondary-button'}
+                onClick={() => onOutputFormatChange('latex')}
+              >
+                LaTeX
+              </button>
+              <button
+                type="button"
+                className={outputFormat === 'typst' ? 'primary-button' : 'secondary-button'}
+                onClick={() => onOutputFormatChange('typst')}
+              >
+                Typst
+              </button>
             </div>
           </div>
           <label className="field">

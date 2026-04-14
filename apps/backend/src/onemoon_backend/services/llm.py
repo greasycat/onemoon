@@ -24,7 +24,9 @@ TEXT_PLACEHOLDER = "\n".join(
         r"\end{textblock}",
     ]
 )
+TEXT_PLACEHOLDER_TYPST = "Review the extracted note text and replace this placeholder with the final prose."
 MATH_PLACEHOLDER = "\n".join([r"\[", r"\alpha + \beta = \gamma", r"\]"])
+MATH_PLACEHOLDER_TYPST = "$\n  alpha + beta = gamma\n$"
 FIGURE_DESCRIPTION_PLACEHOLDER = "Replace this caption with a concise description of the figure."
 OPENAI_PROVIDER_NAMES = {"openai", "openai-responses", "openai_responses"}
 FENCED_BLOCK_PATTERN = re.compile(r"^```[a-zA-Z0-9_-]*\s*|\s*```$", re.DOTALL)
@@ -43,6 +45,7 @@ class ConversionPayload:
     figure_output_path: str | None
     instruction: str | None
     context_summary: str
+    output_format: str = "latex"
     save_debug_image: bool = False
 
 
@@ -61,6 +64,7 @@ class DocumentMergePayload:
     title: str
     source: str
     suggestion: str | None
+    output_format: str = "latex"
 
 
 @dataclass(slots=True)
@@ -169,6 +173,48 @@ def _output_for_block_type(block_type: BlockType, value: str) -> str:
         return _normalize_math_output(value)
     if block_type == BlockType.text:
         return _normalize_text_block_output(value)
+    return _normalize_text_output(value)
+
+
+_TYPST_MATH_BLOCK_PATTERN = re.compile(r"^\$\s+.*\s+\$$", re.DOTALL)
+_LATEX_ENV_CONTENT_PATTERN = re.compile(
+    r"^\\begin\{(?:equation\*?|align\*?|gather\*?)\}(.*?)\\end\{(?:equation\*?|align\*?|gather\*?)\}$",
+    re.DOTALL,
+)
+_LATEX_DISPLAY_MATH_CONTENT_PATTERN = re.compile(r"^\\\[(.*?)\\\]$", re.DOTALL)
+_LATEX_DOLLAR_DISPLAY_CONTENT_PATTERN = re.compile(r"^\$\$(.*?)\$\$$", re.DOTALL)
+_LATEX_DOLLAR_INLINE_CONTENT_PATTERN = re.compile(r"^\$(.*?)\$$", re.DOTALL)
+
+
+def _normalize_math_output_typst(value: str) -> str:
+    cleaned = _normalize_text_output(value)
+    if not cleaned:
+        return cleaned
+    if _TYPST_MATH_BLOCK_PATTERN.match(cleaned):
+        return cleaned
+    # Strip known LaTeX wrappers
+    for pattern in (
+        _LATEX_ENV_CONTENT_PATTERN,
+        _LATEX_DISPLAY_MATH_CONTENT_PATTERN,
+        _LATEX_DOLLAR_DISPLAY_CONTENT_PATTERN,
+        _LATEX_DOLLAR_INLINE_CONTENT_PATTERN,
+    ):
+        m = pattern.match(cleaned)
+        if m:
+            inner = m.group(1).strip()
+            return f"$\n  {inner}\n$"
+    return f"$\n  {cleaned}\n$"
+
+
+def _build_figure_snippet_typst(image_path: str, description: str) -> str:
+    caption = _normalize_text_output(description) or FIGURE_DESCRIPTION_PLACEHOLDER
+    return f'#figure(\n  image("{image_path}", width: 90%),\n  caption: [{caption}]\n)'
+
+
+def _output_for_block_type_typst(block_type: BlockType, value: str) -> str:
+    if block_type == BlockType.math:
+        return _normalize_math_output_typst(value)
+    # text and others: plain content
     return _normalize_text_output(value)
 
 
@@ -311,17 +357,23 @@ class MockLLMAdapter:
                 artifact_stem=debug_artifact_stem or _new_debug_artifact_stem(payload.block_id),
             )
 
+        is_typst = payload.output_format == "typst"
         if payload.block_type == BlockType.math:
-            output = MATH_PLACEHOLDER
+            output = MATH_PLACEHOLDER_TYPST if is_typst else MATH_PLACEHOLDER
             warnings.append("Mock conversion generated placeholder math output.")
         elif payload.block_type == BlockType.figure:
-            output = _build_figure_snippet(payload.figure_output_path or payload.image_path.as_posix(), FIGURE_DESCRIPTION_PLACEHOLDER)
+            figure_path = payload.figure_output_path or payload.image_path.as_posix()
+            output = (
+                _build_figure_snippet_typst(figure_path, FIGURE_DESCRIPTION_PLACEHOLDER)
+                if is_typst
+                else _build_figure_snippet(figure_path, FIGURE_DESCRIPTION_PLACEHOLDER)
+            )
             warnings.append("Mock conversion generated a placeholder figure caption.")
         elif payload.block_type == BlockType.text:
-            output = TEXT_PLACEHOLDER
+            output = TEXT_PLACEHOLDER_TYPST if is_typst else TEXT_PLACEHOLDER
             warnings.append("Mock conversion generated placeholder text output.")
         else:
-            output = "% Review this block manually."
+            output = "// Review this block manually." if is_typst else "% Review this block manually."
             warnings.append("Unknown blocks require manual confirmation.")
 
         raw_output = (
@@ -377,8 +429,10 @@ class OpenAIResponsesLLMAdapter:
         return self.base_url if self.base_url.endswith("/responses") else f"{self.base_url}/responses"
 
     def _build_prompt(self, payload: ConversionPayload) -> str:
+        is_typst = payload.output_format == "typst"
+        format_name = "Typst" if is_typst else "LaTeX"
         shared = [
-            "You are converting a cropped note block into content for a LaTeX article.",
+            f"You are converting a cropped note block into content for a {format_name} document.",
             "Read the image carefully and return only the final content.",
             "Do not add markdown fences, explanations, or confidence commentary.",
             f"Context: {payload.context_summary}.",
@@ -386,37 +440,63 @@ class OpenAIResponsesLLMAdapter:
         if payload.instruction:
             shared.append(f"User instruction: {payload.instruction.strip()}.")
         if payload.block_type == BlockType.figure and payload.figure_output_path:
-            shared.append(
-                f"Reference the packaged figure asset with the relative LaTeX path {payload.figure_output_path}."
-            )
+            if is_typst:
+                shared.append(
+                    f'Reference the packaged figure asset with the relative Typst path "{payload.figure_output_path}".'
+                )
+            else:
+                shared.append(
+                    f"Reference the packaged figure asset with the relative LaTeX path {payload.figure_output_path}."
+                )
 
         if payload.block_type == BlockType.math:
-            shared.extend(
-                [
-                    "Block type: math.",
-                    "Return a complete LaTeX display-math environment.",
-                    "Wrap the final math in \\[...\\] or an equivalent equation, align, or gather environment.",
-                    "Do not return prose, markdown fences, or bare math without an environment.",
-                ]
-            )
+            if is_typst:
+                shared.extend(
+                    [
+                        "Block type: math.",
+                        "Return a Typst display-math block.",
+                        "Wrap the expression in $ ... $ with a space after the opening $ and before the closing $.",
+                        "Example: $ x^2 + y^2 = z^2 $",
+                        "Do not return LaTeX syntax, prose, or markdown fences.",
+                    ]
+                )
+            else:
+                shared.extend(
+                    [
+                        "Block type: math.",
+                        "Return a complete LaTeX display-math environment.",
+                        "Wrap the final math in \\[...\\] or an equivalent equation, align, or gather environment.",
+                        "Do not return prose, markdown fences, or bare math without an environment.",
+                    ]
+                )
         elif payload.block_type == BlockType.figure:
             shared.extend(
                 [
                     "Block type: figure.",
-                    "Describe the figure in one concise sentence suitable for a LaTeX \\caption{...}.",
+                    "Describe the figure in one concise sentence suitable as a caption.",
                     "Return plain caption text only.",
-                    "Do not return LaTeX commands, markdown fences, labels, or surrounding commentary.",
+                    "Do not return markup commands, markdown fences, labels, or surrounding commentary.",
                 ]
             )
         else:
-            shared.extend(
-                [
-                    "Block type: text.",
-                    "Return the full text wrapped in \\begin{textblock} ... \\end{textblock}.",
-                    "Return only that text block.",
-                    "Preserve line breaks only when they reflect the visible note structure.",
-                ]
-            )
+            if is_typst:
+                shared.extend(
+                    [
+                        "Block type: text.",
+                        "Return the full text as plain Typst paragraph content.",
+                        "Do not wrap in any environment or add markup.",
+                        "Preserve line breaks only when they reflect the visible note structure.",
+                    ]
+                )
+            else:
+                shared.extend(
+                    [
+                        "Block type: text.",
+                        "Return the full text wrapped in \\begin{textblock} ... \\end{textblock}.",
+                        "Return only that text block.",
+                        "Preserve line breaks only when they reflect the visible note structure.",
+                    ]
+                )
         return "\n".join(shared)
 
     def _build_request_body(self, payload: ConversionPayload, prepared_image: PreparedLLMImage) -> dict[str, Any]:
@@ -434,15 +514,26 @@ class OpenAIResponsesLLMAdapter:
         }
 
     def _build_document_merge_prompt(self, payload: DocumentMergePayload) -> str:
-        lines = [
-            "You are merging reviewed LaTeX snippets from a note extraction workflow into a coherent LaTeX document body.",
-            "Return only the final LaTeX document body.",
-            "Do not return \\documentclass, package declarations, \\begin{document}, \\end{document}, or \\maketitle.",
-            "Preserve all factual content from the source unless the reviewer suggestion explicitly requests a change.",
-            "Keep the output valid LaTeX and preserve math environments and figure environments when they already exist.",
-            "Do not add markdown fences or commentary.",
-            f"Document title: {payload.title}.",
-        ]
+        is_typst = payload.output_format == "typst"
+        if is_typst:
+            lines = [
+                "You are merging reviewed Typst snippets from a note extraction workflow into a coherent Typst document body.",
+                "Return only the final Typst document body content (no #set directives, no title heading).",
+                "Preserve all factual content from the source unless the reviewer suggestion explicitly requests a change.",
+                "Keep the output valid Typst and preserve math expressions and figure elements when they already exist.",
+                "Do not add markdown fences or commentary.",
+                f"Document title: {payload.title}.",
+            ]
+        else:
+            lines = [
+                "You are merging reviewed LaTeX snippets from a note extraction workflow into a coherent LaTeX document body.",
+                "Return only the final LaTeX document body.",
+                "Do not return \\documentclass, package declarations, \\begin{document}, \\end{document}, or \\maketitle.",
+                "Preserve all factual content from the source unless the reviewer suggestion explicitly requests a change.",
+                "Keep the output valid LaTeX and preserve math environments and figure environments when they already exist.",
+                "Do not add markdown fences or commentary.",
+                f"Document title: {payload.title}.",
+            ]
         if payload.suggestion:
             lines.append(f"Reviewer suggestion: {payload.suggestion.strip()}.")
         else:
@@ -493,8 +584,16 @@ class OpenAIResponsesLLMAdapter:
         )
         response_payload = self._request_response_payload(self._build_request_body(payload, prepared_image))
         output = _extract_response_text(response_payload)
+        is_typst = payload.output_format == "typst"
         if payload.block_type == BlockType.figure:
-            normalized_output = _build_figure_snippet(payload.figure_output_path or payload.image_path.as_posix(), output)
+            figure_path = payload.figure_output_path or payload.image_path.as_posix()
+            normalized_output = (
+                _build_figure_snippet_typst(figure_path, output)
+                if is_typst
+                else _build_figure_snippet(figure_path, output)
+            )
+        elif is_typst:
+            normalized_output = _output_for_block_type_typst(payload.block_type, output)
         else:
             normalized_output = _output_for_block_type(payload.block_type, output)
         if not normalized_output:

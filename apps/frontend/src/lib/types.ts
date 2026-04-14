@@ -7,6 +7,8 @@ export type DocumentStatus =
   | 'completed'
   | 'failed'
 
+export type OutputFormat = 'latex' | 'typst'
+
 export type BlockType = 'text' | 'math' | 'figure'
 export type BlockApproval = 'pending' | 'approved' | 'rejected'
 export type CompileStatus = 'pending' | 'completed' | 'failed' | 'skipped'
@@ -95,6 +97,7 @@ export interface DocumentDetailResponse {
   filename: string
   source_kind: string
   status: DocumentStatus
+  output_format: OutputFormat
   assembled_latex: string | null
   latest_compile_status: CompileStatus | null
   pages: PageResponse[]

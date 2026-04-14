@@ -547,6 +547,14 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
       }),
   })
 
+  const updateDocumentFormatMutation = useMutation({
+    mutationFn: ({ outputFormat }: { outputFormat: string }) =>
+      api.updateDocument(token!, documentId, { output_format: outputFormat }),
+    onSuccess: (updatedDocument) => {
+      queryClient.setQueryData(['document', token, documentId], updatedDocument)
+    },
+  })
+
   const activePageDirty = selectedPage ? Boolean(pageDrafts[selectedPage.id]) : false
   const activePageLocked = selectedPage?.review_status === 'segmented'
   const activeReviewStatus = pageDraft?.review_status ?? selectedPage?.review_status ?? 'unreviewed'
@@ -1291,6 +1299,17 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     onDiscard: discardActiveDraft,
   }
 
+  async function changeOutputFormat(outputFormat: 'latex' | 'typst') {
+    try {
+      await updateDocumentFormatMutation.mutateAsync({ outputFormat })
+    } catch (error) {
+      showToast({
+        tone: 'error',
+        message: error instanceof Error && error.message ? error.message : 'Failed to update output format.',
+      })
+    }
+  }
+
   return {
     activePageDirty,
     activePageLocked,
@@ -1353,5 +1372,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     updateSelectedBlockInstruction,
     compilePdfState,
     compileAndDownloadPdf,
+    outputFormat: (document?.output_format ?? 'latex') as 'latex' | 'typst',
+    changeOutputFormat,
   }
 }

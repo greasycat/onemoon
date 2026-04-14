@@ -12,6 +12,7 @@ from .models import (
     CompileStatus,
     DocumentStatus,
     JobStatus,
+    OutputFormat,
     PageReviewStatus,
 )
 
@@ -116,6 +117,7 @@ class MergeDocumentResponse(BaseModel):
 class DocumentPatch(BaseModel):
     assembled_latex: str | None = None
     title: str | None = None
+    output_format: OutputFormat | None = None
 
 
 class ProjectSummary(BaseModel):
@@ -185,6 +187,7 @@ class DocumentDetailResponse(BaseModel):
     filename: str
     source_kind: str
     status: DocumentStatus
+    output_format: OutputFormat = OutputFormat.latex
     assembled_latex: str | None
     latest_compile_status: CompileStatus | None
     pages: list[PageResponse]

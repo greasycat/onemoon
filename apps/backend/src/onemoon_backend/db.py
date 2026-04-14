@@ -64,6 +64,10 @@ def _apply_development_schema_compatibility() -> None:
     if "vertices" not in block_columns:
         statements.append("ALTER TABLE blocks ADD COLUMN vertices JSON")
 
+    document_columns = {column["name"] for column in inspector.get_columns("documents")} if inspector.has_table("documents") else set()
+    if "output_format" not in document_columns:
+        statements.append("ALTER TABLE documents ADD COLUMN output_format VARCHAR(32) DEFAULT 'latex'")
+
     if not statements:
         return
 

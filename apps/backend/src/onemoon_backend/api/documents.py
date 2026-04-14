@@ -279,6 +279,7 @@ def get_document(
         filename=document.filename,
         source_kind=document.source_kind,
         status=document.status,
+        output_format=document.output_format,
         assembled_latex=normalize_document_figure_paths(document.assembled_latex, document) if document.assembled_latex else None,
         latest_compile_status=document.latest_compile_status,
         pages=[serialize_page(page) for page in sorted(document.pages, key=lambda item: item.page_index)],
@@ -360,12 +361,21 @@ def update_document(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ) -> DocumentDetailResponse:
+    from ..services.pipeline import assemble_document
+
     document = load_document(db, document_id)
+    format_changed = False
     if payload.title is not None:
         document.title = payload.title.strip() or document.title
     if payload.assembled_latex is not None:
         document.assembled_latex = payload.assembled_latex
+    if payload.output_format is not None and payload.output_format != document.output_format:
+        document.output_format = payload.output_format
+        format_changed = True
     db.commit()
+    if format_changed:
+        assemble_document(db, document_id)
+        db.commit()
     db.refresh(document)
     return get_document(document_id, db, _)
 
@@ -602,6 +612,35 @@ def regenerate_block(
     job = create_job(db, "regenerate_block", "block", block_id, message="Queued block regeneration")
     background_tasks.add_task(regenerate_block_job, job.id, block_id, payload.save_masked_crop_debug)
     return JobResponse.model_validate(job, from_attributes=True)
+
+
+@router.post("/pages/{page_id}/convert-all", response_model=list[JobResponse])
+async def convert_all_blocks(
+    page_id: str,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> list[JobResponse]:
+    page = load_page(db, page_id)
+    unconverted = [block for block in page.blocks if not block.generated_output]
+    if not unconverted:
+        return []
+
+    jobs = [
+        create_job(db, "regenerate_block", "block", block.id, message="Queued block regeneration")
+        for block in unconverted
+    ]
+
+    job_block_pairs = list(zip(jobs, unconverted))
+
+    async def run_all() -> None:
+        await asyncio.gather(*[
+            asyncio.to_thread(regenerate_block_job, job.id, block.id)
+            for job, block in job_block_pairs
+        ])
+
+    background_tasks.add_task(run_all)
+    return [JobResponse.model_validate(job, from_attributes=True) for job in jobs]
 
 
 @router.get("/jobs/{job_id}", response_model=JobResponse)

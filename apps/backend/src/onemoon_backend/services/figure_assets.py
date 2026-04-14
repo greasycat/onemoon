@@ -10,6 +10,7 @@ from pathlib import Path
 from ..models import BlockType, Document
 from ..storage import absolute_path, sanitize_filename
 from .latex import build_document_from_body
+from .typst import build_document_from_body_typst
 
 DEFAULT_FIGURE_ASSET_DIR = "figures"
 SAFE_PATH_SEGMENT_PATTERN = re.compile(r"[^A-Za-z0-9._-]+")
@@ -97,17 +98,25 @@ def build_document_package_archive(
     *,
     asset_dir: str = DEFAULT_FIGURE_ASSET_DIR,
 ) -> tuple[bytes, str, str]:
-    normalized_body = normalize_document_figure_paths(source.strip() or "% No approved blocks yet.", document, asset_dir=asset_dir)
-    complete_source = build_document_from_body(document.title, normalized_body)
+    output_format = str(getattr(document, "output_format", "latex"))
+    is_typst = output_format == "typst"
+    empty_body = "// No approved blocks yet." if is_typst else "% No approved blocks yet."
+    normalized_body = normalize_document_figure_paths(source.strip() or empty_body, document, asset_dir=asset_dir)
+    if is_typst:
+        complete_source = build_document_from_body_typst(document.title, normalized_body)
+    else:
+        complete_source = build_document_from_body(document.title, normalized_body)
     archive_stem = sanitize_filename(Path(document.filename).stem or document.title or "document")
     archive_filename = f"{archive_stem}-package.zip"
     normalized_dir = normalize_figure_asset_dir(asset_dir)
+    source_ext = ".typ" if is_typst else ".tex"
+    body_ext = "-body.typ" if is_typst else "-body.tex"
 
     archive_buffer = BytesIO()
     with zipfile.ZipFile(archive_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
         archive.writestr(f"{normalized_dir}/", "")
-        archive.writestr(f"{archive_stem}.tex", complete_source)
-        archive.writestr(f"{archive_stem}-body.tex", f"{normalized_body}\n")
+        archive.writestr(f"{archive_stem}{source_ext}", complete_source)
+        archive.writestr(f"{archive_stem}{body_ext}", f"{normalized_body}\n")
         for asset in collect_document_figure_assets(document, asset_dir=normalized_dir):
             archive.writestr(asset.relative_path, asset.source_path.read_bytes())
 

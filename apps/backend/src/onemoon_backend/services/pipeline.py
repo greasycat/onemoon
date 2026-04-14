@@ -32,6 +32,7 @@ from ..services.figure_assets import (
     stage_document_figure_assets,
 )
 from ..services.latex import build_document_body, build_document_from_body, compile_latex
+from ..services.typst import build_document_body_typst, build_document_from_body_typst, compile_typst
 from ..services.llm import ConversionPayload, ConversionResult, DocumentMergePayload, DocumentMergeResult, get_llm_adapter
 from ..services.segmentation import ProposedBlock, segment_page
 
@@ -100,7 +101,7 @@ def save_crop(page: Page, block: Block) -> None:
     block.crop_path = relative_path(target)
 
 
-def convert_block(block: Block, page: Page, *, save_debug_image: bool = False) -> ConversionResult:
+def convert_block(block: Block, page: Page, *, output_format: str = "latex", save_debug_image: bool = False) -> ConversionResult:
     adapter = get_llm_adapter()
     result = adapter.convert(
         ConversionPayload(
@@ -114,6 +115,7 @@ def convert_block(block: Block, page: Page, *, save_debug_image: bool = False) -
             ),
             instruction=block.user_instruction,
             context_summary=f"page={page.page_index + 1}",
+            output_format=output_format,
             save_debug_image=save_debug_image,
         )
     )
@@ -136,7 +138,12 @@ def assemble_document(db: Session, document_id: str) -> str:
     for page in sorted(document.pages, key=lambda item: item.page_index):
         ordered_blocks.extend(sorted(page.blocks, key=lambda item: item.order_index))
 
-    merged_source = normalize_document_figure_paths(build_document_body(ordered_blocks), document)
+    output_format = getattr(document, "output_format", "latex")
+    if str(output_format) == "typst":
+        body = build_document_body_typst(ordered_blocks)
+    else:
+        body = build_document_body(ordered_blocks)
+    merged_source = normalize_document_figure_paths(body, document)
     document.assembled_latex = merged_source
     document.updated_at = datetime.now(UTC)
     return merged_source
@@ -145,12 +152,14 @@ def assemble_document(db: Session, document_id: str) -> str:
 def merge_document_content(document: Document, *, source: str, suggestion: str | None = None) -> DocumentMergeResult:
     adapter = get_llm_adapter()
     normalized_source = normalize_document_figure_paths(source, document)
+    output_format = str(getattr(document, "output_format", "latex"))
     result = adapter.merge_document(
         DocumentMergePayload(
             document_id=document.id,
             title=document.title,
             source=normalized_source,
             suggestion=suggestion,
+            output_format=output_format,
         )
     )
     document.assembled_latex = normalize_document_figure_paths(result.merged_source, document)
@@ -279,7 +288,11 @@ def regenerate_block_job(job_id: str, block_id: str, save_masked_crop_debug: boo
             update_job(job, status=JobStatus.running, progress=0.2, message="Generating block output")
             db.commit()
             save_crop(block.page, block)
-            result = convert_block(block, block.page, save_debug_image=save_masked_crop_debug)
+            document = db.scalar(
+                select(Document).where(Document.id == block.page.document_id)
+            )
+            output_format = str(getattr(document, "output_format", "latex")) if document else "latex"
+            result = convert_block(block, block.page, output_format=output_format, save_debug_image=save_masked_crop_debug)
             assemble_document(db, block.page.document_id)
             debug_payload: dict[str, str] = {}
             if result.debug_image_path:
@@ -312,7 +325,10 @@ def compile_document_job(job_id: str, document_id: str) -> None:
             return
 
         try:
-            update_job(job, status=JobStatus.running, progress=0.15, message="Building LaTeX source")
+            output_format = str(getattr(document, "output_format", "latex"))
+            is_typst = output_format == "typst"
+            format_label = "Typst" if is_typst else "LaTeX"
+            update_job(job, status=JobStatus.running, progress=0.15, message=f"Building {format_label} source")
             document.status = DocumentStatus.compiling
             db.commit()
 
@@ -322,16 +338,22 @@ def compile_document_job(job_id: str, document_id: str) -> None:
             logs = log_dir(document.id)
             version = len(document.compile_artifacts) + 1
             stage_document_figure_assets(document, out_dir)
-            latex_source = build_document_from_body(document.title, merged_source)
-            tex_path = out_dir / f"document-v{version}.tex"
+            if is_typst:
+                full_source = build_document_from_body_typst(document.title, merged_source)
+                source_path = out_dir / f"document-v{version}.typ"
+            else:
+                full_source = build_document_from_body(document.title, merged_source)
+                source_path = out_dir / f"document-v{version}.tex"
             log_path = logs / f"compile-v{version}.log"
-            tex_path.write_text(latex_source, encoding="utf-8")
+            source_path.write_text(full_source, encoding="utf-8")
+            # keep tex_path alias for artifact storage
+            tex_path = source_path
             document.assembled_latex = merged_source
 
             update_job(job, status=JobStatus.running, progress=0.6, message="Compiling preview")
             db.commit()
 
-            compile_result = compile_latex(tex_path, out_dir)
+            compile_result = compile_typst(tex_path, out_dir) if is_typst else compile_latex(tex_path, out_dir)
             log_path.write_text(compile_result.log_text, encoding="utf-8")
 
             artifact = CompileArtifact(

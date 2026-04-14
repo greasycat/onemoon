@@ -71,6 +71,8 @@ export function WorkspacePage() {
     viewportState,
     isResolvingDocumentCreation,
     isWorkspaceInitializing,
+    outputFormat,
+    changeOutputFormat,
   } = useWorkspaceController(documentId, pendingUploadJobId)
 
   const filenameStem = useMemo(() => {
@@ -238,6 +240,7 @@ export function WorkspacePage() {
                         mergedSource={mergedDocumentSource}
                         isDownloadingPackage={isDownloadingMergedPackage}
                         isMerging={isMergingDocument}
+                        outputFormat={outputFormat}
                         onDownload={() => {
                           void downloadMergedPackage()
                         }}
@@ -246,6 +249,9 @@ export function WorkspacePage() {
                         }}
                         onMerge={(suggestion) => {
                           void mergeDocument(suggestion)
+                        }}
+                        onOutputFormatChange={(format) => {
+                          void changeOutputFormat(format)
                         }}
                         compilePdfState={compilePdfState}
                         onCompilePdf={() => {

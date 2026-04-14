@@ -28,6 +28,11 @@ class DocumentStatus(str, Enum):
     failed = "failed"
 
 
+class OutputFormat(str, Enum):
+    latex = "latex"
+    typst = "typst"
+
+
 class BlockType(str, Enum):
     text = "text"
     math = "math"
@@ -105,6 +110,11 @@ class Document(Base):
     source_kind: Mapped[str] = mapped_column(String(16))
     original_file_path: Mapped[str] = mapped_column(String(512))
     status: Mapped[DocumentStatus] = mapped_column(SqlEnum(DocumentStatus, native_enum=False), default=DocumentStatus.uploaded)
+    output_format: Mapped[OutputFormat] = mapped_column(
+        SqlEnum(OutputFormat, native_enum=False),
+        default=OutputFormat.latex,
+        server_default="latex",
+    )
     assembled_latex: Mapped[str | None] = mapped_column(Text, nullable=True)
     latest_compile_status: Mapped[CompileStatus | None] = mapped_column(
         SqlEnum(CompileStatus, native_enum=False),
