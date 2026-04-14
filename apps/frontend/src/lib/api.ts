@@ -343,13 +343,6 @@ export const api = {
       method: 'DELETE',
       token,
     }),
-  fetchStorageText: async (storagePath: string): Promise<string> => {
-    const url = withApiRoot(storagePath)
-    if (!url) throw new Error('Invalid storage path')
-    const response = await fetch(url)
-    if (!response.ok) throw new Error(response.statusText)
-    return response.text()
-  },
 }
 
 export function withApiRoot(path: string | null | undefined): string | null {

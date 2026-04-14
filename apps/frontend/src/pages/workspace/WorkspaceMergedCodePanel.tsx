@@ -1,36 +1,36 @@
-import { Copy, Download } from 'lucide-react'
+import { Copy, Download, FileDown } from 'lucide-react'
 import { useState } from 'react'
 
 import type { OutputFormat } from '../../lib/types'
-import type { CompilePdfState } from './useWorkspaceController'
 
 interface WorkspaceMergedCodePanelProps {
   mergedSource: string
-  isDownloadingPackage: boolean
-  isMerging: boolean
   outputFormat: OutputFormat
+  isDownloadingPackage: boolean
+  isCompiling: boolean
+  isMerging: boolean
+  isUpdatingFormat: boolean
   onDownload: () => void
   onCopy: () => void
   onMerge: (suggestion: string) => void
-  onOutputFormatChange: (format: OutputFormat) => void
-  compilePdfState: CompilePdfState
-  onCompilePdf: () => void
+  onCompileAndDownloadPDF: () => void
+  onFormatChange: (format: OutputFormat) => void
 }
 
 export function WorkspaceMergedCodePanel({
   mergedSource,
-  isDownloadingPackage,
-  isMerging,
   outputFormat,
+  isDownloadingPackage,
+  isCompiling,
+  isMerging,
+  isUpdatingFormat,
   onDownload,
   onCopy,
   onMerge,
-  onOutputFormatChange,
-  compilePdfState,
-  onCompilePdf,
+  onCompileAndDownloadPDF,
+  onFormatChange,
 }: WorkspaceMergedCodePanelProps) {
   const [mergeSuggestion, setMergeSuggestion] = useState('')
-  const [showCompileLog, setShowCompileLog] = useState(false)
 
   return (
     <aside className="workspace-merged-code-panel">
@@ -48,14 +48,16 @@ export function WorkspaceMergedCodePanel({
               <button
                 type="button"
                 className={outputFormat === 'latex' ? 'primary-button' : 'secondary-button'}
-                onClick={() => onOutputFormatChange('latex')}
+                disabled={isUpdatingFormat}
+                onClick={() => onFormatChange('latex')}
               >
                 LaTeX
               </button>
               <button
                 type="button"
                 className={outputFormat === 'typst' ? 'primary-button' : 'secondary-button'}
-                onClick={() => onOutputFormatChange('typst')}
+                disabled={isUpdatingFormat}
+                onClick={() => onFormatChange('typst')}
               >
                 Typst
               </button>
@@ -86,31 +88,14 @@ export function WorkspaceMergedCodePanel({
             <button
               type="button"
               className="secondary-button workspace-merged-code-compile-button"
-              disabled={compilePdfState.status === 'compiling'}
-              onClick={onCompilePdf}
+              disabled={isCompiling || isMerging}
+              onClick={onCompileAndDownloadPDF}
+              title="Compile to PDF and download"
             >
-              {compilePdfState.status === 'compiling' ? 'Compiling...' : 'Compile & Download PDF'}
+              <FileDown aria-hidden="true" />
+              {isCompiling ? 'Compiling...' : 'Compile & Download PDF'}
             </button>
           </div>
-          {compilePdfState.status === 'skipped' && (
-            <p className="selection-hint review-panel-hint">
-              Compilation skipped: tectonic is not installed on the server.
-            </p>
-          )}
-          {compilePdfState.status === 'failed' && (
-            <div className="workspace-compile-error">
-              <button
-                type="button"
-                className="workspace-compile-log-toggle"
-                onClick={() => setShowCompileLog((v) => !v)}
-              >
-                {showCompileLog ? 'Hide compile log' : 'Show compile log'}
-              </button>
-              {showCompileLog && (
-                <pre className="workspace-compile-log">{compilePdfState.log}</pre>
-              )}
-            </div>
-          )}
         </div>
       </section>
 

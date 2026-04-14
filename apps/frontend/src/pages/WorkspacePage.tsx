@@ -33,8 +33,6 @@ export function WorkspacePage() {
     convertAllBlocks,
     convertSelectedBlock,
     debugSettings,
-    compilePdfState,
-    compileAndDownloadPdf,
     downloadMergedPackage,
     document,
     documentQuery,
@@ -49,7 +47,9 @@ export function WorkspacePage() {
     projectName,
     mergedDocumentSource,
     isMergingDocument,
+    isCompilingDocument,
     mergeDocument,
+    compileAndDownloadPDF,
     reopenActivePage,
     resetDebugSettings,
     reviewCounts,
@@ -72,6 +72,7 @@ export function WorkspacePage() {
     isResolvingDocumentCreation,
     isWorkspaceInitializing,
     outputFormat,
+    isUpdatingOutputFormat,
     changeOutputFormat,
   } = useWorkspaceController(documentId, pendingUploadJobId)
 
@@ -239,7 +240,9 @@ export function WorkspacePage() {
                       <WorkspaceMergedCodePanel
                         mergedSource={mergedDocumentSource}
                         isDownloadingPackage={isDownloadingMergedPackage}
+                        isCompiling={isCompilingDocument}
                         isMerging={isMergingDocument}
+                        isUpdatingFormat={isUpdatingOutputFormat}
                         outputFormat={outputFormat}
                         onDownload={() => {
                           void downloadMergedPackage()
@@ -250,12 +253,11 @@ export function WorkspacePage() {
                         onMerge={(suggestion) => {
                           void mergeDocument(suggestion)
                         }}
-                        onOutputFormatChange={(format) => {
-                          void changeOutputFormat(format)
+                        onCompileAndDownloadPDF={() => {
+                          void compileAndDownloadPDF()
                         }}
-                        compilePdfState={compilePdfState}
-                        onCompilePdf={() => {
-                          void compileAndDownloadPdf()
+                        onFormatChange={(format) => {
+                          void changeOutputFormat(format)
                         }}
                       />
                     </div>
