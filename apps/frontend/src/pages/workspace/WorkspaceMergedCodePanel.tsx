@@ -43,12 +43,12 @@ export function WorkspaceMergedCodePanel({
             </div>
           </div>
           <div className="field">
-            <span className="field-label">Output format</span>
+            <span>Output format</span>
             <div className="button-grid">
               <button
                 type="button"
                 className={outputFormat === 'latex' ? 'primary-button' : 'secondary-button'}
-                disabled={isUpdatingFormat}
+                disabled={isUpdatingFormat || outputFormat === 'latex'}
                 onClick={() => onFormatChange('latex')}
               >
                 LaTeX
@@ -56,7 +56,7 @@ export function WorkspaceMergedCodePanel({
               <button
                 type="button"
                 className={outputFormat === 'typst' ? 'primary-button' : 'secondary-button'}
-                disabled={isUpdatingFormat}
+                disabled={isUpdatingFormat || outputFormat === 'typst'}
                 onClick={() => onFormatChange('typst')}
               >
                 Typst

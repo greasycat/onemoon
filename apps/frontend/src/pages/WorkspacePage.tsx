@@ -48,6 +48,8 @@ export function WorkspacePage() {
     mergedDocumentSource,
     isMergingDocument,
     isCompilingDocument,
+    isUpdatingOutputFormat,
+    updateOutputFormat,
     mergeDocument,
     compileAndDownloadPDF,
     reopenActivePage,
@@ -71,9 +73,6 @@ export function WorkspacePage() {
     viewportState,
     isResolvingDocumentCreation,
     isWorkspaceInitializing,
-    outputFormat,
-    isUpdatingOutputFormat,
-    changeOutputFormat,
   } = useWorkspaceController(documentId, pendingUploadJobId)
 
   const filenameStem = useMemo(() => {
@@ -239,11 +238,11 @@ export function WorkspacePage() {
                     <div className="editor-workbench-canvas-column editor-workbench-canvas-column-preview">
                       <WorkspaceMergedCodePanel
                         mergedSource={mergedDocumentSource}
+                        outputFormat={document.output_format ?? 'latex'}
                         isDownloadingPackage={isDownloadingMergedPackage}
                         isCompiling={isCompilingDocument}
                         isMerging={isMergingDocument}
                         isUpdatingFormat={isUpdatingOutputFormat}
-                        outputFormat={outputFormat}
                         onDownload={() => {
                           void downloadMergedPackage()
                         }}
@@ -257,7 +256,7 @@ export function WorkspacePage() {
                           void compileAndDownloadPDF()
                         }}
                         onFormatChange={(format) => {
-                          void changeOutputFormat(format)
+                          void updateOutputFormat(format)
                         }}
                       />
                     </div>

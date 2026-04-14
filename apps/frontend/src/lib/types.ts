@@ -8,7 +8,6 @@ export type DocumentStatus =
   | 'failed'
 
 export type OutputFormat = 'latex' | 'typst'
-
 export type BlockType = 'text' | 'math' | 'figure'
 export type BlockApproval = 'pending' | 'approved' | 'rejected'
 export type CompileStatus = 'pending' | 'completed' | 'failed' | 'skipped'

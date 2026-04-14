@@ -539,14 +539,6 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
       }),
   })
 
-  const updateDocumentFormatMutation = useMutation({
-    mutationFn: ({ outputFormat }: { outputFormat: string }) =>
-      api.updateDocument(token!, documentId, { output_format: outputFormat }),
-    onSuccess: (updatedDocument) => {
-      queryClient.setQueryData(['document', token, documentId], updatedDocument)
-    },
-  })
-
   const compileDocumentMutation = useMutation({
     mutationFn: async () => {
       const job = await api.compileDocument(token!, documentId)
@@ -558,6 +550,14 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
         await sleep(1000)
       }
       throw new Error('Timed out waiting for compilation.')
+    },
+  })
+
+  const updateDocumentMutation = useMutation({
+    mutationFn: (payload: { output_format?: string }) =>
+      api.updateDocument(token!, documentId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['document', token, documentId] })
     },
   })
 
@@ -1070,6 +1070,18 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     return true
   }
 
+  async function updateOutputFormat(format: 'latex' | 'typst') {
+    try {
+      await updateDocumentMutation.mutateAsync({ output_format: format })
+      showToast({ tone: 'success', message: `Output format set to ${format === 'typst' ? 'Typst' : 'LaTeX'}.` })
+    } catch (error) {
+      showToast({
+        tone: 'error',
+        message: error instanceof Error && error.message ? error.message : 'Failed to update output format.',
+      })
+    }
+  }
+
   function handleCreateBlock(payload: {
     shape_type: BlockShapeType
     geometry: BlockGeometry
@@ -1315,17 +1327,6 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     onDiscard: discardActiveDraft,
   }
 
-  async function changeOutputFormat(outputFormat: 'latex' | 'typst') {
-    try {
-      await updateDocumentFormatMutation.mutateAsync({ outputFormat })
-    } catch (error) {
-      showToast({
-        tone: 'error',
-        message: error instanceof Error && error.message ? error.message : 'Failed to update output format.',
-      })
-    }
-  }
-
   return {
     activePageDirty,
     activePageLocked,
@@ -1385,11 +1386,11 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     isDownloadingMergedPackage: downloadDocumentPackageMutation.isPending,
     isCompilingDocument: compileDocumentMutation.isPending,
     isMergingDocument: mergeDocumentMutation.isPending,
+    isUpdatingOutputFormat: updateDocumentMutation.isPending,
     mergeDocument,
     compileAndDownloadPDF,
+    updateOutputFormat,
     updateSelectedBlockInstruction,
     outputFormat: (document?.output_format ?? 'latex') as 'latex' | 'typst',
-    isUpdatingOutputFormat: updateDocumentFormatMutation.isPending,
-    changeOutputFormat,
   }
 }
