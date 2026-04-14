@@ -210,12 +210,26 @@ def ingest_document_job(job_id: str, document_id: str) -> None:
                 page_records.append(page_record)
             db.commit()
 
+            document.status = DocumentStatus.segmenting
+            update_job(job, status=JobStatus.running, progress=0.3, message="Segmenting pages")
+            db.commit()
+
+            for i, page_record in enumerate(page_records):
+                proposed_blocks = segment_page(absolute_path(page_record.image_path))
+                _replace_page_blocks(db, page_record, proposed_blocks)
+                page_record.review_status = PageReviewStatus.in_review
+                page_record.review_started_at = datetime.now(UTC)
+                page_record.layout_version += 1
+                progress = 0.3 + 0.7 * (i + 1) / len(page_records)
+                update_job(job, status=JobStatus.running, progress=progress, message=f"Segmented page {i + 1}/{len(page_records)}")
+                db.commit()
+
             document.status = DocumentStatus.review
             update_job(
                 job,
                 status=JobStatus.completed,
                 progress=1.0,
-                message="Document ready for manual segmentation",
+                message="Document segmented and ready for review",
                 payload={"page_count": len(page_records)},
             )
             db.commit()
