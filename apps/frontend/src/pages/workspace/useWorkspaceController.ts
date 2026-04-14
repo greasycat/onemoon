@@ -37,13 +37,7 @@ import type {
   JobResponse,
   PageReviewStatus,
 } from '../../lib/types'
-
-export type CompilePdfState =
-  | { status: 'idle' }
-  | { status: 'compiling' }
-  | { status: 'success' }
-  | { status: 'skipped' }
-  | { status: 'failed'; log: string }
+import { withApiRoot } from '../../lib/api'
 import {
   DEFAULT_WORKSPACE_DEBUG_SETTINGS,
   WORKSPACE_DEBUG_STORAGE_KEY,
@@ -547,6 +541,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
       }),
   })
 
+<<<<<<< HEAD
   const updateDocumentFormatMutation = useMutation({
     mutationFn: ({ outputFormat }: { outputFormat: string }) =>
       api.updateDocument(token!, documentId, { output_format: outputFormat }),
@@ -555,6 +550,8 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     },
   })
 
+=======
+>>>>>>> 5e89e08 (feat: auto-segment on upload (KIT-6) + batch convert endpoint (KIT-9))
   const compileDocumentMutation = useMutation({
     mutationFn: async () => {
       const job = await api.compileDocument(token!, documentId)
@@ -1011,6 +1008,7 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     }
   }
 
+<<<<<<< HEAD
   async function compileAndDownloadPdf() {
     if (!token) return
     setCompilePdfState({ status: 'compiling' })
@@ -1061,6 +1059,8 @@ export function useWorkspaceController(documentId: string, pendingUploadJobId: s
     }
   }
 
+=======
+>>>>>>> 5e89e08 (feat: auto-segment on upload (KIT-6) + batch convert endpoint (KIT-9))
   async function compileAndDownloadPDF() {
     if (typeof window === 'undefined' || typeof window.URL?.createObjectURL !== 'function') {
       showToast({
