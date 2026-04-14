@@ -410,8 +410,9 @@ class MockLLMAdapter:
         )
         if payload.suggestion:
             warnings.append("Mock merge reused the current merged output without applying the suggestion.")
+        empty_placeholder = "// No approved blocks yet." if payload.output_format == "typst" else "% No approved blocks yet."
         return DocumentMergeResult(
-            merged_source=payload.source.strip() or "% No approved blocks yet.",
+            merged_source=payload.source.strip() or empty_placeholder,
             raw_output=raw_output.strip(),
             warnings=warnings,
         )

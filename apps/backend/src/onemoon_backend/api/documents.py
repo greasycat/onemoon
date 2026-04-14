@@ -369,8 +369,10 @@ def update_document(
         document.title = payload.title.strip() or document.title
     if payload.assembled_latex is not None:
         document.assembled_latex = payload.assembled_latex
-    if payload.output_format is not None:
+    if payload.output_format is not None and payload.output_format != document.output_format:
         document.output_format = payload.output_format
+        db.commit()
+        assemble_document(db, document_id)
     db.commit()
     db.refresh(document)
     return get_document(document_id, db, _)
@@ -384,7 +386,9 @@ def merge_document(
     _: User = Depends(get_current_user),
 ) -> MergeDocumentResponse:
     document = load_document(db, document_id)
-    source = payload.source.strip() or "% No approved blocks yet."
+    use_typst = str(getattr(document, 'output_format', 'latex')) == 'typst'
+    empty_placeholder = "// No approved blocks yet." if use_typst else "% No approved blocks yet."
+    source = payload.source.strip() or empty_placeholder
     suggestion = payload.suggestion.strip() if payload.suggestion and payload.suggestion.strip() else None
     result = merge_document_content(document, source=source, suggestion=suggestion)
     db.commit()

@@ -157,6 +157,7 @@ def merge_document_content(document: Document, *, source: str, suggestion: str |
             title=document.title,
             source=normalized_source,
             suggestion=suggestion,
+            output_format=str(getattr(document, 'output_format', 'latex')),
         )
     )
     document.assembled_latex = normalize_document_figure_paths(result.merged_source, document)
